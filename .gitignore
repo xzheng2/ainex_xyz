@@ -1,0 +1,27 @@
+# Deny everything by default
+*
+
+# Allow .gitignore itself
+!.gitignore
+
+# Allow ROS workspace source
+!docker/
+!docker/ros_ws_src/
+!docker/ros_ws_src/**
+
+# Allow Claude config (memory, settings, CLAUDE.md)
+!.claude/
+!.claude/projects/
+!.claude/projects/-home-pi/
+!.claude/projects/-home-pi/memory/
+!.claude/projects/-home-pi/memory/**
+!.claude/projects/-home-pi/CLAUDE.md
+!.claude/settings.json
+!.claude/settings.local.json
+
+# Exclude generated/binary files within allowed paths
+docker/ros_ws_src/**/__pycache__/
+docker/ros_ws_src/**/*.pyc
+docker/ros_ws_src/**/*.zip
+docker/ros_ws_src/**/*.bag
+docker/ros_ws_src/**/*.so
