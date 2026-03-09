@@ -20,9 +20,19 @@ The ROS workspace source is now host-mounted. Claude Code can directly read/edit
 - `rospack list` verified: all ainex packages discoverable
 - UIDs match (pi=ubuntu=1000), no permission issues
 
+## Auto-Start on Boot
+
+The container restart policy was set so it starts automatically with the Pi:
+
+```bash
+docker update --restart=unless-stopped ainex
+```
+
+This means the container starts on boot and restarts on crash, but stays stopped if manually stopped with `docker stop ainex`.
+
 ## Container Recreation
 
-The container was recreated from `ainex-backup:20260308` with the additional `-v /home/pi/docker/ros_ws_src:/home/ubuntu/ros_ws/src` mount. If the container needs to be recreated again:
+The container was recreated from `ainex-backup:20260308` with the additional `-v /home/pi/docker/ros_ws_src:/home/ubuntu/ros_ws/src` mount. If the container needs to be recreated again, include `--restart=unless-stopped`:
 
 ```bash
 docker run \
@@ -30,16 +40,20 @@ docker run \
   --hostname raspberrypi \
   --privileged \
   --net host \
+  --restart=unless-stopped \
   -v /dev:/dev \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /home/pi/docker/src:/home/ubuntu/share/src \
   -v /home/pi/docker/tmp:/home/ubuntu/share/tmp \
   -v /home/pi/docker/ros_ws_src:/home/ubuntu/ros_ws/src \
-  -e DISPLAY=:0 \
+  -e DISPLAY=:1 \
+  -e LIBGL_ALWAYS_SOFTWARE=1 \
   -itd \
   ainex-backup:20260308 \
   /bin/bash
 ```
+Note: `DISPLAY=:1` because the desktop is Wayland/Wayfire with XWayland on `:1` (not `:0`).
+Note: `LIBGL_ALWAYS_SOFTWARE=1` because the container's Mesa is too old to support the Pi 5's v3d GPU driver.
 
 ## Optional: Also mount software/
 

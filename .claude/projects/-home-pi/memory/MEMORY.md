@@ -4,8 +4,9 @@
 
 ### Ainex Humanoid Robot
 - Robot runs ROS Noetic inside Docker container named `ainex`
-- Docker src mount: `/home/pi/docker/src` → `/home/ubuntu/share/src`
-- ROS workspace inside container: `/home/ubuntu/ros_ws/`
+- Docker mounts: `/home/pi/docker/src` → `/home/ubuntu/share/src`, `/home/pi/docker/ros_ws_src` → `/home/ubuntu/ros_ws/src`
+- ROS source editable on host: `/home/pi/docker/ros_ws_src/` (mounted into container)
+- Container image for recreation: `ainex-backup:20260308`
 - Main launch: `roslaunch ainex_bringup bringup.launch`
 - **17 ROS packages** — full inventory in `ainex_architecture.md`
 - **24 DOF humanoid**: 12 leg + 10 arm + 2 head servos (RS485 via STM32, /dev/ttyAMA0)
@@ -21,10 +22,20 @@
 - **Manual button work in progress** — see `ainex_manual_button.md`
 
 ## Topic Files
-- `ainex_docker_mount.md` — Planned: mount ros_ws/src to host for direct editing (UIDs match, low risk, steps documented)
+- `ainex_docker_mount.md` — Docker mount setup (COMPLETED), container recreation command, optional software/ mount
+- `ainex_display_fix.md` — X11/rqt display fix: DISPLAY=:1 (XWayland), LIBGL_ALWAYS_SOFTWARE=1 (Mesa v3d workaround), all modified files
 - `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
 - `ainex_conflict_matrix.md` — All conflicts between docs, decisions, and dispositions
 - `ainex_migration_map.md` — Legacy-to-canonical name mapping
 - `ainex_validation_checklist.md` — 24-command acceptance checklist (30 min bringup validation)
+
+## Git Repo
+- Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools)
+- Single repo at `/home/pi` (master branch) tracking ROS source + Claude config
+- **GitHub remote**: `origin` → `https://github.com/xzheng2/ainex_xyz.git` (private)
+- GitHub user: `xzheng2` (xzheng2@laurentian.ca)
+- Auth: credential helper `store` (`~/.git-credentials`, not tracked)
+- Allowlist `.gitignore`: only `docker/ros_ws_src/**` and `.claude/` memory/settings are tracked
+- 411 files, excludes `__pycache__`, `.pyc`, `.zip`, `.bag`, credentials, session logs

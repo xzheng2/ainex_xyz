@@ -7,6 +7,7 @@ import copy
 import queue
 import struct
 import serial
+import os
 import threading
 
 class PacketControllerState(enum.IntEnum):
@@ -82,6 +83,8 @@ class SBusStatus:
         self.fail_safe = False
 
 class Board:
+    LOCK_FILE = "/home/ubuntu/share/src/.servo_lock.txt"
+
     buttons_map = {
             'GAMEPAD_BUTTON_MASK_L2':        0x0001,
             'GAMEPAD_BUTTON_MASK_R2':        0x0002,
@@ -393,6 +396,9 @@ class Board:
         return self.pwm_servo_read_and_unpack(servo_id, 0x05, "<BBH")
 
     def bus_servo_enable_torque(self, servo_id, enable):
+        if enable and servo_id in self._get_locked_ids():
+            print("[SDK] Blocked enable_torque for locked servo {}".format(servo_id))
+            return
         if enable:
             data = struct.pack("<BB", 0x0B, servo_id)
         else:
@@ -437,6 +443,15 @@ class Board:
 
     def bus_servo_set_position(self, duration, positions):
         duration = int(duration * 1000)
+        locked = self._get_locked_ids()
+        if locked:
+            filtered = [p for p in positions if p[0] not in locked]
+            blocked = [p[0] for p in positions if p[0] in locked]
+            if blocked:
+                print("[SDK] Blocked set_position for locked IDs: {}".format(blocked))
+            positions = filtered
+        if not positions:
+            return
         data = [0x01, duration & 0xFF, 0xFF & (duration >> 8), len(positions)] # 0x00 is bus servo sub command
         for i in positions:
             self.servo_position[str(i[0])] = i[1]
@@ -491,6 +506,48 @@ class Board:
 
     def bus_servo_read_torque_state(self, servo_id):
         return self.bus_servo_read_and_unpack(servo_id, 0x0D, "<BBbb")
+
+    def _get_locked_ids(self):
+        try:
+            with open(self.LOCK_FILE, 'r') as f:
+                ids = set()
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        ids.add(int(line))
+                return ids
+        except (FileNotFoundError, IOError):
+            return set()
+
+    def _write_locked_ids(self, ids):
+        with open(self.LOCK_FILE, 'w') as f:
+            for sid in sorted(ids):
+                f.write("{}\n".format(sid))
+
+    def lock_servos(self, ids):
+        locked = self._get_locked_ids()
+        locked.update(ids)
+        self._write_locked_ids(locked)
+        print("[SDK] Locked servos: {}".format(locked))
+
+    def unlock_servos(self, ids):
+        locked = self._get_locked_ids()
+        locked.difference_update(ids)
+        self._write_locked_ids(locked)
+        print("[SDK] Unlocked, remaining locked: {}".format(locked))
+
+    def clear_locked_servos(self):
+        try:
+            os.remove(self.LOCK_FILE)
+        except FileNotFoundError:
+            pass
+        print("[SDK] All servos unlocked")
+
+    def get_locked_servos(self):
+        return self._get_locked_ids()
+
+    def is_servo_locked(self, servo_id):
+        return servo_id in self._get_locked_ids()
 
     def enable_reception(self, enable=True):
         self.enable_recv = enable

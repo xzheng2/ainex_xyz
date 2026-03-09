@@ -7,6 +7,7 @@
     <include file="$(find ainex_example)/scripts/color_detection/color_detection_node.launch">
         <arg name="enable_camera"       value="false"/>
         <arg name="enable_web_video"    value="false"/>
+        <arg name="enable_display"      value="false"/>
     </include>
 
     <!--人脸识别节点-->
