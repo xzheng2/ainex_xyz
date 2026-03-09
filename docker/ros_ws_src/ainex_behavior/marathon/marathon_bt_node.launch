@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- Marathon BT Node Launch
+     行为树版马拉松节点 —— 单节点替代 marathon_node + fall_rise_node 双节点方案
+     - 跌倒检测与恢复：内置（IMU 回调 + RecoverFromFall 动作节点）
+     - 视觉巡线：内置（ObjectsInfo 回调 + FollowLine 动作节点）
+     - 控制逻辑：行为树 30Hz tick
+-->
+<launch>
+    <arg name="color" default="black"/>
+    <arg name="start" default="true"/>
+
+    <!-- 颜色识别节点（提供 /object/pixel_coords） -->
+    <include file="$(find ainex_example)/scripts/color_detection/color_detection_node.launch"/>
+
+    <!-- 机器人基础驱动 -->
+    <include file="$(find ainex_bringup)/launch/base.launch"/>
+
+    <!-- 马拉松行为树主节点（含跌倒检测 + 视觉巡线） -->
+    <node pkg="hurocup2025" type="marathon_bt_node.py" name="marathon_bt" output="screen">
+        <param name="start" value="$(arg start)"/>
+        <param name="color" value="$(arg color)"/>
+    </node>
+</launch>
