@@ -13,13 +13,16 @@
 - Key walking service: `rosservice call /walking/command "command: 'enable_control'"` then `rosservice call /walking/command "command: 'start'"` — **NOT `/ainex/set_walking_command`** (deprecated, does not exist)
 - Servo IDs 1–12 legs (interleaved L/R, odd=L even=R, ankle→hip order), 13–22 arms, 23–24 head — **canonical table in `ainex_truth_spec.md`** (`ainex_architecture.md` servo table is WRONG)
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
-- Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_behavior` (FSM), `ainex_navigation` (gait commander)
+- Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
+- `ainex_behavior` now exists (marathon behavior tree via py_trees, added Mar 9 2026)
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
 
 ### Ainex Controller GUI
 - Source: `/home/ubuntu/software/ainex_controller/main.py`
 - **Manual button work in progress** — see `ainex_manual_button.md`
+
+- rqt config: `/home/ubuntu/.config/ros.org/rqt_gui.ini` — perspectives set via Python QSettings, details in `ainex_rqt_perspectives.md`
 
 ## Topic Files
 - `ainex_docker_mount.md` — Docker mount setup (COMPLETED), container recreation command, optional software/ mount
