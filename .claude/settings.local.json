@@ -63,7 +63,13 @@
       "Bash(docker exec ainex cat /home/ubuntu/ros_ws/src/ainex_app/scripts/app_node.py 2>/dev/null | head -250)",
       "Bash(docker exec ainex grep -roh \"'[/].*'\" /home/ubuntu/ros_ws/src/ainex_driver /home/ubuntu/ros_ws/src/ainex_interfaces /home/ubuntu/ros_ws/src/ainex_peripherals /home/ubuntu/ros_ws/src/ainex_app /home/ubuntu/ros_ws/src/ainex_example --include=\"*.py\" 2>/dev/null | sort -u | head -50)",
       "Bash(docker exec ainex grep -roh \"'[^/~].*'\" /home/ubuntu/ros_ws/src/ainex_driver /home/ubuntu/ros_ws/src/ainex_kinematics --include=\"*.py\" 2>/dev/null | grep -E \"^'\\(walking|head_|joint_|ros_robot\\)\" | sort -u)",
-      "Bash(docker cp ainex:/home/ubuntu/ros_ws/src /home/pi/docker/ros_ws_src)"
+      "Bash(docker cp ainex:/home/ubuntu/ros_ws/src /home/pi/docker/ros_ws_src)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(cd /home/pi/docker/ros_ws_src && git clone https://github.com/xzheng2/fkie-multi-agent-suite.git 2>&1)",
+      "Bash(docker exec ainex grep -n \"latest\\\\|symlink\\\\|readlink\" /opt/ros/noetic/lib/python3/dist-packages/rosclean.py 2>/dev/null | head -20)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(docker stop ainex && docker rm ainex && echo \"Container removed\")"
     ]
   }
 }

@@ -1,14 +1,17 @@
 # Ainex Docker Mount Setup
 
-## Current Mounts (as of 2026-03-08)
+## Current Mounts (as of 2026-03-14)
 
 | Host Path | Container Path | Contents |
 |-----------|---------------|----------|
 | `/home/pi/docker/src` | `/home/ubuntu/share/src` | IPC signals (`.halt.txt`, `.led.txt`) |
 | `/home/pi/docker/tmp` | `/home/ubuntu/share/tmp` | Scratch files |
 | `/home/pi/docker/ros_ws_src` | `/home/ubuntu/ros_ws/src` | **All ROS packages** (11 pkgs + third_party, 17 catkin packages) |
+| `/home/pi/docker/ros_log` | `/home/ubuntu/.ros/log` | **ROS log files** — symlink `/root/.ros/log` → `/home/ubuntu/.ros/log` so both users share the mount; also mounted read-only into rosa-agent at `/root/.ros/log` |
 | `/dev` | `/dev` | Device passthrough |
 | `/tmp/.X11-unix` | `/tmp/.X11-unix` | X11 display forwarding |
+| `/etc/localtime` | `/etc/localtime` (ro) | Host timezone (America/Toronto) |
+| `/etc/timezone` | `/etc/timezone` (ro) | Host timezone name |
 
 ## ros_ws/src Mount — COMPLETED
 
@@ -46,6 +49,9 @@ docker run \
   -v /home/pi/docker/src:/home/ubuntu/share/src \
   -v /home/pi/docker/tmp:/home/ubuntu/share/tmp \
   -v /home/pi/docker/ros_ws_src:/home/ubuntu/ros_ws/src \
+  -v /home/pi/docker/ros_log:/home/ubuntu/.ros/log \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /etc/timezone:/etc/timezone:ro \
   -e DISPLAY=:1 \
   -e LIBGL_ALWAYS_SOFTWARE=1 \
   -itd \

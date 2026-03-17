@@ -4,7 +4,7 @@
 
 ### Ainex Humanoid Robot
 - Robot runs ROS Noetic inside Docker container named `ainex`
-- Docker mounts: `/home/pi/docker/src` → `/home/ubuntu/share/src`, `/home/pi/docker/ros_ws_src` → `/home/ubuntu/ros_ws/src`
+- Docker mounts: `/home/pi/docker/src` → `/home/ubuntu/share/src`, `/home/pi/docker/ros_ws_src` → `/home/ubuntu/ros_ws/src`, `/home/pi/docker/ros_log` → `/home/ubuntu/.ros/log` (+ symlink `/root/.ros/log` → same)
 - ROS source editable on host: `/home/pi/docker/ros_ws_src/` (mounted into container)
 - Container image for recreation: `ainex-backup:20260308`
 - Main launch: `roslaunch ainex_bringup bringup.launch`
@@ -15,6 +15,7 @@
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
 - Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
 - `ainex_behavior` now exists (marathon behavior tree via py_trees, added Mar 9 2026)
+- `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **8 tools** including `read_last_run_summary` (log summarizer, added Mar 14); mounts ainex ros_log read-only
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
 
@@ -24,12 +25,29 @@
 
 - rqt config: `/home/ubuntu/.config/ros.org/rqt_gui.ini` — perspectives set via Python QSettings, details in `ainex_rqt_perspectives.md`
 
+## ROS System
+- `/opt/ros/noetic` is the ROS Noetic base install inside the container (295 packages)
+- All `import rospy`, `from std_msgs/sensor_msgs/geometry_msgs.msg import ...` resolve to `/opt/ros/noetic/lib/python3/dist-packages/`
+- `usb_cam_node`, `apriltag_ros`, `image_proc` are compiled C++ binaries living in `/opt/ros/noetic/lib/`, not in the workspace
+- `py_trees` is NOT in noetic — verify with `docker exec ainex python3 -c "import py_trees"`
+- Full details: **`ainex_ros_noetic.md`**
+
+## Servo Feedback
+- Service: `/ros_robot_controller/bus_servo/get_state` — query per-servo: position, voltage (mV), temperature (°C), offset, limits, torque state
+- Full details + example cmds + bug fixes: **`ainex_servo_feedback.md`**
+
+## YOLO Vision
+- YOLOv8n runs on **host** (not container): ultralytics 8.4.22, NCNN backend, **6.7 FPS @ 320x320**
+- Host↔ROS bridge: `roslibpy` (host) → `rosbridge_server` (container, port 9090)
+- Full details: **`ainex_yolo.md`**
+
 ## Topic Files
-- `ainex_docker_mount.md` — Docker mount setup (COMPLETED), container recreation command, optional software/ mount
+- `ainex_docker_mount.md` — Docker mount setup (COMPLETED), container recreation command (includes ros_log mount), optional software/ mount
 - `ainex_display_fix.md` — X11/rqt display fix: DISPLAY=:1 (XWayland), LIBGL_ALWAYS_SOFTWARE=1 (Mesa v3d workaround), all modified files
 - `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
+- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table (8 tools incl. log summarizer), Dockerfile notes, LLM config, build/run commands
 - `ainex_conflict_matrix.md` — All conflicts between docs, decisions, and dispositions
 - `ainex_migration_map.md` — Legacy-to-canonical name mapping
 - `ainex_validation_checklist.md` — 24-command acceptance checklist (30 min bringup validation)
