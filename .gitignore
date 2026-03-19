@@ -9,6 +9,11 @@
 !docker/ros_ws_src/
 !docker/ros_ws_src/**
 
+# Allow ROSA agent
+!docker/rosa-agent/
+!docker/rosa-agent/**
+!docker/docker-compose.yml
+
 # Allow Claude config (memory, settings, CLAUDE.md)
 !.claude/
 !.claude/projects/
@@ -25,3 +30,8 @@ docker/ros_ws_src/**/*.pyc
 docker/ros_ws_src/**/*.zip
 docker/ros_ws_src/**/*.bag
 docker/ros_ws_src/**/*.so
+
+# Exclude secrets and generated files in rosa-agent
+docker/rosa-agent/.env
+docker/rosa-agent/**/__pycache__/
+docker/rosa-agent/**/*.pyc

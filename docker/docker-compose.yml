@@ -1,0 +1,66 @@
+version: "3.9"
+
+# ============================================================================
+# Ainex Robot — Docker Compose
+#
+# Services:
+#   rosa-agent  — NASA JPL ROSA, read-only diagnostic agent (this file manages)
+#
+# The 'ainex' container is managed separately (pre-existing, started manually).
+# Both containers use host networking (ainex runs with --net host), so they
+# share the host's network namespace. No bridge network needed.
+#
+# Start rosa-agent:
+#   docker compose up rosa-agent
+# ============================================================================
+
+services:
+
+  # ── ROSA diagnostic agent (read-only) ─────────────────────────────────────
+  rosa-agent:
+    build:
+      # Build context is docker/ so the Dockerfile can COPY ainex_interfaces
+      # from the ROS workspace source alongside rosa-agent/.
+      # Dockerfile is still at rosa-agent/Dockerfile.
+      context: .
+      dockerfile: rosa-agent/Dockerfile
+    image: ainex-rosa-agent:latest
+    container_name: rosa-agent
+    network_mode: host
+    restart: unless-stopped
+
+    # ROS network configuration (host networking: roscore is on localhost)
+    environment:
+      ROS_MASTER_URI: http://127.0.0.1:11311
+      AINEX_WRITE_ENABLED: "false"   # Phase 1: read-only. Change only after audit.
+
+    # Load secrets from .env file (API keys etc.) — NOT committed to git
+    env_file:
+      - ./rosa-agent/.env            # Copy from rosa-agent/.env.example
+
+    # Interactive terminal for CLI mode
+    stdin_open: true
+    tty: true
+
+    # Volumes
+    volumes:
+      - rosa_agent_logs:/opt/rosa-agent/logs
+      - /home/pi/docker/ros_log:/root/.ros/log:ro   # ainex ROS logs (read-only)
+
+    # Healthcheck: verify ROS master is reachable
+    healthcheck:
+      test:
+        - CMD
+        - python3.9
+        - -c
+        - |
+          import rosgraph
+          m = rosgraph.Master('/healthcheck')
+          m.getPid()
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  rosa_agent_logs:

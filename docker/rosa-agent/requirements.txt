@@ -1,0 +1,15 @@
+# ROSA and its dependencies
+# Install ROSA from PyPI as fallback; local vendor/ directory takes precedence at build time
+jpl-rosa>=1.0.9
+
+# LLM providers — uncomment the one(s) you use
+# OpenAI / Azure OpenAI (requires OPENAI_API_KEY or AZURE_* env vars)
+langchain-openai>=0.2.0
+
+# Ollama (local LLM, no API key; install Ollama on host and expose via OLLAMA_BASE_URL)
+langchain-ollama>=0.2.0
+
+# Utilities
+python-dotenv>=1.0.1
+PyYAML>=6.0.1
+rich>=13.0.0

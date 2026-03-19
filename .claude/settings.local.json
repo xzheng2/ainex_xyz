@@ -69,7 +69,10 @@
       "Bash(cd /home/pi/docker/ros_ws_src && git clone https://github.com/xzheng2/fkie-multi-agent-suite.git 2>&1)",
       "Bash(docker exec ainex grep -n \"latest\\\\|symlink\\\\|readlink\" /opt/ros/noetic/lib/python3/dist-packages/rosclean.py 2>/dev/null | head -20)",
       "WebFetch(domain:api.github.com)",
-      "Bash(docker stop ainex && docker rm ainex && echo \"Container removed\")"
+      "Bash(docker stop ainex && docker rm ainex && echo \"Container removed\")",
+      "Bash(docker exec ainex grep -n \"ROS_LOG_DIR\\\\|\\\\.ros\" /usr/lib/python3/dist-packages/rospkg/__init__.py 2>/dev/null | head -20)",
+      "Bash(docker exec ainex python3 -c \"import sys; sys.path.insert\\(0, '/usr/lib/python3/dist-packages'\\); from rospkg import get_log_dir; print\\(get_log_dir\\(\\)\\)\" 2>/dev/null)",
+      "Bash(docker exec ainex cat /opt/ros/noetic/lib/python3/dist-packages/rosgraph/conf/python_logging.conf 2>/dev/null | head -50)"
     ]
   }
 }

@@ -14,7 +14,8 @@
 - Servo IDs 1–12 legs (interleaved L/R, odd=L even=R, ankle→hip order), 13–22 arms, 23–24 head — **canonical table in `ainex_truth_spec.md`** (`ainex_architecture.md` servo table is WRONG)
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
 - Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
-- `ainex_behavior` now exists (marathon behavior tree via py_trees, added Mar 9 2026)
+- `ainex_behavior` — marathon behavior tree via py_trees (added Mar 9 2026)
+- `ainex_bt_edu` — educational BT framework (added Mar 16 2026), details in `ainex_bt_edu.md`
 - `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **8 tools** including `read_last_run_summary` (log summarizer, added Mar 14); mounts ainex ros_log read-only
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
@@ -51,6 +52,7 @@
 - `ainex_conflict_matrix.md` — All conflicts between docs, decisions, and dispositions
 - `ainex_migration_map.md` — Legacy-to-canonical name mapping
 - `ainex_validation_checklist.md` — 24-command acceptance checklist (30 min bringup validation)
+- `ainex_bt_edu.md` — ainex_bt_edu package: structure, 36 nodes (L1:11/L2:14/L3:11), BB keys, ROSA integration
 
 ## Git Repo
 - Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools)

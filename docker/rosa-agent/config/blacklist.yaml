@@ -1,0 +1,18 @@
+# ROSA built-in tool blacklist — read-only mode
+#
+# These ROSA built-in tools have write capability and are DISABLED.
+# Even if AINEX_WRITE_ENABLED=true, blacklisted tools remain disabled.
+# To re-enable, remove the entry, rebuild the container, and document the audit.
+#
+# Full list of ROSA ROS1 built-in tools for reference:
+#   READ (kept):  rosgraph_get, rostopic_list, rosnode_list, rostopic_info,
+#                 rostopic_echo, rosnode_info, rosservice_list, rosservice_info,
+#                 rosmsg_info, rossrv_info, rosparam_list, rosparam_get,
+#                 rospkg_list, rospkg_info, rospkg_roots, roslog_list, roslaunch_list
+#   WRITE (blacklisted below):
+
+blacklist:
+  - rosparam_set      # writes to ROS parameter server
+  - rosservice_call   # generic service call — could trigger actuator commands
+  - roslaunch         # would start new ROS nodes/launch files
+  - rosnode_kill      # would terminate running ROS nodes

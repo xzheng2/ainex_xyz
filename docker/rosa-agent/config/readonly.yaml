@@ -1,0 +1,44 @@
+# Read-only mode configuration for rosa-agent
+#
+# This file defines which operations are permitted.
+# Changing "enabled: false" to "enabled: true" requires:
+#   1. An explicit code review of the corresponding tool
+#   2. A rebuild of the rosa-agent container
+#   3. Documentation of the rationale in this file
+
+readonly_mode:
+  enabled: true          # Master switch; overrides all per-tool settings below
+  announce_on_startup: true
+
+# ── Allowed read operations ──────────────────────────────────────────────────
+read_operations:
+  ros_graph:      { enabled: true }   # rosgraph_get, rosnode_list, rostopic_list, rosservice_list
+  topic_echo:     { enabled: true }   # rostopic_echo (subscribe briefly, no publish)
+  service_info:   { enabled: true }   # rosservice_info (introspection only)
+  param_get:      { enabled: true }   # rosparam_get (parameter server read)
+  logs:           { enabled: true }   # roslog_list + /rosout_agg subscribe
+  bus_servo_get:  { enabled: true }   # /ros_robot_controller/bus_servo/get_state
+  walking_state:  { enabled: true }   # /walking/state GetWalkingState.srv
+  detections:     { enabled: true }   # /object_detect/objects subscribe
+
+# ── Disabled write operations ────────────────────────────────────────────────
+# These correspond to tools in ainex_agent_tools/tools/disabled.py
+write_operations:
+  stop_current_behavior:
+    enabled: false
+    reason: "calls /walking/command which can halt walking mid-stride"
+  stand_safe:
+    enabled: false
+    reason: "calls /walking/command and servo position commands"
+  param_set:
+    enabled: false
+    reason: "rosparam_set — blacklisted in ROSA blacklist"
+  service_call:
+    enabled: false
+    reason: "rosservice_call — blacklisted in ROSA blacklist"
+  launch:
+    enabled: false
+    reason: "roslaunch — blacklisted in ROSA blacklist"
+  node_kill:
+    enabled: false
+    reason: "rosnode_kill — blacklisted in ROSA blacklist"
