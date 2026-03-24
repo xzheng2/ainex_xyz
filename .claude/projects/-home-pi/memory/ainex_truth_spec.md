@@ -24,8 +24,10 @@
 |-----------|--------|---------|
 | Walking / Gait | `/walking/` | `/walking/command`, `/walking/get_param` |
 | Sensor peripherals | `/sensor/` | `/sensor/button/get_button_state` |
-| Camera | `/ainex/usb_cam/` | `/ainex/usb_cam/image_raw` |
-| IMU (filtered) | `/ainex/imu/` | `/ainex/imu/raw`, `/ainex/imu/data` |
+| Camera | `/camera/` | `/camera/image_raw` |
+| IMU (raw) | `/ros_robot_controller/` | `/ros_robot_controller/imu_raw` |
+| IMU (calibrated) | `/` (root) | `/imu_corrected` (from `imu_calib` node) |
+| IMU (filtered) | `/` (root) | `/imu` (from `imu_filter` node) |
 | Hardware driver (STM32) | `/ros_robot_controller/` | `/ros_robot_controller/bus_servo/set_position` |
 | Application layer | `/app/` | `/app/set_walking_param` |
 | Vision detectors | `/<detector>/` | `/color_detection/image_result` |
@@ -44,26 +46,28 @@
 
 | # | Topic Path | Message Type | Publisher Node | Subscriber Node(s) | Rate | Purpose |
 |---|-----------|-------------|----------------|-------------------|------|---------|
-| T01 | `/ainex/imu/raw` | `sensor_msgs/Imu` | `ros_robot_controller_node` | `imu_filter_node` | 100 Hz | Raw 9-axis IMU (accel+gyro+mag) |
-| T02 | `/ainex/imu/data` | `sensor_msgs/Imu` | `imu_filter_node` (Madgwick) | perception, gait | 100 Hz | Filtered orientation (quaternion) |
-| T03 | `/ainex/battery` | `std_msgs/Float32` | `ros_robot_controller_node` | monitor, app | ~1 Hz | Battery voltage (V) |
-| T04 | `/ainex/usb_cam/image_raw` | `sensor_msgs/Image` | `usb_cam_node` | vision nodes | 30 Hz | Raw RGB camera image (640×480) |
-| T05 | `/ainex/joint_states` | `sensor_msgs/JointState` | `ainex_controller` | URDF/rviz | 40 Hz | 24 joint positions+velocities |
-| T06 | `/ainex/walking_state` | `std_msgs/Bool` | `ainex_controller` | app, behavior | on change | Gait engine on/off state |
-| T07 | `/sensor/button/get_button_state` | `std_msgs/Bool` | `sensor_node` | behavior nodes | ~50 Hz | Onboard button press (True=pressed) |
-| T08 | `/sensor/led/set_led_state` | `std_msgs/Bool` | behavior nodes | `sensor_node` | on demand | LED on/off |
-| T09 | `/app/set_walking_param` | `ainex_interfaces/AppWalkingParam` | app, joystick | `ainex_controller` | on demand | High-level gait: x/y/angle/height |
-| T10 | `/ros_robot_controller/bus_servo/set_position` | `ros_robot_controller/SetBusServosPosition` | `ainex_controller` | `ros_robot_controller_node` | 40 Hz | Multi-servo position command |
-| T11 | `/ros_robot_controller/bus_servo/set_state` | `ros_robot_controller/SetBusServoState` | config nodes | `ros_robot_controller_node` | on demand | Servo enable/disable/config |
-| T12 | `/ros_robot_controller/set_buzzer` | `ros_robot_controller/BuzzerState` | app nodes | `ros_robot_controller_node` | on demand | Buzzer (freq, duty, repeat) |
-| T13 | `/ros_robot_controller/set_rgb` | `ros_robot_controller/RGBsState` | app nodes | `ros_robot_controller_node` | on demand | RGB LED array |
-| T14 | `/ros_robot_controller/set_led` | `ros_robot_controller/LedState` | app nodes | `ros_robot_controller_node` | on demand | Binary LED |
-| T15 | `/ros_robot_controller/set_oled` | `ros_robot_controller/OLEDState` | app nodes | `ros_robot_controller_node` | on demand | OLED display text |
-| T16 | `/object/pixel_coords` | `ainex_interfaces/ObjectsInfo` | vision nodes | behavior, nav | on detection | Unified detected object list |
-| T17 | `/color_detection/image_result` | `sensor_msgs/Image` | `color_detection_node` | web_video_server | 30 Hz | Annotated color-segmented image |
-| T18 | `/face_detect/image_result` | `sensor_msgs/Image` | `face_detect_node` | web_video_server | 30 Hz | Annotated face detection image |
-| T19 | `/color_detection/update_detect` | `ainex_interfaces/ColorsDetect` | app node | `color_detection_node` | on demand | Color detection configuration |
-| T20 | `/tag_detections` | `apriltag_ros/AprilTagDetectionArray` | `apriltag_ros` | behavior nodes | 30 Hz | AprilTag detections |
+| T01 | `/ros_robot_controller/imu_raw` | `sensor_msgs/Imu` | `ros_robot_controller` | `imu_calib` | 100 Hz | Raw accel+gyro from STM32 (no orientation) |
+| T02 | `/imu_corrected` | `sensor_msgs/Imu` | `imu_calib` | `imu_filter` | 100 Hz | Calibration-corrected IMU with valid orientation quaternion |
+| T03 | `/imu` | `sensor_msgs/Imu` | `imu_filter` | perception, gait | 100 Hz | Filtered IMU; fuses T02 + T04 mag; orientation published via `/tf` not in msg |
+| T04 | `/ros_robot_controller/mag` | `sensor_msgs/MagneticField` | `ros_robot_controller` | `imu_filter` | 100 Hz | Raw magnetometer for heading fusion |
+| T05 | `/ros_robot_controller/battery` | `std_msgs/UInt16` | `ros_robot_controller_node` | monitor, app | ~1 Hz | Battery voltage (mV) |
+| T06 | `/camera/image_raw` | `sensor_msgs/Image` | `usb_cam_node` | vision nodes | 30 Hz | Raw RGB camera image (640×480) |
+| T07 | ~~`/ainex/joint_states`~~ | — | — | — | — | **NOT IMPLEMENTED** — no publisher exists |
+| T08 | `/walking/is_walking` | `std_msgs/Bool` | `ainex_controller` | app, behavior | on change | Gait engine on/off state |
+| T09 | `/sensor/button/get_button_state` | `std_msgs/Bool` | `sensor_node` | behavior nodes | ~50 Hz | Onboard button press (True=pressed) |
+| T10 | `/sensor/led/set_led_state` | `std_msgs/Bool` | behavior nodes | `sensor_node` | on demand | LED on/off |
+| T11 | `/app/set_walking_param` | `ainex_interfaces/AppWalkingParam` | app, joystick | `ainex_controller` | on demand | High-level gait: x/y/angle/height |
+| T12 | `/ros_robot_controller/bus_servo/set_position` | `ros_robot_controller/SetBusServosPosition` | `ainex_controller` | `ros_robot_controller_node` | 40 Hz | Multi-servo position command |
+| T13 | `/ros_robot_controller/bus_servo/set_state` | `ros_robot_controller/SetBusServoState` | config nodes | `ros_robot_controller_node` | on demand | Servo enable/disable/config |
+| T14 | `/ros_robot_controller/set_buzzer` | `ros_robot_controller/BuzzerState` | app nodes | `ros_robot_controller_node` | on demand | Buzzer (freq, duty, repeat) |
+| T15 | `/ros_robot_controller/set_rgb` | `ros_robot_controller/RGBsState` | app nodes | `ros_robot_controller_node` | on demand | RGB LED array |
+| T16 | `/ros_robot_controller/set_led` | `ros_robot_controller/LedState` | app nodes | `ros_robot_controller_node` | on demand | Binary LED |
+| T17 | `/ros_robot_controller/set_oled` | `ros_robot_controller/OLEDState` | app nodes | `ros_robot_controller_node` | on demand | OLED display text |
+| T18 | `/object/pixel_coords` | `ainex_interfaces/ObjectsInfo` | vision nodes | behavior, nav | on detection | Unified detected object list |
+| T19 | `/color_detection/image_result` | `sensor_msgs/Image` | `color_detection_node` | web_video_server | 30 Hz | Annotated color-segmented image |
+| T20 | `/face_detect/image_result` | `sensor_msgs/Image` | `face_detect_node` | web_video_server | 30 Hz | Annotated face detection image |
+| T21 | `/color_detection/update_detect` | `ainex_interfaces/ColorsDetect` | app node | `color_detection_node` | on demand | Color detection configuration |
+| T22 | `/tag_detections` | `apriltag_ros/AprilTagDetectionArray` | `apriltag_ros` | behavior nodes | 30 Hz | AprilTag detections |
 
 ---
 
@@ -179,17 +183,20 @@ The following servo ID↔joint assignments in `ainex_architecture.md` are INCORR
 
 **Level 1 — Observation (read-only)**
 ```bash
-# Monitor IMU
-rostopic echo /ainex/imu/raw
+# Monitor raw IMU (no orientation)
+rostopic echo /ros_robot_controller/imu_raw
 
-# Monitor battery
-rostopic echo /ainex/battery
+# Monitor calibrated IMU (has valid orientation quaternion)
+rostopic echo /imu_corrected
 
-# Check joint positions
-rostopic echo /ainex/joint_states
+# Monitor filtered IMU (orientation via /tf, not in msg)
+rostopic echo /imu
+
+# Monitor battery (UInt16, millivolts)
+rostopic echo /ros_robot_controller/battery
 
 # Check walking state
-rostopic echo /ainex/walking_state
+rostopic echo /walking/is_walking
 ```
 
 **Level 2 — Walking Control (service calls)**

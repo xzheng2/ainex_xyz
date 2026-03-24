@@ -100,16 +100,20 @@ WORKDIR /opt/rosa-agent
 COPY rosa-agent/requirements.txt /opt/rosa-agent/requirements.txt
 RUN python3.9 -m pip install --ignore-installed -r /opt/rosa-agent/requirements.txt
 
-# Copy ROSA vendor source (if pre-downloaded; see DEPLOY.md for how to fetch it)
-# vendor/ always exists (contains .gitkeep); add rosa/ subdirectory to use local source.
-# If vendor/rosa/ is absent, ROSA from PyPI (already installed above) is used.
+# Copy ROSA vendor source (patched local copy with max_execution_time + rostopic_echo fixes).
+# Detect by rosa.py existing directly in vendor/rosa/ (flat layout, not pip-installable).
 COPY rosa-agent/vendor/ /opt/rosa-agent/vendor/
-RUN if [ -d /opt/rosa-agent/vendor/rosa/src ]; then \
+RUN if [ -f /opt/rosa-agent/vendor/rosa/rosa.py ]; then \
+        echo "Using local vendor ROSA (patched)"; \
+    elif [ -d /opt/rosa-agent/vendor/rosa/src ]; then \
         python3.9 -m pip install -e /opt/rosa-agent/vendor/rosa; \
-        echo "Installed ROSA from local vendor source"; \
+        echo "Installed ROSA from local vendor source (pip)"; \
     else \
         echo "Using ROSA installed from PyPI (requirements.txt)"; \
     fi
+
+# Vendor rosa/ must be importable before PyPI rosa — prepend vendor/ to PYTHONPATH
+ENV PYTHONPATH="/opt/rosa-agent/vendor:${PYTHONPATH}"
 
 # ---------- 6. Copy agent workspace ----------
 # Build context is docker/, so rosa-agent/ files are referenced with that prefix

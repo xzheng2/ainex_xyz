@@ -3,7 +3,7 @@
 ## Overview
 
 `rosa-agent` is a standalone Docker container running NASA JPL ROSA in read-only mode,
-connected to the `ainex` container's ROS graph via `ainex_ros_net`.
+connected to the `ainex` container's ROS graph via host networking.
 
 - ROSA repo: https://github.com/nasa-jpl/rosa
 - PyPI package: `jpl-rosa` (>=1.0.9)
@@ -65,6 +65,7 @@ agent = ROSA(
     verbose=False,
     streaming=False,
     max_iterations=30,
+    max_execution_time=60,      # 60s timeout per query (added Mar 24 2026)
 )
 ```
 
@@ -109,6 +110,7 @@ Enable in Phase 2: set `AINEX_WRITE_ENABLED=true` + implement real logic in `dis
   - Build context is `docker/` so both COPY paths work
   - **Bug fixed Mar 2026**: omitting `ros_robot_controller` caused `No module named 'ros_robot_controller'` when health tool called `GetBusServoState` service
 - ROSA installed from `vendor/rosa/` if present, else from PyPI (`jpl-rosa`)
+- **Vendor detection fix (Mar 24 2026)**: Old Dockerfile checked `vendor/rosa/src` (pip layout) but vendor is flat (`vendor/rosa/rosa.py`). Fixed detection to check `rosa.py` directly + added `ENV PYTHONPATH="/opt/rosa-agent/vendor:${PYTHONPATH}"` so vendor ROSA takes priority over PyPI
 - `summarize_ros_logs.py` COPY'd into `/opt/rosa-agent/` (added Mar 14 2026)
 - `ainex_agent_tools` installed as editable package (`pip install -e /opt/rosa-agent`)
 
@@ -193,6 +195,10 @@ docker compose stop rosa-agent
 
 - **`rosservice_list` crash with `include_nodes=True`**: ROSA built-in `ros1.py` `rosservice_list()` called `.startswith()` on list items when `include_nodes=True` (items are `[service_name, [nodes]]` not strings). Fixed in `vendor/rosa/tools/ros1.py` with `_name()` helper. Must be copied into container at `/usr/local/lib/python3.9/dist-packages/rosa/tools/ros1.py` after rebuild.
 - **`get_servo_torque` merged into `get_robot_health`**: Separate `servos.py` tool removed; `get_robot_health` now queries all 24 servos (was 10 representative) with temperature, voltage, and torque state.
+- **`rostopic_echo` actual_count bug (Mar 24)**: `return_echoes` default changed from `False` to `True` in `vendor/rosa/tools/ros1.py` — fixes bug where received messages weren't returned (actual_count always 0 because messages were collected but discarded)
+- **`max_execution_time` support (Mar 24)**: Added `max_execution_time` param to vendor `rosa.py`, passed through to LangChain `AgentExecutor`; set to 60s in `ainex_agent.py` to prevent runaway queries
+- **Dockerfile vendor detection (Mar 24)**: Fixed `vendor/rosa/src` check → `vendor/rosa/rosa.py`; added `PYTHONPATH` prepend so vendor ROSA overrides PyPI
+- **Prompts rewritten (Mar 24)**: `critical_instructions` now says "use custom tools FIRST"; `about_your_environment` rewritten with verified topic names and full 24-DOF servo layout; `about_your_capabilities` uses PRIORITY 1 (custom) / PRIORITY 2 (built-in) structure
 
 ## Known Risks / Phase 2 TODOs
 

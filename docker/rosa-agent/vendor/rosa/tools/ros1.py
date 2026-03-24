@@ -343,7 +343,7 @@ def rostopic_info(topics: List[str]) -> dict:
 def rostopic_echo(
     topic: str,
     count: int,
-    return_echoes: bool = False,
+    return_echoes: bool = True,
     delay: float = 1.0,
     timeout: float = 1.0,
 ) -> dict:

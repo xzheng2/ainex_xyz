@@ -94,6 +94,7 @@ class AinexAgent:
             accumulate_chat_history=True,
             show_token_usage=False,
             max_iterations=30,
+            max_execution_time=60,
         )
 
     def chat(self, query: str) -> str:

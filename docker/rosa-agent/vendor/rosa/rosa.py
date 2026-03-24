@@ -79,6 +79,7 @@ class ROSA:
         show_token_usage: bool = False,
         streaming: bool = True,
         max_iterations: int = 100,
+        max_execution_time: Optional[int] = None,
         return_intermediate_steps: bool = False,
     ):
         self.__chat_history = []
@@ -90,6 +91,7 @@ class ROSA:
         self.__accumulate_chat_history = accumulate_chat_history
         self.__streaming = streaming
         self.__max_iterations = max_iterations
+        self.__max_execution_time = max_execution_time
         self.__return_intermediate_steps = return_intermediate_steps
         self.__tools = self._get_tools(
             ros_version, packages=tool_packages, tools=tools, blacklist=self.__blacklist
@@ -239,6 +241,7 @@ class ROSA:
             stream_runnable=self.__streaming,
             verbose=verbose,
             max_iterations=self.__max_iterations,
+            max_execution_time=self.__max_execution_time,
             handle_parsing_errors=True,
             return_intermediate_steps=self.__return_intermediate_steps,
         )

@@ -29,7 +29,7 @@ def get_llm():
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
-        model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         return ChatOpenAI(api_key=api_key, model=model, temperature=0)
 
     elif provider == "azure":

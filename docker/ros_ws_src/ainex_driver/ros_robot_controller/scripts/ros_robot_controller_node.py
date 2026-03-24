@@ -270,13 +270,14 @@ class ROSRobotController:
             msg.orientation.y = 0
             msg.orientation.z = 0
 
-            msg.linear_acceleration.x = ax * self.gravity 
-            msg.linear_acceleration.y = ay * self.gravity
-            msg.linear_acceleration.z = az * self.gravity
+            # Remap sensor axes to body frame (STM32 mounted vertically, URDF rpy=π/2,0,-π/2)
+            msg.linear_acceleration.x = -az * self.gravity
+            msg.linear_acceleration.y = -ax * self.gravity
+            msg.linear_acceleration.z =  ay * self.gravity
 
-            msg.angular_velocity.x = math.radians(gx)
-            msg.angular_velocity.y = math.radians(gy)
-            msg.angular_velocity.z = math.radians(gz)
+            msg.angular_velocity.x = -math.radians(gz)
+            msg.angular_velocity.y = -math.radians(gx)
+            msg.angular_velocity.z =  math.radians(gy)
 
             msg.orientation_covariance = [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]
             msg.angular_velocity_covariance = [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]
@@ -284,17 +285,17 @@ class ROSRobotController:
 
             if len(data) == 9:
                 mag_raw_msg = magnetometer()
-                mag_raw_msg.x = mx
-                mag_raw_msg.y = my
-                mag_raw_msg.z = mz
+                mag_raw_msg.x = -mz
+                mag_raw_msg.y = -mx
+                mag_raw_msg.z =  my
                 mag_raw_pub.publish(mag_raw_msg)
                 if self.mag_clib_param is not None:
                     data = np.dot(self.mag_clib_param, np.array([mx, my, mz, 1]))
                     mag_msg = MagneticField()
                     mag_msg.header.stamp = msg.header.stamp
-                    mag_msg.magnetic_field.x = data[0]
-                    mag_msg.magnetic_field.y = data[1]
-                    mag_msg.magnetic_field.z = data[2]
+                    mag_msg.magnetic_field.x = -data[2]
+                    mag_msg.magnetic_field.y = -data[0]
+                    mag_msg.magnetic_field.z =  data[1]
                     mag_msg.magnetic_field_covariance = [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]
                     mag_pub.publish(mag_msg)
             pub.publish(msg)
