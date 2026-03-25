@@ -47,8 +47,8 @@
 | # | Topic Path | Message Type | Publisher Node | Subscriber Node(s) | Rate | Purpose |
 |---|-----------|-------------|----------------|-------------------|------|---------|
 | T01 | `/ros_robot_controller/imu_raw` | `sensor_msgs/Imu` | `ros_robot_controller` | `imu_calib` | 100 Hz | Raw accel+gyro from STM32 (no orientation) |
-| T02 | `/imu_corrected` | `sensor_msgs/Imu` | `imu_calib` | `imu_filter` | 100 Hz | Calibration-corrected IMU with valid orientation quaternion |
-| T03 | `/imu` | `sensor_msgs/Imu` | `imu_filter` | perception, gait | 100 Hz | Filtered IMU; fuses T02 + T04 mag; orientation published via `/tf` not in msg |
+| T02 | `/imu_corrected` | `sensor_msgs/Imu` | `imu_calib` | `imu_filter` | 100 Hz | Bias-corrected accel+gyro (no orientation quaternion — `imu_calib` only removes bias/scale) |
+| T03 | `/imu` | `sensor_msgs/Imu` | `imu_filter` | perception, gait | 100 Hz | Fused IMU from `imu_complementary_filter`; **orientation quaternion IS in msg**; sensor Y-axis is up so roll≈90° upright (not 0°); fall check: `abs(roll-90)<30 and abs(pitch)<30` |
 | T04 | `/ros_robot_controller/mag` | `sensor_msgs/MagneticField` | `ros_robot_controller` | `imu_filter` | 100 Hz | Raw magnetometer for heading fusion |
 | T05 | `/ros_robot_controller/battery` | `std_msgs/UInt16` | `ros_robot_controller_node` | monitor, app | ~1 Hz | Battery voltage (mV) |
 | T06 | `/camera/image_raw` | `sensor_msgs/Image` | `usb_cam_node` | vision nodes | 30 Hz | Raw RGB camera image (640×480) |
@@ -68,6 +68,16 @@
 | T20 | `/face_detect/image_result` | `sensor_msgs/Image` | `face_detect_node` | web_video_server | 30 Hz | Annotated face detection image |
 | T21 | `/color_detection/update_detect` | `ainex_interfaces/ColorsDetect` | app node | `color_detection_node` | on demand | Color detection configuration |
 | T22 | `/tag_detections` | `apriltag_ros/AprilTagDetectionArray` | `apriltag_ros` | behavior nodes | 30 Hz | AprilTag detections |
+| T23 | `/marathon_bt/log/tree` | `py_trees_msgs/BehaviourTree` | `marathon_bt` | rqt_py_trees, ROSA | per tick (30 Hz), latched | Full BT snapshot for rqt visualization |
+| T24 | `/marathon_bt/ascii/snapshot` | `std_msgs/String` | `marathon_bt` | ROSA, debug | per tick, latched | Human-readable ASCII tree rendering |
+| T25 | `/marathon_bt/tip` | `py_trees_msgs/Behaviour` | `marathon_bt` | ROSA, debug | per tick, latched | Current tip (deepest active) node |
+| T26 | `/bt/marathon/bb/robot_state` | `std_msgs/String` | `marathon_bt` | ROSA | 10 Hz, latched | BB mirror: 'stand', 'lie_to_stand', 'recline_to_stand' (JSON) |
+| T27 | `/bt/marathon/bb/line_data` | `std_msgs/String` | `marathon_bt` | ROSA | 10 Hz, latched | BB mirror: line detection object or null (JSON) |
+| T28 | `/bt/marathon/bb/last_line_x` | `std_msgs/String` | `marathon_bt` | ROSA | 10 Hz, latched | BB mirror: last known line x-position (JSON) |
+| T29 | `/bt/marathon/bb/line_lost_count` | `std_msgs/String` | `marathon_bt` | ROSA | 10 Hz, latched | BB mirror: consecutive frames without line (JSON) |
+| T30 | `/bt_node_events` | `ainex_bt_edu/BTNodeEvent` | ainex_bt_edu nodes | ROSA | on state change | Per-node state transitions (prev/curr status, BB snapshot) |
+| T31 | `/bt_run_complete` | `ainex_bt_edu/BTRunComplete` | `AinexBTRunner` | ROSA | on completion, latched | Session-level BT result (status, duration, tick count) |
+| T32 | `/bt/bb/*` | `std_msgs/String` | `BlackboardROSBridge` | ROSA | 10 Hz | ainex_bt_edu BB mirrors (11 keys, JSON) |
 
 ---
 
@@ -189,7 +199,7 @@ rostopic echo /ros_robot_controller/imu_raw
 # Monitor calibrated IMU (has valid orientation quaternion)
 rostopic echo /imu_corrected
 
-# Monitor filtered IMU (orientation via /tf, not in msg)
+# Monitor filtered IMU (fused quaternion orientation IS in msg; roll/pitch≈0° upright)
 rostopic echo /imu
 
 # Monitor battery (UInt16, millivolts)
@@ -248,6 +258,18 @@ See `ainex_validation_checklist.md` for the ordered 30-minute procedure.
 | `ColorsDetect` | `data[]` (ColorDetect: color_name, detect_ranges) | T19 |
 | `FingerPosition` | `label, points[]` | hand_gesture |
 | `HeadState` | `yaw, pitch, duration` | head control |
+
+### py_trees_msgs Messages (built from source in workspace)
+| Message | Key Fields | Used By |
+|---------|-----------|---------|
+| `BehaviourTree` | `header, behaviours[]` (Behaviour array) | T23 — rqt_py_trees visualization |
+| `Behaviour` | `name, class_name, own_id, parent_id, child_ids[], tip_id, type, blackbox_level, status, message, is_active` | T23, T25 — per-node state |
+
+### ainex_bt_edu Messages
+| Message | Key Fields | Used By |
+|---------|-----------|---------|
+| `BTNodeEvent` | `header, node_name, level, prev_status, curr_status, tick_count, session_id, bb_snapshot` | T30 — per-node state transitions |
+| `BTRunComplete` | `header, session_id, status, duration_sec, tick_count, tree_name` | T31 — session completion |
 
 ### ros_robot_controller Messages
 | Message | Key Fields | Used By |

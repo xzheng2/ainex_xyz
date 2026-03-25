@@ -20,4 +20,6 @@
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>ainex_interfaces</exec_depend>
   <exec_depend>ainex_example</exec_depend>
+  <exec_depend>py_trees_msgs</exec_depend>
+  <exec_depend>unique_id</exec_depend>
 </package>

@@ -30,6 +30,8 @@ from ros_robot_controller.msg import BuzzerState
 from visual_patrol import VisualPatrol  # type: ignore  (found via sys.path)
 
 from marathon_bt import bootstrap  # type: ignore
+from tree_publisher import TreeROSPublisher  # type: ignore
+from bb_ros_bridge import MarathonBBBridge  # type: ignore
 
 
 class MarathonBTNode(Common):
@@ -63,8 +65,17 @@ class MarathonBTNode(Common):
             key="/robot_state", access=py_trees.common.Access.WRITE)
         self._bb.register_key(
             key="/line_data", access=py_trees.common.Access.WRITE)
+        self._bb.register_key(
+            key="/last_line_x", access=py_trees.common.Access.WRITE)
+        self._bb.register_key(
+            key="/line_lost_count", access=py_trees.common.Access.WRITE)
         self._bb.robot_state = 'stand'
         self._bb.line_data = None
+        self._bb.last_line_x = None
+        self._bb.line_lost_count = 0
+
+        # Enable blackboard activity stream so every write is recorded
+        py_trees.blackboard.Blackboard.enable_activity_stream()
 
         # Buzzer publisher (passed into RecoverFromFall action)
         self.buzzer_pub = rospy.Publisher(
@@ -80,6 +91,15 @@ class MarathonBTNode(Common):
             self.visual_patrol,
             self.buzzer_pub,
         )
+
+        # Snapshot visitor: detects when any node changes status
+        self._snapshot_visitor = py_trees.visitors.SnapshotVisitor()
+        self.tree.visitors.append(self._snapshot_visitor)
+
+        # Publish tree state on ROS topics for rqt_py_trees and ROSA
+        self._tree_publisher = TreeROSPublisher(self.tree)
+        self._bb_bridge = MarathonBBBridge()
+        self._bb_bridge.start(rate_hz=10)
 
         # Subscribers
         rospy.Subscriber('/imu', Imu, self._imu_callback)
@@ -142,14 +162,29 @@ class MarathonBTNode(Common):
             rospy.loginfo('[Marathon BT] fall detected: recline_to_stand')
 
     def _objects_callback(self, msg):
-        """Write line detection result to blackboard."""
+        """Write line detection result to blackboard.
+
+        Also maintains /last_line_x and /line_lost_count for FindLine recovery.
+        """
         line_data = None
         for obj in msg.data:
             if obj.type == 'line':
                 line_data = obj
                 break
+
+        if line_data is not None:
+            rospy.loginfo('[BB] line detected x=%.1f', line_data.x)
+        else:
+            rospy.loginfo('[BB] line lost (count=%d)',
+                          self._bb.line_lost_count + 1)
+
         with self.lock:
             self._bb.line_data = line_data
+            if line_data is not None:
+                self._bb.last_line_x = line_data.x
+                self._bb.line_lost_count = 0
+            else:
+                self._bb.line_lost_count = self._bb.line_lost_count + 1
 
     # ------------------------------------------------------------------
     # Color detection setup (mirrors VisualPatrolNode.set_color_srv_callback)
@@ -211,6 +246,19 @@ class MarathonBTNode(Common):
         while self.running and not rospy.is_shutdown():
             if self.start:
                 self.tree.tick()
+
+                # Print tree snapshot only when a node changed status
+                if self._snapshot_visitor.changed:
+                    rospy.loginfo('\n' + py_trees.display.unicode_tree(
+                        self.tree.root, show_status=True))
+
+                # Print blackboard activity (all writes this tick) then clear
+                activity = py_trees.blackboard.Blackboard.activity_stream
+                if activity and activity.data:
+                    rospy.loginfo('\n' + py_trees.display.unicode_blackboard_activity_stream(
+                        activity.data))   # .data is the iterable list
+                    activity.clear()
+
             rate.sleep()
 
         # Clean up

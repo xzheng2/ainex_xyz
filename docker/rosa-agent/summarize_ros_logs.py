@@ -11,7 +11,8 @@ Usage:
                                      [--expected-nodes marathon_bringup]
                                      [--config /path/to/expected_nodes.yaml]
 
-Default log dir: /root/.ros/log/latest/ (rosa-agent mount from ainex)
+Default log dir: most recently modified session dir under /root/.ros/log/
+                 (found by mtime — no reliance on the 'latest' symlink)
 """
 
 import os
@@ -22,9 +23,23 @@ import argparse
 from collections import Counter, defaultdict, OrderedDict
 from datetime import datetime
 
-DEFAULT_LOG_DIR = "/root/.ros/log/latest/"
+_LOG_BASE = "/root/.ros/log"
 DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "config", "expected_nodes.yaml")
+
+
+def _find_latest_session_dir(log_base=_LOG_BASE):
+    """Return the most recently modified ROS session directory under log_base."""
+    if not os.path.isdir(log_base):
+        return ""
+    dirs = [
+        os.path.join(log_base, d)
+        for d in os.listdir(log_base)
+        if d != "latest" and os.path.isdir(os.path.join(log_base, d))
+    ]
+    if not dirs:
+        return ""
+    return max(dirs, key=os.path.getmtime) + "/"
 
 
 # ---------------------------------------------------------------------------
@@ -529,8 +544,9 @@ def generate_report(log_dir, launch_name=None, config_path=None):
 def main():
     parser = argparse.ArgumentParser(
         description='Summarize ROS logs into LLM-friendly Markdown report')
-    parser.add_argument('--log-dir', default=DEFAULT_LOG_DIR,
-                        help='Path to ROS log directory (default: %(default)s)')
+    parser.add_argument('--log-dir', default=None,
+                        help='Path to ROS log session directory '
+                             '(default: most recent under ' + _LOG_BASE + ')')
     parser.add_argument('--expected-nodes', default=None,
                         help='Launch name to check expected nodes against '
                              '(e.g. marathon_bringup). Auto-detected if not set.')
@@ -538,14 +554,15 @@ def main():
                         help='Path to expected_nodes.yaml (default: %(default)s)')
     args = parser.parse_args()
 
-    if not os.path.isdir(args.log_dir):
-        # Try resolving 'latest' symlink
-        alt = os.path.join(os.path.dirname(args.log_dir.rstrip('/')), 'latest')
-        if os.path.isdir(alt):
-            args.log_dir = alt
-        else:
-            print(f"Error: log directory not found: {args.log_dir}", file=sys.stderr)
+    if args.log_dir is None:
+        args.log_dir = _find_latest_session_dir()
+        if not args.log_dir:
+            print(f"Error: no ROS session directories found under {_LOG_BASE}",
+                  file=sys.stderr)
             sys.exit(1)
+    elif not os.path.isdir(args.log_dir):
+        print(f"Error: log directory not found: {args.log_dir}", file=sys.stderr)
+        sys.exit(1)
 
     report = generate_report(args.log_dir, args.expected_nodes, args.config)
     print(report)

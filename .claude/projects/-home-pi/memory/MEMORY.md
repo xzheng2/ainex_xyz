@@ -14,9 +14,9 @@
 - Servo IDs 1–12 legs (interleaved L/R, odd=L even=R, ankle→hip order), 13–22 arms, 23–24 head — **canonical table in `ainex_truth_spec.md`** (`ainex_architecture.md` servo table is WRONG)
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
 - Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
-- `ainex_behavior` — marathon behavior tree via py_trees (added Mar 9 2026)
+- `ainex_behavior` — marathon behavior tree via py_trees (added Mar 9 2026); publishes `py_trees_msgs/BehaviourTree` on `~log/tree` for rqt_py_trees + ROSA (added Mar 25 2026)
 - `ainex_bt_edu` — educational BT framework (added Mar 16 2026), details in `ainex_bt_edu.md`
-- `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **8 tools** including `read_last_run_summary` (log summarizer, added Mar 14); mounts ainex ros_log read-only
+- `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **9 tools** including `get_bt_status` (BT monitor, added Mar 25) and `read_last_run_summary` (log summarizer, added Mar 14); mounts ainex ros_log read-only
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
 
@@ -30,7 +30,10 @@
 - `/opt/ros/noetic` is the ROS Noetic base install inside the container (295 packages)
 - All `import rospy`, `from std_msgs/sensor_msgs/geometry_msgs.msg import ...` resolve to `/opt/ros/noetic/lib/python3/dist-packages/`
 - `usb_cam_node`, `apriltag_ros`, `image_proc` are compiled C++ binaries living in `/opt/ros/noetic/lib/`, not in the workspace
-- `py_trees` is NOT in noetic — verify with `docker exec ainex python3 -c "import py_trees"`
+- `py_trees` 2.1.6 installed via pip (NOT apt); `py_trees_msgs`, `uuid_msgs`, `unique_id`, `rqt_py_trees` built from source in workspace (cloned to `ros_ws_src/`)
+- ROS Noetic apt repo arm64 packages are **gone** (404) — must build from source
+- **Do NOT install `ros-noetic-py-trees-ros`** — it requires py_trees 0.7.x, incompatible with 2.1.6 used by marathon BT and ainex_bt_edu
+- After container recreation, reinstall: `apt-get install -y python3-pygraphviz python3-termcolor`
 - Full details: **`ainex_ros_noetic.md`**
 
 ## Servo Feedback
@@ -48,7 +51,7 @@
 - `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
-- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table (8 tools incl. log summarizer), Dockerfile notes, LLM config, build/run commands
+- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table (9 tools incl. BT monitor + log summarizer), Dockerfile notes, LLM config, build/run commands
 - `ainex_conflict_matrix.md` — All conflicts between docs, decisions, and dispositions
 - `ainex_migration_map.md` — Legacy-to-canonical name mapping
 - `ainex_validation_checklist.md` — 24-command acceptance checklist (30 min bringup validation)

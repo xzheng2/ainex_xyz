@@ -13,12 +13,13 @@ Tree structure:
           [-] LineFollowing (Sequence, memory=False)
               --> IsLineDetected
               --> FollowLine
-          --> StopWalking
+          --> FindLine          (RUNNING while searching; natural exit when line reappears)
+          --> StopWalking       (fallback: only reached if FindLine ever returns FAILURE)
 """
 import py_trees
 
 from behaviours.conditions import IsRobotStanding, IsLineDetected
-from behaviours.actions import RecoverFromFall, FollowLine, StopWalking
+from behaviours.actions import RecoverFromFall, FollowLine, StopWalking, FindLine
 
 
 class MarathonBT(py_trees.composites.Sequence):
@@ -53,6 +54,7 @@ class MarathonBT(py_trees.composites.Sequence):
         ])
         patrol_control.add_children([
             line_following,
+            FindLine("FindLine", visual_patrol),
             StopWalking("StopWalking_idle", gait_manager),
         ])
 

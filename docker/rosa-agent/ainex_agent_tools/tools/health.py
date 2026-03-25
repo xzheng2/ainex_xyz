@@ -4,7 +4,7 @@ get_robot_health — read battery voltage, servo status, and IMU tilt.
 ROS interfaces used (all READ):
   - /ros_robot_controller/battery  (std_msgs/UInt16, mV)
   - /ros_robot_controller/bus_servo/get_state  (GetBusServoState srv)
-  - /ros_robot_controller/imu_raw  (sensor_msgs/Imu)
+  - /imu  (sensor_msgs/Imu, fused orientation from imu_complementary_filter)
 """
 
 from langchain.agents import tool
@@ -95,19 +95,22 @@ def get_robot_health(_input: str = "") -> str:
     try:
         import math
         from sensor_msgs.msg import Imu
-        imu_msg = rospy.wait_for_message(
-            "/ros_robot_controller/imu_raw", Imu, timeout=3.0
-        )
-        ax = imu_msg.linear_acceleration.x
-        ay = imu_msg.linear_acceleration.y
-        az = imu_msg.linear_acceleration.z
-        roll = math.degrees(math.atan2(ay, az))
-        pitch = math.degrees(math.atan2(-ax, math.sqrt(ay**2 + az**2)))
-        upright = abs(roll) < 30 and abs(pitch) < 30
+        # Use the fused /imu topic (imu_complementary_filter output) which provides
+        # a real orientation quaternion. roll/pitch ≈ 0° when upright.
+        imu_msg = rospy.wait_for_message("/imu", Imu, timeout=3.0)
+        q = imu_msg.orientation
+        # Quaternion → roll/pitch (ZYX / aerospace convention)
+        sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z)
+        cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y)
+        roll = math.degrees(math.atan2(sinr_cosp, cosr_cosp))
+        sinp = 2.0 * (q.w * q.y - q.z * q.x)
+        sinp = max(-1.0, min(1.0, sinp))
+        pitch = math.degrees(math.asin(sinp))
+        upright = abs(roll - 90) < 30 and abs(pitch) < 30
         posture = "UPRIGHT" if upright else "TILTED/FALLEN"
         sections.append(f"IMU: roll={roll:.1f}° pitch={pitch:.1f}° [{posture}]")
     except rospy.ROSException:
-        sections.append("IMU: timeout (topic /ros_robot_controller/imu_raw not publishing)")
+        sections.append("IMU: timeout (topic /imu not publishing)")
     except Exception as e:
         sections.append(f"IMU: error — {e}")
 

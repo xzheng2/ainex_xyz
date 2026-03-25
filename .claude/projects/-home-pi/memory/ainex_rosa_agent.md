@@ -24,11 +24,12 @@ connected to the `ainex` container's ROS graph via host networking.
     ├── llm_config.py                   # Ollama / OpenAI / Azure
     ├── summarize_ros_logs.py           # log summarizer (finds newest session by mtime)
     ├── ainex_agent_tools/
-    │   ├── __init__.py                 # exports AINEX_TOOLS list (8 tools)
+    │   ├── __init__.py                 # exports AINEX_TOOLS list (9 tools)
     │   ├── prompts.py                  # RobotSystemPrompts for Ainex
     │   └── tools/
     │       ├── health.py               # get_robot_health (battery + all 24 servos + IMU)
     │       ├── behavior.py             # get_current_behavior
+    │       ├── bt_monitor.py           # get_bt_status (BT tree snapshot + blackboard, added Mar 25 2026)
     │       ├── walking.py              # get_walking_state
     │       ├── detections.py           # get_latest_detections
     │       ├── logs.py                 # read_recent_ros_logs + read_last_run_summary
@@ -48,6 +49,7 @@ connected to the `ainex` container's ROS graph via host networking.
 - No bridge network needed — `ainex_ros_net` is obsolete (can be removed with `docker network rm ainex_ros_net`)
 - `rosa-agent` env: `ROS_MASTER_URI=http://127.0.0.1:11311` (no `ROS_HOSTNAME` needed)
 - Ollama: `OLLAMA_BASE_URL=http://localhost:11434` (`host.docker.internal` does not resolve in host mode)
+- **Source live-mount** (Mar 24 2026): `/home/pi/docker/rosa-agent` → `/opt/rosa-agent` (bind mount); edits on host are instantly live in container — no rebuild needed. `ainex_agent_tools.egg-info/` must exist on host (copied once from container: `docker cp rosa-agent:/opt/rosa-agent/ainex_agent_tools.egg-info /home/pi/docker/rosa-agent/`)
 - **ROS log mount** (added Mar 14 2026): ainex writes to `/home/ubuntu/.ros/log` → host `/home/pi/docker/ros_log` → rosa-agent reads at `/root/.ros/log:ro`; symlink `/root/.ros/log` → `/home/ubuntu/.ros/log` inside ainex so both root and ubuntu users share the mount
 - **Log symlink fix** (Mar 14 2026): ROS recreates `/home/ubuntu/.ros/log/latest` with absolute path on every restart, which is invalid inside rosa-agent. Fixed by making `read_last_run_summary` resolve newest session dir by mtime instead of following the `latest` symlink. No manual symlink fixes needed anymore.
 
@@ -82,8 +84,9 @@ Write (blacklisted): `rosparam_set`, `rosservice_call`, `roslaunch`, `rosnode_ki
 
 | Tool | ROS interface | Notes |
 |------|--------------|-------|
-| `get_robot_health` | `/ros_robot_controller/battery` (UInt16, mV), `/ros_robot_controller/bus_servo/get_state` (GetBusServoState), `/ros_robot_controller/imu_raw` (Imu) | battery <10500mV = LOW; queries **all 24 servos** grouped by Legs/Arms/Head; reads temperature, voltage, **and torque state** (`get_torque_state=1`); servo >60°C = HOT; `get_servo_torque` was merged into this tool (Mar 2026) |
+| `get_robot_health` | `/ros_robot_controller/battery` (UInt16, mV), `/ros_robot_controller/bus_servo/get_state` (GetBusServoState), `/imu` (Imu, fused) | battery <10500mV = LOW; queries **all 24 servos** grouped by Legs/Arms/Head; reads temperature, voltage, **and torque state** (`get_torque_state=1`); servo >60°C = HOT; IMU uses `/imu` (complementary filter output, real quaternion); roll≈90° upright (sensor Y-axis up); upright check: `abs(roll-90)<30 and abs(pitch)<30` |
 | `get_current_behavior` | rosgraph.Master.getSystemState() + `/walking/enable_control` param | checks node names for behavior patterns |
+| `get_bt_status` | `/marathon_bt/ascii/snapshot` (String), `/marathon_bt/log/tree` (py_trees_msgs/BehaviourTree), `/bt/marathon/bb/*` (String JSON) | reads ASCII tree snapshot + structured node statuses + 4 blackboard values (robot_state, line_data, last_line_x, line_lost_count); added Mar 25 2026 |
 | `get_walking_state` | `/walking/state` (GetWalkingState.srv), `/walking/param` (GetWalkingParam.srv), `/walking/offset` (GetWalkingOffset.srv) | all read-only service calls |
 | `get_latest_detections` | `/object_detect/objects` (ObjectsInfo), `/color_detect/objects` (ObjectsInfo), `/tag_detections` (AprilTagDetectionArray) | subscribe 1 msg, no publish |
 | `read_recent_ros_logs` | `/rosout_agg` (rosgraph_msgs/Log) | collects 3s of messages, filterable by level + node |
@@ -104,8 +107,9 @@ Enable in Phase 2: set `AINEX_WRITE_ENABLED=true` + implement real logic in `dis
 - Python 3.9 via `ppa:deadsnakes/ppa`
 - ROS Noetic via apt (`ros-noetic-ros-base` + user-space Python tools)
 - ROS Python packages exposed to Python 3.9 via `PYTHONPATH=/opt/ros/noetic/lib/python3/dist-packages`
-- `ainex_interfaces` **and** `ros_robot_controller` both built with `catkin_make --pkg ainex_interfaces ros_robot_controller` in `/opt/ainex_msgs_ws/`
+- `ainex_interfaces`, `ros_robot_controller`, `uuid_msgs`, and `py_trees_msgs` all built with `catkin_make --pkg ainex_interfaces ros_robot_controller uuid_msgs py_trees_msgs` in `/opt/ainex_msgs_ws/`
   - `ros_robot_controller` source: `COPY ros_ws_src/ainex_driver/ros_robot_controller`
+  - `uuid_msgs` + `py_trees_msgs`: `COPY ros_ws_src/uuid_msgs` + `COPY ros_ws_src/py_trees_msgs` (added Mar 25 2026 for BT monitoring)
   - Generated pure-Python stubs added to PYTHONPATH
   - Build context is `docker/` so both COPY paths work
   - **Bug fixed Mar 2026**: omitting `ros_robot_controller` caused `No module named 'ros_robot_controller'` when health tool called `GetBusServoState` service
@@ -206,4 +210,4 @@ docker compose stop rosa-agent
 - ainex_interfaces compiled at build time in container (not from ainex container's devel/)
 - Phase 2: implement real stop_current_behavior / stand_safe after write audit
 - Phase 2: vision streaming diagnostics (/camera/image_raw)
-- Phase 2: ainex_behavior BT state query
+- ~~Phase 2: ainex_behavior BT state query~~ **DONE** (Mar 25 2026) — `get_bt_status` tool reads `py_trees_msgs/BehaviourTree` + BB mirrors

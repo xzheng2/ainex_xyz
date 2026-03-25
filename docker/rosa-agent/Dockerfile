@@ -80,15 +80,17 @@ RUN mkdir -p /opt/ainex_msgs_ws/src
 # Build context is docker/ (set in docker-compose.yml), so ros_ws_src is accessible
 COPY ros_ws_src/ainex_interfaces /opt/ainex_msgs_ws/src/ainex_interfaces
 COPY ros_ws_src/ainex_driver/ros_robot_controller /opt/ainex_msgs_ws/src/ros_robot_controller
+COPY ros_ws_src/uuid_msgs /opt/ainex_msgs_ws/src/uuid_msgs
+COPY ros_ws_src/py_trees_msgs /opt/ainex_msgs_ws/src/py_trees_msgs
 
 # Build both packages (pure Python message/service bindings; no C++ hardware code).
 RUN bash -c "\
     source /opt/ros/noetic/setup.bash && \
     cd /opt/ainex_msgs_ws && \
-    catkin_make --pkg ainex_interfaces ros_robot_controller \
+    catkin_make --pkg ainex_interfaces ros_robot_controller uuid_msgs py_trees_msgs \
       -DCMAKE_BUILD_TYPE=Release \
       -DPYTHON_EXECUTABLE=/usr/bin/python3 \
-    && echo 'ainex_interfaces + ros_robot_controller build: OK'"
+    && echo 'ainex_interfaces + ros_robot_controller + py_trees_msgs build: OK'"
 
 # Add generated Python bindings to PYTHONPATH
 ENV PYTHONPATH="/opt/ainex_msgs_ws/devel/lib/python3/dist-packages:${PYTHONPATH}"

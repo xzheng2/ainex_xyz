@@ -117,3 +117,15 @@ docker exec ainex bash -c "source /home/ubuntu/ros_ws/devel/setup.bash && rosrun
 
 ## Migration Pattern
 Old: `class FollowLine(py_trees.behaviour.Behaviour)` → New: `class L2_Gait_FollowLine(AinexBTNode)` with LEVEL='L2', BB_LOG_KEYS, super().setup(). update() body stays identical.
+
+## Marathon BT ROS Publishing (added Mar 25 2026)
+
+The marathon BT uses a **custom publisher shim** (NOT `py_trees_ros`) to publish tree state:
+
+- **Why not py_trees_ros**: `ros-noetic-py-trees-ros` (0.6.x) requires py_trees 0.7.x, incompatible with 2.1.6
+- **Shim files**: `marathon/tree_publisher.py` (TreeROSPublisher) + `marathon/bb_ros_bridge.py` (MarathonBBBridge)
+- **TreeROSPublisher**: registers as `add_post_tick_handler`, converts py_trees 2.1.6 nodes to `py_trees_msgs/Behaviour` messages, publishes on `~log/tree` (consumed by rqt_py_trees)
+- **MarathonBBBridge**: mirrors 4 BB keys to `/bt/marathon/bb/*` at 10 Hz (same pattern as ainex_bt_edu's `BlackboardROSBridge`)
+- **Dependencies built from source**: `py_trees_msgs`, `uuid_msgs`, `unique_id`, `rqt_py_trees` (ROS Noetic arm64 apt packages 404/EOL)
+- **rqt_py_trees**: auto-discovers any topic of type `py_trees_msgs/BehaviourTree` — no fixed topic name required
+- **rqt_py_trees also imports** `py_trees.common.VisibilityLevel` and `BlackBoxLevel` — both exist in 2.1.6

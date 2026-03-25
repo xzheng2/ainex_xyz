@@ -8,7 +8,8 @@
 #   READ (kept):  rosgraph_get, rostopic_list, rosnode_list, rostopic_info,
 #                 rostopic_echo, rosnode_info, rosservice_list, rosservice_info,
 #                 rosmsg_info, rossrv_info, rosparam_list, rosparam_get,
-#                 rospkg_list, rospkg_info, rospkg_roots, roslog_list, roslaunch_list
+#                 rospkg_list, rospkg_info, rospkg_roots, roslaunch_list
+#   READ (blacklisted — broken): roslog_list (latest symlink uses ainex-internal path)
 #   WRITE (blacklisted below):
 
 blacklist:
@@ -16,3 +17,4 @@ blacklist:
   - rosservice_call   # generic service call — could trigger actuator commands
   - roslaunch         # would start new ROS nodes/launch files
   - rosnode_kill      # would terminate running ROS nodes
+  - roslog_list       # broken inside rosa-agent: latest symlink is ainex-absolute path; use read_last_run_summary instead

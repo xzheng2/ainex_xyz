@@ -44,8 +44,11 @@ services:
 
     # Volumes
     volumes:
+      - /home/pi/docker/rosa-agent:/opt/rosa-agent  # live-mount source (edit on host, instant in container)
       - rosa_agent_logs:/opt/rosa-agent/logs
       - /home/pi/docker/ros_log:/root/.ros/log:ro   # ainex ROS logs (read-only)
+      - /etc/localtime:/etc/localtime:ro             # sync timezone with host
+      - /etc/timezone:/etc/timezone:ro
 
     # Healthcheck: verify ROS master is reachable
     healthcheck:
