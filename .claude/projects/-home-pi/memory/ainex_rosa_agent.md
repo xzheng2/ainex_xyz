@@ -24,7 +24,7 @@ connected to the `ainex` container's ROS graph via host networking.
     ├── llm_config.py                   # Ollama / OpenAI / Azure
     ├── summarize_ros_logs.py           # log summarizer (finds newest session by mtime)
     ├── ainex_agent_tools/
-    │   ├── __init__.py                 # exports AINEX_TOOLS list (9 tools)
+    │   ├── __init__.py                 # exports AINEX_TOOLS list (11 tools)
     │   ├── prompts.py                  # RobotSystemPrompts for Ainex
     │   └── tools/
     │       ├── health.py               # get_robot_health (battery + all 24 servos + IMU)
@@ -33,6 +33,7 @@ connected to the `ainex` container's ROS graph via host networking.
     │       ├── walking.py              # get_walking_state
     │       ├── detections.py           # get_latest_detections
     │       ├── logs.py                 # read_recent_ros_logs + read_last_run_summary
+    │       ├── bt_obs.py               # read_bt_obs unified tool (added Apr 5 2026; auto-routes recent/lastrun)
     │       └── disabled.py             # stop_current_behavior, stand_safe (stubs)
     ├── config/
     │   ├── readonly.yaml               # per-operation read/write switches
@@ -51,6 +52,7 @@ connected to the `ainex` container's ROS graph via host networking.
 - Ollama: `OLLAMA_BASE_URL=http://localhost:11434` (`host.docker.internal` does not resolve in host mode)
 - **Source live-mount** (Mar 24 2026): `/home/pi/docker/rosa-agent` → `/opt/rosa-agent` (bind mount); edits on host are instantly live in container — no rebuild needed. `ainex_agent_tools.egg-info/` must exist on host (copied once from container: `docker cp rosa-agent:/opt/rosa-agent/ainex_agent_tools.egg-info /home/pi/docker/rosa-agent/`)
 - **ROS log mount** (added Mar 14 2026): ainex writes to `/home/ubuntu/.ros/log` → host `/home/pi/docker/ros_log` → rosa-agent reads at `/root/.ros/log:ro`; symlink `/root/.ros/log` → `/home/ubuntu/.ros/log` inside ainex so both root and ubuntu users share the mount
+- **BT observability log mount** (added Apr 5 2026): `/home/pi/docker/ros_ws_src/ainex_behavior/marathon/log` → `/opt/ainex_bt_log:ro`; same 4 JSONL files as on the host (`bt_debug_lastrun.jsonl`, `bt_debug_recent.jsonl`, `bt_ros_comm_debug_lastrun.jsonl`, `bt_ros_comm_debug_recent.jsonl`); read by `read_bt_obs` (unified auto-routing tool)
 - **Log symlink fix** (Mar 14 2026): ROS recreates `/home/ubuntu/.ros/log/latest` with absolute path on every restart, which is invalid inside rosa-agent. Fixed by making `read_last_run_summary` resolve newest session dir by mtime instead of following the `latest` symlink. No manual symlink fixes needed anymore.
 
 ## ROSA Instantiation Pattern
@@ -90,7 +92,8 @@ Write (blacklisted): `rosparam_set`, `rosservice_call`, `roslaunch`, `rosnode_ki
 | `get_walking_state` | `/walking/state` (GetWalkingState.srv), `/walking/param` (GetWalkingParam.srv), `/walking/offset` (GetWalkingOffset.srv) | all read-only service calls |
 | `get_latest_detections` | `/object_detect/objects` (ObjectsInfo), `/color_detect/objects` (ObjectsInfo), `/tag_detections` (AprilTagDetectionArray) | subscribe 1 msg, no publish |
 | `read_recent_ros_logs` | `/rosout_agg` (rosgraph_msgs/Log) | collects 3s of messages, filterable by level + node |
-| `read_last_run_summary` | `/root/.ros/log/<session>/*.log` (file read, mounted ro from ainex) | Finds newest session dir by mtime (bypasses broken `latest` symlink); runs `summarize_ros_logs.py` to produce condensed Markdown report (~5-15KB); deduplicates ROSA polling, camera restarts; checks `expected_nodes.yaml` for missing nodes |
+| `read_last_run_summary` | `/root/.ros/log/<session>/*.log` (file read, mounted ro from ainex) | Finds newest session dir by mtime (bypasses broken `latest` symlink); runs `summarize_ros_logs.py` to produce condensed Markdown report (~5-15KB); deduplicates ROSA polling, camera restarts; checks `expected_nodes.yaml` for missing nodes; **Log Messages table includes Unix epoch integers** `HH:MM:SS [epoch]` (Apr 5 2026) — allows LLM to directly correlate summary timestamps with BT JSONL `ts` fields (same clock source) |
+| `read_bt_obs` | `/opt/ainex_bt_log/bt_debug_recent.jsonl` + `bt_ros_comm_debug_recent.jsonl` OR `bt_debug_lastrun.jsonl` + `bt_ros_comm_debug_lastrun.jsonl` (file read, ro) | Auto-routing: detects BT node running via mtime of recent file (threshold 10s); returns raw _recent JSONL if live, structured _lastrun summary if not; from `bt_obs.py` (added Apr 5 2026; unified Apr 6 2026) |
 
 ## Disabled Write Tools (Phase 1)
 
@@ -211,3 +214,4 @@ docker compose stop rosa-agent
 - Phase 2: implement real stop_current_behavior / stand_safe after write audit
 - Phase 2: vision streaming diagnostics (/camera/image_raw)
 - ~~Phase 2: ainex_behavior BT state query~~ **DONE** (Mar 25 2026) — `get_bt_status` tool reads `py_trees_msgs/BehaviourTree` + BB mirrors
+- **`summarize_ros_logs.py` epoch fix (Apr 5 2026)**: `parse_rosout_log` now stores `first_epoch`/`last_epoch` floats; `_ts_epoch()` helper formats `HH:MM:SS [epoch_int]`; Log Messages table columns show epoch — LLM can match `[1775422757]` in summary directly to `"ts": 1775422757.xxx` in JSONL

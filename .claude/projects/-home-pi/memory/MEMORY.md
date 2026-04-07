@@ -15,8 +15,24 @@
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
 - Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
 - `ainex_behavior` — marathon behavior tree via py_trees (added Mar 9 2026); publishes `py_trees_msgs/BehaviourTree` on `~log/tree` for rqt_py_trees + ROSA (added Mar 25 2026)
+  - Marathon BT files: `marathon_bt_node.py` (main, 15 Hz loop), `marathon_bt.py` (tree factory), `behaviours/actions.py`, `behaviours/conditions.py`, `bb_ros_bridge.py`, `tree_publisher.py`
+  - **BT observability system** (added Apr 5 2026): `bt_observability/` shared module at `ainex_behavior/bt_observability/`; topics `/bt_debug` + `/bt_ros_comm_debug` (JSON String); logs to `marathon/log/` (4 JSONL files: last-run full + recent rolling); `DebugEventLogger` + `BTDebugVisitor` + `ROSCommTracer`; logger=None is zero-cost fallback; `marathon/log/` excluded from git
+    - **All 4 JSONL files are newest-first** (highest tick_id at top) — rolling files reversed on each `end_tick()` flush; lastrun files use in-memory buffering (`_bt_all_ticks`/`_comm_all_ticks` lists) atomically rewritten newest-first each tick; `close()` is a no-op
+    - **`max_rolling_ticks` = 30** (recent files keep last 30 ticks)
+    - `read_bt_obs` (unified tool) re-reverses lastrun lines before passing to summarizers (which expect oldest-first)
+  - `FindLineHeadSweep` (head-sweep mode): two-phase SWEEP→ALIGN state machine; writes `/head_pan_pos` BB key; `IsHeadCentered` gates `FollowLine` until body aligned
+    - `initialise()` called every tick (memory=False Selector) — use `_fresh_start` bool flag (not value check) to guard direction reset; only set True in `__init__` + on ALIGN SUCCESS
+    - `gait_manager.disable()` in `initialise()` guarded by `line_data is None` — prevents gait stop/restart at 30 Hz during ALIGN turns
+    - ALIGN turn uses `set_step()` with go/turn gait config switch at threshold=2°; SWEEP_STEP must not be a factor of 200 (half-range) to avoid exact center hit
+    - Full tick-interruption fix pattern documented in `ainex_bt_edu.md`
+  - **BT exec controller** (`bt_exec_controller.py`, added Mar 25 2026): RUN/PAUSE/STEP mode gate inside `self.start`; services `~bt/run`, `~bt/pause`, `~bt/step` (all `std_srvs/Empty`); topic `~bt/mode` (String latched); launch param `~bt_mode` (default `'run'`); `~stop`/`~start` unchanged
 - `ainex_bt_edu` — educational BT framework (added Mar 16 2026), details in `ainex_bt_edu.md`
-- `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **9 tools** including `get_bt_status` (BT monitor, added Mar 25) and `read_last_run_summary` (log summarizer, added Mar 14); mounts ainex ros_log read-only
+- `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **11 tools** including `get_bt_status` (BT monitor, Mar 25), `read_last_run_summary` (log summarizer, Mar 14), `read_bt_obs` (BT observability JSONL, Apr 5; unified auto-routing); mounts ainex ros_log + marathon/log (`/opt/ainex_bt_log`) read-only; full details: **`ainex_rosa_agent.md`**
+  - **`get_bt_status`** reads `tick_id` + `camera_lost_count` from BB bridge topics; `_BB_KEYS = ['tick_id', 'robot_state', 'line_data', 'last_line_x', 'camera_lost_count']`; no JSONL file read
+  - **`read_bt_obs` is in PRIORITY 1** of `about_your_capabilities` prompt — auto-selects _recent pair (live) if BT node running, _lastrun pair (full session) if not; LLM routes tick_id / per-tick decision queries to this tool
+  - **BB bridge** (`bb_ros_bridge.py`) publishes 5 keys: `robot_state`, `line_data`, `last_line_x`, `camera_lost_count`, `tick_id` → `/bt/marathon/bb/*` (10 Hz)
+  - **`line_lost_count` renamed → `camera_lost_count`** everywhere (ROS1 + ROS2): counts consecutive camera frames (30 Hz) without line detection — distinct from BT `tick_id` (15 Hz iteration counter); `tick_id` written to BB inside `if should_tick():` block
+- **ROS2 migration complete (Stage 2, Apr 2 2026)**: `ainex2` service (ROS Humble, host network, privileged, `group_add: ["1001"]` for GPIO); bringup: `ros2 launch ainex_bringup bringup.launch.py [use_imu:=true] [use_camera:=true]`; **always source `setup.zsh` not `setup.bash` in zsh**; full details in **`ainex_ros2.md`**
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
 
@@ -51,7 +67,8 @@
 - `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
-- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table (9 tools incl. BT monitor + log summarizer), Dockerfile notes, LLM config, build/run commands
+- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table (11 tools), Dockerfile notes, LLM config, build/run commands
+- `ainex_bt_observability.md` — BT observability system: 4 JSONL files (paths, event schemas for both streams), module structure (DebugEventLogger/BTDebugVisitor/ROSCommTracer), marathon integration points, ROSA tool (`read_bt_obs` — unified auto-routing), ROS topics
 - `ainex_conflict_matrix.md` — All conflicts between docs, decisions, and dispositions
 - `ainex_migration_map.md` — Legacy-to-canonical name mapping
 - `ainex_validation_checklist.md` — 24-command acceptance checklist (30 min bringup validation)

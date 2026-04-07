@@ -89,6 +89,41 @@
 - Subclasses only implement `update()` — logging is fully automatic via `tick()` override
 - Reuses existing libs (GaitManager, MotionManager, PIDTrack, ApproachObject, VisualPatrol) — does NOT recreate them
 
+## Fixing Action Interrupted by Tick (memory=False Selector)
+
+With `memory=False` composites, `initialise()` is called **every tick** — the Selector stops and restarts all children each cycle. This breaks multi-tick actions that assume `initialise()` only fires once.
+
+### Pattern: state machine action (e.g. FindLineHeadSweep)
+
+**Problem symptoms:**
+- `initialise()` log appears every tick, not just on first activation
+- Internal state resets each tick, causing oscillation or direction flip
+- Gait disabled and restarted at 30 Hz → stuttery motion
+
+**Root causes and fixes:**
+
+1. **Direction/state reset in `initialise()`** triggered by head position or other runtime value:
+   - Fix: use an explicit `_fresh_start` bool flag instead of a value check.
+   - Set `True` in `__init__` and when the action genuinely completes (SUCCESS).
+   - Clear to `False` inside `initialise()` after using it.
+   - Mid-tick reinits see `False` → preserve state unconditionally.
+
+2. **`gait_manager.disable()` called unconditionally in `initialise()`**:
+   - Kills the gait every tick during continuous motion phases (e.g. ALIGN turn).
+   - Fix: guard with a condition that is only True during the idle/scan phase:
+     ```python
+     if self.bb.line_data is None:   # only disable during SWEEP (no line)
+         self.visual_patrol.gait_manager.disable()
+     ```
+   - During active motion (line detected → ALIGN), skip disable so gait runs continuously.
+
+3. **State reset in `initialise()` clobbering a sub-phase**:
+   - `initialise()` resets `_state = _ST_SWEEP` every tick.
+   - Safe because `_update_sweep()` immediately re-transitions to `_ST_ALIGN` when `line_data is not None`.
+   - Persistence of `_head_pan` across ticks drives incremental head movement.
+
+**General rule**: In `initialise()`, only perform resets that are safe to do every 30 Hz tick. Gate anything destructive (disable gait, reset direction, clear phase) behind a condition that is True only for genuine restarts.
+
 ## py_trees 2.1.6 Compatibility (CRITICAL)
 These bugs were found and fixed during implementation. Keep for reference:
 
