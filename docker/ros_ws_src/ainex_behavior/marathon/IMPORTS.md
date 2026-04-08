@@ -9,6 +9,8 @@
 │   └── marathon/
 │       ├── marathon_bt_node.py      ← entry point (main ROS node)
 │       ├── marathon_bt.py           ← BT factory
+│       ├── bb_ros_bridge.py         ← blackboard → ROS topic bridge
+│       ├── tree_publisher.py        ← py_trees → rqt_py_trees publisher
 │       └── behaviours/
 │           ├── __init__.py          ← empty
 │           ├── actions.py
@@ -39,7 +41,11 @@
 │   ├── visual_patrol.py
 │   └── pid_track.py
 └── hurocup2025/scripts/marathon/
-    └── visual_patrol.py             ← injected via sys.path
+    ├── visual_patrol.py             ← injected via sys.path (used by BT)
+    ├── visual_patrol_copy.py        ← tuning variant (not used by BT)
+    ├── visual_patrol_original.py    ← archived original (not used by BT)
+    ├── marathon_node.py             ← legacy two-node approach (not used by BT)
+    └── fall_rise_node.py            ← legacy fall recovery node (not used by BT)
 ```
 
 ---
@@ -62,6 +68,8 @@
 | `ainex_example.color_common.Common` | `ainex_example/src/ainex_example/color_common.py` |
 | `visual_patrol.VisualPatrol` | `hurocup2025/scripts/marathon/visual_patrol.py` (**sys.path inject**) |
 | `marathon_bt.bootstrap` | `ainex_behavior/marathon/marathon_bt.py` |
+| `tree_publisher.TreeROSPublisher` | `ainex_behavior/marathon/tree_publisher.py` (**sys.path inject**) |
+| `bb_ros_bridge.MarathonBBBridge` | `ainex_behavior/marathon/bb_ros_bridge.py` (**sys.path inject**) |
 
 **sys.path injection:**
 ```python
@@ -80,7 +88,33 @@ sys.path.insert(0, os.path.join(_hurocup_path, 'scripts', 'marathon'))   # huroc
 |--------|---------------|
 | `py_trees` | external |
 | `behaviours.conditions.IsRobotStanding, IsLineDetected` | `marathon/behaviours/conditions.py` |
-| `behaviours.actions.RecoverFromFall, FollowLine, StopWalking` | `marathon/behaviours/actions.py` |
+| `behaviours.actions.RecoverFromFall, FollowLine, StopWalking, FindLine` | `marathon/behaviours/actions.py` |
+
+---
+
+### `bb_ros_bridge.py`
+`/home/pi/docker/ros_ws_src/ainex_behavior/marathon/bb_ros_bridge.py`
+
+| Import | Resolved Path |
+|--------|---------------|
+| `json` | stdlib |
+| `rospy` | ROS external |
+| `py_trees` | external |
+| `std_msgs.msg.String` | ROS message — **LEAF** |
+
+---
+
+### `tree_publisher.py`
+`/home/pi/docker/ros_ws_src/ainex_behavior/marathon/tree_publisher.py`
+
+| Import | Resolved Path |
+|--------|---------------|
+| `uuid` | stdlib |
+| `rospy` | ROS external |
+| `py_trees` | external |
+| `unique_id` | ROS external (uuid_msgs companion) |
+| `py_trees_msgs.msg` | ROS message — **LEAF** |
+| `std_msgs.msg.String` | ROS message — **LEAF** |
 
 ---
 
@@ -123,6 +157,8 @@ sys.path.insert(0, os.path.join(_hurocup_path, 'scripts', 'marathon'))   # huroc
 
 ### `behaviours/actions.py`
 `/home/pi/docker/ros_ws_src/ainex_behavior/marathon/behaviours/actions.py`
+
+Exports: `StopWalking`, `FollowLine`, `FindLine`, `FindLineHeadSweep`, `RecoverFromFall`
 
 | Import | Resolved Path |
 |--------|---------------|
@@ -209,6 +245,50 @@ No imports — pure utility functions (`val_map`, `set_range`, `empty_func`) —
 
 ---
 
+## Legacy Two-Node Files (hurocup2025 — not used by BT node)
+
+These files implement the original two-process architecture that `marathon_bt_node.py` replaces.
+
+### `marathon_node.py`
+`/home/pi/docker/ros_ws_src/hurocup2025/scripts/marathon/marathon_node.py`
+
+| Import | Resolved Path |
+|--------|---------------|
+| `time`, `signal` | stdlib |
+| `rospy` | ROS external |
+| `std_msgs.msg.String` | ROS message |
+| `ainex_sdk.common` | `ainex_driver/ainex_sdk/src/ainex_sdk/common.py` |
+| `ainex_example.color_common.Common` | `ainex_example/src/ainex_example/color_common.py` |
+| `visual_patrol.VisualPatrol` | `hurocup2025/scripts/marathon/visual_patrol.py` (sys.path inject) |
+| `ainex_interfaces.srv.SetString` | ROS service |
+| `ainex_interfaces.msg.ObjectsInfo, ColorDetect` | ROS message |
+
+---
+
+### `fall_rise_node.py`
+`/home/pi/docker/ros_ws_src/hurocup2025/scripts/marathon/fall_rise_node.py`
+
+| Import | Resolved Path |
+|--------|---------------|
+| `cv2`, `time`, `math`, `signal` | stdlib / external (OpenCV) |
+| `numpy` | external (NumPy) |
+| `rospy` | ROS external |
+| `threading.RLock` | stdlib |
+| `sensor_msgs.msg.Imu` | ROS message |
+| `std_srvs.srv.Empty, EmptyResponse` | ROS service |
+| `ros_robot_controller.msg.BuzzerState` | ROS message |
+| `ainex_kinematics.gait_manager.GaitManager` | `ainex_driver/ainex_kinematics/src/ainex_kinematics/gait_manager.py` |
+| `ainex_kinematics.motion_manager.MotionManager` | `ainex_driver/ainex_kinematics/src/ainex_kinematics/motion_manager.py` |
+| `ainex_sdk.common` | `ainex_driver/ainex_sdk/src/ainex_sdk/common.py` |
+| `std_msgs.msg.String` | ROS message |
+
+---
+
+### `visual_patrol_copy.py` / `visual_patrol_original.py`
+Both have identical imports to `visual_patrol.py`: `math`, `ainex_sdk.misc`, `ainex_sdk.common`. They differ only in gait tuning parameters.
+
+---
+
 ## Full Dependency Tree
 
 ```
@@ -224,11 +304,15 @@ marathon_bt_node.py  [ENTRY]
 ├── visual_patrol.VisualPatrol  (hurocup2025, via sys.path)
 │   ├── ainex_sdk.misc  [LEAF - no imports]
 │   └── ainex_sdk.common  [LEAF - see above]
-└── marathon_bt.bootstrap
-    ├── behaviours.conditions
-    │   └── py_trees  [LEAF]
-    └── behaviours.actions
-        └── time, rospy, py_trees, ros_robot_controller.msg  [LEAF]
+├── marathon_bt.bootstrap
+│   ├── behaviours.conditions
+│   │   └── py_trees  [LEAF]
+│   └── behaviours.actions  (StopWalking, FollowLine, FindLine, RecoverFromFall)
+│       └── time, rospy, py_trees, ros_robot_controller.msg  [LEAF]
+├── tree_publisher.TreeROSPublisher  (marathon/ dir, via sys.path)
+│   └── uuid, rospy, py_trees, unique_id, py_trees_msgs.msg, std_msgs  [LEAF]
+└── bb_ros_bridge.MarathonBBBridge  (marathon/ dir, via sys.path)
+    └── json, rospy, py_trees, std_msgs  [LEAF]
 ```
 
 ---
@@ -239,7 +323,9 @@ marathon_bt_node.py  [ENTRY]
 |---------------|------|
 | `.../ainex_behavior/marathon/marathon_bt_node.py` | Entry point |
 | `.../ainex_behavior/marathon/marathon_bt.py` | BT factory |
-| `.../ainex_behavior/marathon/behaviours/actions.py` | Action behaviors |
+| `.../ainex_behavior/marathon/bb_ros_bridge.py` | Blackboard → ROS topic bridge |
+| `.../ainex_behavior/marathon/tree_publisher.py` | py_trees → rqt_py_trees publisher |
+| `.../ainex_behavior/marathon/behaviours/actions.py` | Action behaviors (StopWalking, FollowLine, FindLine, FindLineHeadSweep, RecoverFromFall) |
 | `.../ainex_behavior/marathon/behaviours/conditions.py` | Condition behaviors |
 | `.../ainex_behavior/marathon/behaviours/__init__.py` | Empty module init |
 | `.../ainex_driver/ainex_sdk/src/ainex_sdk/common.py` | Core util (cv2, yaml, numpy, geometry) |
@@ -263,7 +349,11 @@ marathon_bt_node.py  [ENTRY]
 | `.../ainex_example/src/ainex_example/approach_object.py` | Object approach logic |
 | `.../ainex_example/src/ainex_example/visual_patrol.py` | Line following (unused by marathon) |
 | `.../ainex_example/src/ainex_example/pid_track.py` | PID tracking — no deps |
-| `.../hurocup2025/scripts/marathon/visual_patrol.py` | Line following (used by marathon) |
+| `.../hurocup2025/scripts/marathon/visual_patrol.py` | Line following (used by BT) |
+| `.../hurocup2025/scripts/marathon/visual_patrol_copy.py` | Tuning variant (not used by BT) |
+| `.../hurocup2025/scripts/marathon/visual_patrol_original.py` | Archived original (not used by BT) |
+| `.../hurocup2025/scripts/marathon/marathon_node.py` | Legacy line-follow node (not used by BT) |
+| `.../hurocup2025/scripts/marathon/fall_rise_node.py` | Legacy fall recovery node (not used by BT) |
 
 > All paths prefixed with `/home/pi/docker/ros_ws_src/`
 
@@ -274,4 +364,26 @@ marathon_bt_node.py  [ENTRY]
 - **Circular import:** `fps.py` imports `ainex_sdk.common` from within the same package — benign at runtime since `fps.py` is not imported by marathon.
 - **Two `visual_patrol.py` copies exist:** marathon uses the `hurocup2025` version (injected via `sys.path`), not `ainex_example`'s copy.
 - **`motion_manager.py` uses SQLite** to load servo action group files from disk (`.db` files).
-- **External packages required inside container:** `py_trees`, `cv2`, `yaml`, `numpy`, `gpiod`, `smbus`, `smbus2`.
+- **External packages required inside container:** `py_trees`, `py_trees_msgs`, `unique_id`, `cv2`, `yaml`, `numpy`, `gpiod`, `smbus`, `smbus2`.
+- **`FindLine` action** was added to `behaviours/actions.py`; `marathon_bt.py` now imports it alongside the original three actions.
+- **`tree_publisher.py`** publishes `py_trees_msgs/BehaviourTree` and `py_trees_msgs/Behaviour` on `~log/tree`, `~ascii/snapshot`, and `~tip` for `rqt_py_trees` and ROSA monitoring.
+- **`bb_ros_bridge.py`** mirrors blackboard keys (`/robot_state`, `/line_data`, `/last_line_x`, `/camera_lost_count`, `/tick_id`) to `/bt/marathon/bb/*` ROS topics at 10 Hz.
+- **Legacy two-node files** (`marathon_node.py`, `fall_rise_node.py`) remain in the repo as reference but are superseded by `marathon_bt_node.py`.
+
+---
+
+## Tuning Log
+
+### `FindLineHeadSweep` — `behaviours/actions.py`
+
+| # | Change | Detail |
+|---|--------|--------|
+| 1 | **`_fresh_start` flag** | Replaced `if self._head_pan == HEAD_PAN_CENTER:` guard in `initialise()` with explicit `_fresh_start` bool. Prevents `_sweep_dir` reset when sweep passes through exactly 500 (triggered by step sizes that are factors of 200, e.g. 10, 20). `_fresh_start` set True in `__init__` and on ALIGN SUCCESS; cleared on first use in `initialise()`. |
+| 2 | **Conditional `disable()` in `initialise()`** | `gait_manager.disable()` now only called when `line_data is None` (SWEEP mode). Previously called unconditionally every tick, stopping and restarting the gait at 30 Hz during ALIGN, causing stuttery turns. |
+| 3 | **ALIGN: `move()` → `set_step()`** | ALIGN phase replaced `gait_manager.move(2, 0, 0, gait_yaw)` with `set_step()` using explicit `go_gait_param`/`go_dsp` vs `turn_gait_param`/`turn_dsp` switching. Threshold: `abs(gait_yaw) < 2` → go config, else → turn config. `x=0` throughout (body rotation only). |
+
+### `VisualPatrol` — `hurocup2025/scripts/marathon/visual_patrol.py`
+
+| # | Change | Detail |
+|---|--------|--------|
+| 4 | **`go_gait_param['hip_pitch_offset']`** | Changed 15 → 25 to match `turn_gait_param`, giving better forward lean for both gait types during ALIGN. |

@@ -14,7 +14,7 @@ from std_msgs.msg import String
 
 _STATUS_NAMES = {1: 'INVALID', 2: 'RUNNING', 3: 'SUCCESS', 4: 'FAILURE'}
 
-_BB_KEYS = ['robot_state', 'line_data', 'last_line_x', 'line_lost_count']
+_BB_KEYS = ['tick_id', 'robot_state', 'line_data', 'last_line_x', 'camera_lost_count']
 
 
 @tool
@@ -22,10 +22,14 @@ def get_bt_status(query: str = "") -> str:
     """Get the current state of the marathon behavior tree.
 
     Returns the ASCII tree structure with node statuses and current blackboard
-    values (robot_state, line_data, last_line_x, line_lost_count).
+    values (tick_id, robot_state, line_data, last_line_x, camera_lost_count).
+
+    tick_id = BT iteration counter (increments once per tree tick at 15 Hz).
+    camera_lost_count = consecutive camera frames with no line detection (30 Hz);
+      resets to 0 on any detection. NOT the same as tick_id.
 
     Use when asked about: BT state, which behavior is active/ticking, what the
-    marathon tree is doing, behavior tree status, or node execution state.
+    marathon tree is doing, behavior tree status, tick_id, or node execution state.
     """
     sections = []
 

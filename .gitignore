@@ -28,8 +28,20 @@
 docker/ros_ws_src/**/__pycache__/
 docker/ros_ws_src/**/*.pyc
 docker/ros_ws_src/**/*.zip
+docker/ros_ws_src/**/*.7z
 docker/ros_ws_src/**/*.bag
 docker/ros_ws_src/**/*.so
+docker/ros_ws_src/**/core
+docker/ros_ws_src/**/build/
+
+# Exclude session-specific notes
+docker/ros_ws_src/**/*_this_session.md
+
+# Exclude generated Python package metadata
+docker/rosa-agent/**/*.egg-info/
+
+# Exclude BT observability runtime logs
+docker/ros_ws_src/ainex_behavior/marathon/log/
 
 # Exclude secrets and generated files in rosa-agent
 docker/rosa-agent/.env

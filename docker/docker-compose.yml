@@ -4,14 +4,17 @@ version: "3.9"
 # Ainex Robot — Docker Compose
 #
 # Services:
-#   rosa-agent  — NASA JPL ROSA, read-only diagnostic agent (this file manages)
+#   rosa-agent  — NASA JPL ROSA, read-only diagnostic agent (ROS1/Noetic)
+#   ainex2      — ROS2 Humble base image (Stage 1 migration, aarch64)
 #
-# The 'ainex' container is managed separately (pre-existing, started manually).
-# Both containers use host networking (ainex runs with --net host), so they
-# share the host's network namespace. No bridge network needed.
+# The 'ainex' container (ROS1 Noetic) is managed separately (pre-existing,
+# started manually). All containers use host networking so they share the
+# host's network namespace without bridge conflicts.
+# ROS2 uses DDS — no ROS_MASTER_URI needed.
 #
-# Start rosa-agent:
-#   docker compose up rosa-agent
+# Start rosa-agent:  docker compose up rosa-agent
+# Build ainex2:      docker compose build ainex2
+# Run ainex2 shell:  docker compose run --rm ainex2
 # ============================================================================
 
 services:
@@ -47,6 +50,7 @@ services:
       - /home/pi/docker/rosa-agent:/opt/rosa-agent  # live-mount source (edit on host, instant in container)
       - rosa_agent_logs:/opt/rosa-agent/logs
       - /home/pi/docker/ros_log:/root/.ros/log:ro   # ainex ROS logs (read-only)
+      - /home/pi/docker/ros_ws_src/ainex_behavior/marathon/log:/opt/ainex_bt_log:ro  # BT observability logs
       - /etc/localtime:/etc/localtime:ro             # sync timezone with host
       - /etc/timezone:/etc/timezone:ro
 
@@ -64,6 +68,33 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  # ── ainex2 — ROS2 Humble (Stage 1: base image only, workspace TBD) ─────────
+  ainex2:
+    build:
+      context: .
+      dockerfile: Dockerfile.ros2
+    image: ainex2:humble
+    container_name: ainex2
+    network_mode: host
+    privileged: true
+    group_add:
+      - "1001"  # host gpiochip device group (unnamed on Pi 5)
+    environment:
+      - DISPLAY=:1
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - /home/pi/docker/ros2_ws_src:/home/ubuntu/ros2_ws/src
+      - /home/pi/docker/src:/home/ubuntu/share/src
+      - /home/pi/docker/tmp:/home/ubuntu/share/tmp
+      - /dev:/dev
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
 
 volumes:
   rosa_agent_logs:

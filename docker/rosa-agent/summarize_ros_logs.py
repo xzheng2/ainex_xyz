@@ -216,10 +216,13 @@ def parse_rosout_log(filepath):
                 'count': 0,
                 'first_ts': ts_str,
                 'last_ts': ts_str,
+                'first_epoch': float(epoch),
+                'last_epoch': float(epoch),
                 'sample': message[:200],
             }
         groups[key]['count'] += 1
         groups[key]['last_ts'] = ts_str
+        groups[key]['last_epoch'] = float(epoch)
 
     return groups
 
@@ -342,6 +345,12 @@ def check_missing_nodes(expected, found_nodes):
 # ---------------------------------------------------------------------------
 # Report generator
 # ---------------------------------------------------------------------------
+
+def _ts_epoch(ts_str, epoch_f):
+    """Return 'HH:MM:SS [epoch_int]' for LLM correlation with JSONL timestamps."""
+    t = ts_str.split(' ')[1] if ' ' in ts_str else ts_str
+    return f"{t} [{int(epoch_f)}]"
+
 
 def generate_report(log_dir, launch_name=None, config_path=None):
     """Generate the full Markdown summary report."""
@@ -494,8 +503,8 @@ def generate_report(log_dir, launch_name=None, config_path=None):
             msg_short = info['sample'][:100].replace('|', '\\|').replace('\n', ' ')
             sections.append(
                 f"| {level} | `{node}` | {msg_short} | {info['count']} | "
-                f"{info['first_ts'].split(' ')[1] if ' ' in info['first_ts'] else info['first_ts']} | "
-                f"{info['last_ts'].split(' ')[1] if ' ' in info['last_ts'] else info['last_ts']} |")
+                f"{_ts_epoch(info['first_ts'], info['first_epoch'])} | "
+                f"{_ts_epoch(info['last_ts'], info['last_epoch'])} |")
         sections.append("")
 
     # --- Per-Node Logs ---

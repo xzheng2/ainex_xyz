@@ -10,21 +10,22 @@ class VisualPatrol:
     def __init__(self, gait_manager):
         self.calib_config = common.get_yaml_data('/home/ubuntu/ros_ws/src/ainex_example/config/calib.yaml')
         self.x_range = [0, 0.015]  # 前进脚步大小单位m(the step length for walking forward in units of m)
-        self.yaw_range = [-8, 8]  # 转弯范围正负8度(the turning range is between -8 and 8)
+        self.yaw_range = [-8, 10]  # 转弯范围正负8度(the turning range is between -8 and 8)
         self.gait_manager = gait_manager
         self.go_gait_param = self.gait_manager.get_gait_param()
         self.go_gait_param['body_height'] = 0.025
         self.go_gait_param['step_height'] = 0.015
-        self.go_gait_param['hip_pitch_offset'] = 15
+        self.go_gait_param['hip_pitch_offset'] = 25
         self.go_gait_param['z_swap_amplitude'] = 0.006
         self.go_dsp = [300, 0.2, 0.02]
         self.go_arm_swap = 30
 
         self.turn_gait_param = self.gait_manager.get_gait_param()
         self.turn_gait_param['body_height'] = 0.025
-        self.turn_gait_param['step_height'] = 0.02
-        self.turn_gait_param['hip_pitch_offset'] = 15
+        self.turn_gait_param['step_height'] = 0.015
+        self.turn_gait_param['hip_pitch_offset'] = 25
         self.turn_gait_param['z_swap_amplitude'] = 0.006
+        self.turn_gait_param['pelvis_offset'] = 8
         self.turn_dsp = [400, 0.2, 0.02]
         self.turn_arm_swap = 30
 

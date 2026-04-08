@@ -11,6 +11,7 @@ from ainex_agent_tools.tools.walking import get_walking_state
 from ainex_agent_tools.tools.detections import get_latest_detections
 from ainex_agent_tools.tools.logs import read_recent_ros_logs, read_last_run_summary
 from ainex_agent_tools.tools.bt_monitor import get_bt_status
+from ainex_agent_tools.tools.bt_obs import read_bt_obs
 from ainex_agent_tools.tools.disabled import stop_current_behavior, stand_safe
 
 # Exported tool list consumed by ainex_agent.py
@@ -22,6 +23,7 @@ AINEX_TOOLS = [
     get_bt_status,
     read_recent_ros_logs,
     read_last_run_summary,
+    read_bt_obs,             # BT observability: auto-selects recent or lastrun
     stop_current_behavior,   # always returns disabled message
     stand_safe,              # always returns disabled message
 ]
