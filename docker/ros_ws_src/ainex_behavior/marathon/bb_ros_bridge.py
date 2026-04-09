@@ -6,11 +6,11 @@ import py_trees
 from std_msgs.msg import String
 
 MARATHON_BB_TOPIC_MAP = {
-    '/robot_state':       '/bt/marathon/bb/robot_state',
-    '/line_data':         '/bt/marathon/bb/line_data',
-    '/last_line_x':       '/bt/marathon/bb/last_line_x',
-    '/camera_lost_count': '/bt/marathon/bb/camera_lost_count',
-    '/tick_id':           '/bt/marathon/bb/tick_id',
+    '/latched/robot_state':       '/bt/marathon/bb/robot_state',
+    '/latched/line_data':         '/bt/marathon/bb/line_data',
+    '/latched/last_line_x':       '/bt/marathon/bb/last_line_x',
+    '/latched/camera_lost_count': '/bt/marathon/bb/camera_lost_count',
+    '/tick_id':                   '/bt/marathon/bb/tick_id',
 }
 
 

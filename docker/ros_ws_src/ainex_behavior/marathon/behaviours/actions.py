@@ -5,20 +5,19 @@ import rospy
 import py_trees
 from py_trees.common import Access
 from ros_robot_controller.msg import BuzzerState
-from bt_observability.ros_comm_tracer import ROSCommTracer, proxy_context
+from bt_observability.ros_comm_tracer import proxy_context
 
 
 class StopWalking(py_trees.behaviour.Behaviour):
     """Disable gait; always returns SUCCESS. No blackboard access."""
 
-    def __init__(self, name, gait_manager, logger=None, tick_id_getter=None):
+    def __init__(self, name, facade):
         super().__init__(name)
-        self.gait_manager = gait_manager
+        self._facade = facade
 
     def update(self):
         rospy.loginfo('[StopWalking] %s — gait disabled', self.name)
-        proxy_context.current_node = self.name
-        self.gait_manager.disable()
+        self._facade.disable_gait(bt_node=self.name)
         return py_trees.common.Status.SUCCESS
 
 
@@ -31,12 +30,14 @@ class FollowLine(py_trees.behaviour.Behaviour):
         self.bb = None
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/line_data", access=Access.READ)
+        self.bb = self.attach_blackboard_client(name=self.name, namespace="/latched")
+        self.bb.register_key(key="line_data", access=Access.READ)
 
     def update(self):
         line_data = self.bb.line_data
         rospy.loginfo('[FollowLine] x=%.1f width=%d', line_data.x, line_data.width)
+        # visual_patrol holds a ManagerProxy-wrapped gait_manager; proxy_context
+        # attributes the resulting set_step call to this BT node.
         proxy_context.current_node = self.name
         self.visual_patrol.process(line_data.x, line_data.width)
         return py_trees.common.Status.SUCCESS
@@ -45,7 +46,7 @@ class FollowLine(py_trees.behaviour.Behaviour):
 class FindLine(py_trees.behaviour.Behaviour):
     """Turn in-place to recover a lost line, using last known position as hint.
 
-    Reads /last_line_x and /camera_lost_count from the blackboard.
+    Reads /latched/last_line_x and /latched/camera_lost_count from the BB.
     Always returns RUNNING so the Selector keeps ticking this node each cycle
     until IsLineDetected upstream succeeds and takes over.
     StopWalking behind it acts as a structural fallback only.
@@ -62,15 +63,16 @@ class FindLine(py_trees.behaviour.Behaviour):
     # When no last_line_x history exists, rotate slowly in a fixed direction
     DEFAULT_TURN_DEG = 3
 
-    def __init__(self, name, visual_patrol):
+    def __init__(self, name, visual_patrol, facade):
         super().__init__(name)
         self.visual_patrol = visual_patrol
+        self._facade = facade
         self.bb = None
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/last_line_x", access=Access.READ)
-        self.bb.register_key(key="/camera_lost_count", access=Access.READ)
+        self.bb = self.attach_blackboard_client(name=self.name, namespace="/latched")
+        self.bb.register_key(key="last_line_x",       access=Access.READ)
+        self.bb.register_key(key="camera_lost_count", access=Access.READ)
 
     def update(self):
         last_x = self.bb.last_line_x
@@ -94,12 +96,13 @@ class FindLine(py_trees.behaviour.Behaviour):
             gait_yaw = -5
 
         rospy.loginfo('[FindLine] lost_count=%d  gait_yaw=%+d', lost_count, gait_yaw)
-        self.visual_patrol.gait_manager.set_step(
-            self.visual_patrol.turn_dsp,
-            0,          # no forward progress while searching
-            0,
-            gait_yaw,
-            self.visual_patrol.turn_gait_param,
+        self._facade.set_step(
+            bt_node=self.name,
+            dsp=self.visual_patrol.turn_dsp,
+            x=0,          # no forward progress while searching
+            y=0,
+            yaw=gait_yaw,
+            gait_param=self.visual_patrol.turn_gait_param,
             arm_swap=self.visual_patrol.turn_arm_swap,
             step_num=0,
         )
@@ -164,11 +167,12 @@ class FindLineHeadSweep(py_trees.behaviour.Behaviour):
     _ST_SWEEP = 'sweep'
     _ST_ALIGN = 'align'
 
-    def __init__(self, name, motion_manager, visual_patrol):
+    def __init__(self, name, facade, visual_patrol):
         super().__init__(name)
-        self.motion_manager = motion_manager
+        self._facade        = facade
         self.visual_patrol  = visual_patrol
         self.bb             = None
+        self.bb_pan         = None
         self._head_pan      = self.HEAD_PAN_CENTER
         self._sweep_dir     = +self.PAN_INVERT  # initial direction: sweep left
         self._pause_ticks   = 0
@@ -176,11 +180,14 @@ class FindLineHeadSweep(py_trees.behaviour.Behaviour):
         self._fresh_start   = True   # True on first run and after each ALIGN success
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/line_data",    access=Access.READ)
-        self.bb.register_key(key="/last_line_x",  access=Access.READ)
-        self.bb.register_key(key="/head_pan_pos", access=Access.WRITE)
-        self.bb.head_pan_pos = self.HEAD_PAN_CENTER  # initialise for IsHeadCentered
+        self.bb = self.attach_blackboard_client(
+            name=f"{self.name}_latched", namespace="/latched")
+        self.bb.register_key(key="line_data",   access=Access.READ)
+        self.bb.register_key(key="last_line_x", access=Access.READ)
+
+        self.bb_pan = self.attach_blackboard_client(name=self.name)
+        self.bb_pan.register_key(key="/head_pan_pos", access=Access.WRITE)
+        self.bb_pan.head_pan_pos = self.HEAD_PAN_CENTER  # initialise for IsHeadCentered
 
     def initialise(self):
         """Called on first activation and after each SUCCESS.  Reset to SWEEP.
@@ -196,7 +203,7 @@ class FindLineHeadSweep(py_trees.behaviour.Behaviour):
         stopped mid-turn.
         """
         if self.bb.line_data is None:            # SWEEP: stand still while scanning
-            self.visual_patrol.gait_manager.disable()
+            self._facade.disable_gait(bt_node=self.name)
         self._state        = self._ST_SWEEP
         self._pause_ticks  = 0
 
@@ -262,7 +269,7 @@ class FindLineHeadSweep(py_trees.behaviour.Behaviour):
             self._head_pan = self.HEAD_PAN_CENTER
             self._command_head(self.HEAD_PAN_CENTER)
             self._write_head_pan()
-            self.visual_patrol.gait_manager.disable()
+            self._facade.disable_gait(bt_node=self.name)
             self._fresh_start = True   # next initialise() is a genuine restart
             rospy.loginfo('[FindLineHeadSweep] ALIGN complete → SUCCESS')
             return py_trees.common.Status.SUCCESS
@@ -284,25 +291,28 @@ class FindLineHeadSweep(py_trees.behaviour.Behaviour):
         rospy.loginfo('[FindLineHeadSweep] ALIGN  head=%d  offset=%+d  yaw=%+d',
                       self._head_pan, head_offset, gait_yaw)
         if abs(gait_yaw) < 2:
-            self.visual_patrol.gait_manager.set_step(
-                self.visual_patrol.go_dsp, 0, 0, gait_yaw,
-                self.visual_patrol.go_gait_param,
+            self._facade.set_step(
+                bt_node=self.name,
+                dsp=self.visual_patrol.go_dsp, x=0, y=0, yaw=gait_yaw,
+                gait_param=self.visual_patrol.go_gait_param,
                 arm_swap=self.visual_patrol.go_arm_swap, step_num=0)
         else:
-            self.visual_patrol.gait_manager.set_step(
-                self.visual_patrol.turn_dsp, 0, 0, gait_yaw,
-                self.visual_patrol.turn_gait_param,
+            self._facade.set_step(
+                bt_node=self.name,
+                dsp=self.visual_patrol.turn_dsp, x=0, y=0, yaw=gait_yaw,
+                gait_param=self.visual_patrol.turn_gait_param,
                 arm_swap=self.visual_patrol.turn_arm_swap, step_num=0)
         return py_trees.common.Status.RUNNING
 
     # ── Helpers ────────────────────────────────────────────────────────────
 
     def _command_head(self, pan_pos):
-        self.motion_manager.set_servos_position(
-            self.HEAD_MOVE_DELAY_MS, [[self.HEAD_PAN_SERVO, int(pan_pos)]])
+        self._facade.set_servos_position(
+            self.HEAD_MOVE_DELAY_MS, [[self.HEAD_PAN_SERVO, int(pan_pos)]],
+            bt_node=self.name)
 
     def _write_head_pan(self):
-        self.bb.head_pan_pos = self._head_pan
+        self.bb_pan.head_pan_pos = self._head_pan
 
 
 class RecoverFromFall(py_trees.behaviour.Behaviour):
@@ -317,40 +327,29 @@ class RecoverFromFall(py_trees.behaviour.Behaviour):
     LIE_ACTION = 'lie_to_stand'
     RECLINE_ACTION = 'recline_to_stand'
 
-    def __init__(self, name, motion_manager, gait_manager, buzzer_pub,
-                 logger=None, tick_id_getter=None):
+    def __init__(self, name, facade, robot_state_setter=None):
         super().__init__(name)
-        self.motion_manager = motion_manager
-        self.gait_manager = gait_manager
-        self.buzzer_pub = buzzer_pub
-        self._tracer = ROSCommTracer(logger, lambda: self.name, tick_id_getter) \
-            if logger else None
+        self._facade = facade
+        # Called after writing 'stand' to the latched BB so the live store is
+        # also updated — prevents the next pre-tick latch from overwriting
+        # the latched key with the stale pre-recovery value.
+        self._robot_state_setter = robot_state_setter
         self.bb = None
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/robot_state", access=Access.WRITE)
+        self.bb = self.attach_blackboard_client(name=self.name, namespace="/latched")
+        self.bb.register_key(key="robot_state", access=Access.WRITE)
 
     def update(self):
         state = self.bb.robot_state
-        proxy_context.current_node = self.name
 
         # Buzzer alert before recovery
         buzzer_msg = BuzzerState(freq=1900, on_time=0.1, off_time=0.01, repeat=1)
-        if self._tracer:
-            self._tracer.publish(
-                self.buzzer_pub, buzzer_msg,
-                "/ros_robot_controller/set_buzzer",
-                topic_type="ros_robot_controller/BuzzerState",
-                reason="fall detected alert",
-                ros_node="ros_robot_controller",
-            )
-        else:
-            self.buzzer_pub.publish(buzzer_msg)
+        self._facade.publish_buzzer(
+            buzzer_msg, bt_node=self.name, reason="fall detected alert")
         time.sleep(2)
 
-        # proxy_context.current_node is still set — ManagerProxy attributes these calls
-        self.gait_manager.disable()
+        self._facade.disable_gait(bt_node=self.name)
 
         if state == 'lie_to_stand':
             rospy.loginfo('[RecoverFromFall] lie_to_stand')
@@ -363,8 +362,12 @@ class RecoverFromFall(py_trees.behaviour.Behaviour):
             action_name = None
 
         if action_name:
-            self.motion_manager.run_action(action_name)
+            self._facade.run_action(action_name, bt_node=self.name)
 
         time.sleep(0.5)
         self.bb.robot_state = 'stand'
+        # Also push 'stand' into the live store so the next pre-tick latch
+        # does not overwrite the BB with the stale pre-recovery live value.
+        if self._robot_state_setter is not None:
+            self._robot_state_setter('stand')
         return py_trees.common.Status.SUCCESS

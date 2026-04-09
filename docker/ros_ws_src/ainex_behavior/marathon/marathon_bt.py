@@ -26,8 +26,9 @@ from behaviours.actions import RecoverFromFall, FollowLine, StopWalking, FindLin
 class MarathonBT(py_trees.composites.Sequence):
     """Root sequence: SafetyGate must succeed before PatrolControl runs."""
 
-    def __init__(self, motion_manager, gait_manager, visual_patrol, buzzer_pub,
-                 find_line_cls=None, logger=None, tick_id_getter=None):
+    def __init__(self, comm_facade, visual_patrol,
+                 find_line_cls=None, logger=None, tick_id_getter=None,
+                 robot_state_setter=None):
         super().__init__(name="MarathonBT", memory=False)
 
         # --- SafetyGate ---
@@ -36,11 +37,9 @@ class MarathonBT(py_trees.composites.Sequence):
         recovery = py_trees.composites.Sequence(
             name="Recovery", memory=False)
         recovery.add_children([
-            StopWalking("StopWalking_recovery", gait_manager,
-                        logger=logger, tick_id_getter=tick_id_getter),
-            RecoverFromFall("RecoverFromFall", motion_manager,
-                            gait_manager, buzzer_pub,
-                            logger=logger, tick_id_getter=tick_id_getter),
+            StopWalking("StopWalking_recovery", comm_facade),
+            RecoverFromFall("RecoverFromFall", comm_facade,
+                            robot_state_setter=robot_state_setter),
         ])
         safety_gate.add_children([
             IsRobotStanding("IsRobotStanding", logger=logger,
@@ -62,7 +61,7 @@ class MarathonBT(py_trees.composites.Sequence):
                 FollowLine("FollowLine", visual_patrol,
                            logger=logger, tick_id_getter=tick_id_getter),
             ])
-            find_line_node = FindLine("FindLine", visual_patrol)
+            find_line_node = FindLine("FindLine", visual_patrol, comm_facade)
         else:
             # Head-sweep mode: gate FollowLine until body is aligned (head centred)
             line_following.add_children([
@@ -72,20 +71,20 @@ class MarathonBT(py_trees.composites.Sequence):
                 FollowLine("FollowLine", visual_patrol,
                            logger=logger, tick_id_getter=tick_id_getter),
             ])
-            find_line_node = find_line_cls("FindLine", motion_manager, visual_patrol)
+            find_line_node = find_line_cls("FindLine", comm_facade, visual_patrol)
 
         patrol_control.add_children([
             line_following,
             find_line_node,
-            StopWalking("StopWalking_idle", gait_manager,
-                        logger=logger, tick_id_getter=tick_id_getter),
+            StopWalking("StopWalking_idle", comm_facade),
         ])
 
         self.add_children([safety_gate, patrol_control])
 
 
-def bootstrap(motion_manager, gait_manager, visual_patrol, buzzer_pub,
-              find_line_cls=None, logger=None, tick_id_getter=None):
+def bootstrap(comm_facade, visual_patrol,
+              find_line_cls=None, logger=None, tick_id_getter=None,
+              robot_state_setter=None):
     """
     Build and set up the full marathon BehaviourTree.
 
@@ -94,9 +93,10 @@ def bootstrap(motion_manager, gait_manager, visual_patrol, buzzer_pub,
     the default gait-based FindLine.
     Pass logger + tick_id_getter to enable BT observability.
     """
-    root = MarathonBT(motion_manager, gait_manager, visual_patrol, buzzer_pub,
+    root = MarathonBT(comm_facade, visual_patrol,
                       find_line_cls=find_line_cls,
-                      logger=logger, tick_id_getter=tick_id_getter)
+                      logger=logger, tick_id_getter=tick_id_getter,
+                      robot_state_setter=robot_state_setter)
     tree = py_trees.trees.BehaviourTree(root)
     tree.setup(timeout=5)
     return tree

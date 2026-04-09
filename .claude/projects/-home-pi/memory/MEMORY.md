@@ -81,4 +81,5 @@
 - GitHub user: `xzheng2` (xzheng2@laurentian.ca)
 - Auth: credential helper `store` (`~/.git-credentials`, not tracked)
 - Allowlist `.gitignore`: only `docker/ros_ws_src/**` and `.claude/` memory/settings are tracked
-- 411 files, excludes `__pycache__`, `.pyc`, `.zip`, `.bag`, credentials, session logs
+- Excludes: `__pycache__`, `.pyc`, `.zip`, `.7z`, `.bag`, `.so`, `build/`, `core` dumps, `*_this_session.md`, `*.egg-info/`, credentials, BT session logs
+- **All new files in `ros_ws_src/` should be committed** — new files show as `??` (untracked, not ignored); run `git add docker/ros_ws_src/` + commit + push when wrapping up sessions or adding new source files

@@ -14,8 +14,8 @@ class IsRobotStanding(py_trees.behaviour.Behaviour):
         self.bb = None
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/robot_state", access=Access.READ)
+        self.bb = self.attach_blackboard_client(name=self.name, namespace="/latched")
+        self.bb.register_key(key="robot_state", access=Access.READ)
 
     def update(self):
         state = self.bb.robot_state
@@ -44,8 +44,8 @@ class IsLineDetected(py_trees.behaviour.Behaviour):
         self.bb = None
 
     def setup(self, **kwargs):
-        self.bb = self.attach_blackboard_client(name=self.name)
-        self.bb.register_key(key="/line_data", access=Access.READ)
+        self.bb = self.attach_blackboard_client(name=self.name, namespace="/latched")
+        self.bb.register_key(key="line_data", access=Access.READ)
 
     def update(self):
         line_data = self.bb.line_data

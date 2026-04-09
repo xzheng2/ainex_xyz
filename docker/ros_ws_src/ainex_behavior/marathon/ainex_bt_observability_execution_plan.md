@@ -1102,6 +1102,58 @@ class RecoverFromFall(py_trees.behaviour.Behaviour):
 - [x] `marathon_bt.py`：`tick_id_getter` 传给 `IsRobotStanding` + `IsLineDetected`
 - [x] `conditions.py`：两个 Condition 节点加 `tick_id_getter` 参数
 
+### Phase 5：Tick 级 Latched Inputs（输入锁存）✅
+
+**背景问题**：ROS subscriber callback（IMU @ 100 Hz，camera @ 30 Hz）直接写入 blackboard，
+tick loop（15 Hz）在 tick 中途可能读到异步更新的值，导致同一 tick 内条件节点与动作节点看到
+不一致的 BB 状态（race condition）。
+
+**实现机制**：
+
+| 角色 | 存储位置 | 写入方 | 读取方 |
+|------|---------|--------|--------|
+| Live store | `self._live` dict（Python 实例变量，protected by `self.lock`） | ROS callbacks only | `_latch_inputs()` |
+| Latched store | `py_trees.blackboard.Blackboard.storage`（现有 BB 键名不变） | `_latch_inputs()` only | BT 节点（无需改动） |
+
+**数据流**：
+```
+ROS Callback 线程 (100/30 Hz)
+    ↓  with self.lock: self._live['robot_state' / 'line_data' / …] = …
+主线程 run() (15 Hz)
+    ↓  _latch_inputs() — 原子快照 dict(self._live) → 写 BB latched 键
+    ↓  tree.tick()
+           BT 条件/动作节点读 BB（tick 开始时的冻结快照）
+```
+
+**RecoverFromFall 双写**：该节点是唯一既读又写 `/robot_state` 的 BT 节点。写完 `'stand'`
+后必须同步更新 live store，否则下次 `_latch_inputs()` 会用旧的 live 值覆盖动作输出。
+通过 `robot_state_setter` 回调实现：
+
+```python
+self.bb.robot_state = 'stand'       # 写 latched BB（当前 tick 内其余节点可见）
+self._robot_state_setter('stand')   # 同步写 live store（下次 latch 保持一致）
+```
+
+**Pause/Step 挂钩点**：`_latch_inputs()` 执行完、`tree.tick()` 调用前。此时 BB 精确反映
+本次 tick 将看到的输入快照——未来 step-mode 快照发布、决策前断点等均应在此处注入。
+
+**已修改文件**：
+
+| 文件 | 改动摘要 |
+|------|---------|
+| `marathon_bt_node.py` | 新增 `self._live` dict；callbacks 改写 live；新增 `_latch_inputs()` + `_set_live_robot_state()`；`run()` 在 tick 前调 `_latch_inputs()` |
+| `marathon_bt.py` | `bootstrap()` + `MarathonBT.__init__()` 透传 `robot_state_setter` |
+| `behaviours/actions.py` | `RecoverFromFall` 新增 `robot_state_setter` 参数；`update()` 末尾调 setter |
+| `behaviours/conditions.py` | **无需改动**（读 latched BB，键名不变） |
+| `bb_ros_bridge.py` | **无需改动**（发布 latched 键视图，语义变好） |
+
+**ROSA 工具影响**：
+- `get_bt_status`：读 `/bt/marathon/bb/*`（bb_ros_bridge 发布 latched 视图）= BT 实际看到的值，语义更准确
+- `read_bt_obs`：读 JSONL 文件，不受影响（comm debug payload 来自原始消息/方法参数，不从 BB 读取）
+- `get_latest_detections`：直接订阅 `/object/pixel_coords`，看实时 live 原始帧，不受影响
+
+---
+
 ### 验证命令
 
 ```bash
@@ -1132,6 +1184,7 @@ ls marathon/log/rosbag/
 | rosbag 占用磁盘 | 30min × 所有 topic 流量 | `--max-splits 30` 自动删旧；按需裁减 `_ROSBAG_TOPICS` |
 | bb_write 压缩丢弃中间值 | 同 key 连续相同值只保留首尾 | 中间值通常为噪声；需精确时用 rosbag |
 | `visual_patrol.py` 需同步更新 | 若源文件有 bug fix，需手动同步本地拷贝 | 保持版本注释，便于 diff |
+| callback 与 tick 的输入竞争（mid-tick mutation） | callback 直接写 BB 会导致同 tick 内不同节点读到不同版本的输入值 | **Phase 5 已解决**：`_latch_inputs()` 在 tick 前原子快照，所有节点共享冻结视图 |
 
 ---
 
@@ -1213,8 +1266,8 @@ docker exec rosa-agent python3 -c \
 | `bt_observability/bt_debug_visitor.py` | **新建** | BTDebugVisitor；bb_write flush（正确 ActivityItem 字段）；same-value 压缩；异步拓扑快照 |
 | `bt_observability/ros_comm_tracer.py` | **新建** | ROSCommTracer + ProxyContext + proxy_context + ManagerProxy |
 | `marathon/behaviours/visual_patrol.py` | **新建** | 从 ainex_example 复制，加 stop() 方法 |
-| `marathon/marathon_bt_node.py` | **修改** | _ROSBAG_TOPICS；DebugEventLogger 新参数；ROSCommTracer import；ros_topic_received emit + tick 去重；删除 activity stream 读取块 |
-| `marathon/marathon_bt.py` | **修改** | bootstrap() / MarathonBT.__init__() 传 logger + tick_id_getter；Condition 节点加 tick_id_getter |
+| `marathon/marathon_bt_node.py` | **修改** | _ROSBAG_TOPICS；DebugEventLogger 新参数；ROSCommTracer import；ros_topic_received emit + tick 去重；删除 activity stream 读取块；**Phase 5**：`self._live` dict；callback 写 live；`_latch_inputs()` + `_set_live_robot_state()`；`run()` pre-tick latch；`bootstrap()` 透传 `robot_state_setter` |
+| `marathon/marathon_bt.py` | **修改** | bootstrap() / MarathonBT.__init__() 传 logger + tick_id_getter；Condition 节点加 tick_id_getter；**Phase 5**：`bootstrap()` + `MarathonBT.__init__()` 新增 `robot_state_setter` 参数透传 |
 | `marathon/behaviours/conditions.py` | **修改** | IsRobotStanding + IsLineDetected 加 tick_id_getter 参数；emit_bt(decision) |
-| `marathon/behaviours/actions.py` | **修改** | proxy_context.current_node；ROSCommTracer 仅用于 buzzer |
+| `marathon/behaviours/actions.py` | **修改** | proxy_context.current_node；ROSCommTracer 仅用于 buzzer；**Phase 5**：`RecoverFromFall` 新增 `robot_state_setter` 参数；`update()` 末尾调 setter |
 | `.gitignore` | **已有** | `marathon/log/` 已排除（含 rosbag/ 子目录）|

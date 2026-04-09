@@ -27,6 +27,7 @@ from ros_robot_controller.msg import BuzzerState
 from behaviours.visual_patrol import VisualPatrol  # type: ignore  (local copy)
 
 from marathon_bt import bootstrap  # type: ignore
+from comm_facade import CommFacade  # type: ignore
 from behaviours.actions import FindLineHeadSweep  # type: ignore
 from tree_publisher import TreeROSPublisher  # type: ignore
 from bb_ros_bridge import MarathonBBBridge  # type: ignore
@@ -74,23 +75,45 @@ class MarathonBTNode(Common):
         # init_action
         super().__init__(name, self.head_pan_init, self.head_tilt_init)
 
-        # Blackboard writer (global keys — no namespace prefix)
-        self._bb = py_trees.blackboard.Client(name="MarathonBTNode")
+        # ── Live (pending) inputs — written only by async ROS callbacks ────
+        # Callbacks update this dict exclusively.  _latch_inputs() copies a
+        # snapshot to the BB once per iteration, just before tree.tick(), so
+        # every BT node in a single tick sees a frozen, consistent view of
+        # sensor inputs (no mid-tick async mutation).
+        self._live = {
+            'robot_state':       'stand',
+            'line_data':         None,
+            'last_line_x':       None,
+            'camera_lost_count': 0,
+        }
+
+        # ── Latched BB client — written only by _latch_inputs() ─────────
+        # BT condition/action nodes read these keys via their own BB clients
+        # using namespace="/latched", so they resolve to /latched/<key>.
+        # /tick_id is BT-internal (not a sensor input) and kept at /tick_id.
+        self._bb = py_trees.blackboard.Client(
+            name="MarathonBTNode_latched", namespace="/latched")
         self._bb.register_key(
-            key="/robot_state", access=py_trees.common.Access.WRITE)
+            key="robot_state", access=py_trees.common.Access.WRITE)
         self._bb.register_key(
-            key="/line_data", access=py_trees.common.Access.WRITE)
+            key="line_data", access=py_trees.common.Access.WRITE)
         self._bb.register_key(
-            key="/last_line_x", access=py_trees.common.Access.WRITE)
+            key="last_line_x", access=py_trees.common.Access.WRITE)
         self._bb.register_key(
-            key="/camera_lost_count", access=py_trees.common.Access.WRITE)
-        self._bb.register_key(
+            key="camera_lost_count", access=py_trees.common.Access.WRITE)
+        # Initialise BB to match live store so nodes never hit KeyError
+        # before the first _latch_inputs() call.
+        self._bb.robot_state       = self._live['robot_state']
+        self._bb.line_data         = self._live['line_data']
+        self._bb.last_line_x       = self._live['last_line_x']
+        self._bb.camera_lost_count = self._live['camera_lost_count']
+
+        # /tick_id lives at an absolute path (no namespace) — separate client
+        # avoids attribute-name ambiguity when the latched client has namespace.
+        self._bb_meta = py_trees.blackboard.Client(name="MarathonBTNode_meta")
+        self._bb_meta.register_key(
             key="/tick_id", access=py_trees.common.Access.WRITE)
-        self._bb.robot_state = 'stand'
-        self._bb.line_data = None
-        self._bb.last_line_x = None
-        self._bb.camera_lost_count = 0
-        self._bb.tick_id = 0
+        self._bb_meta.tick_id = 0
 
         # Buzzer publisher (passed into RecoverFromFall action)
         self.buzzer_pub = rospy.Publisher(
@@ -168,8 +191,10 @@ class MarathonBTNode(Common):
             },
         }
 
-        # Wrap managers with tracing proxies — visual_patrol and bootstrap
-        # receive the proxies so all their manager calls are automatically logged.
+        # Wrap managers with tracing proxies — visual_patrol receives the proxies
+        # so all internal gait calls (FollowLine via visual_patrol.process) are
+        # automatically logged.  CommFacade also receives the same proxies so
+        # explicit leaf-node comms share the same logging path.
         self._gait_proxy   = ManagerProxy(self.gait_manager,   self._obs_logger,
                                           lambda: self._tick_id, _GAIT_ROS_MAP,
                                           "gait_manager")
@@ -178,15 +203,24 @@ class MarathonBTNode(Common):
                                           "motion_manager")
         self.visual_patrol = VisualPatrol(self._gait_proxy)
 
+        # Unified comm facade — leaf nodes call this instead of managers directly.
+        # Sets proxy_context for ManagerProxy attribution; handles buzzer logging.
+        self._comm_facade = CommFacade(
+            gait_manager=self._gait_proxy,
+            motion_manager=self._motion_proxy,
+            buzzer_pub=self.buzzer_pub,
+            logger=self._obs_logger,
+            tick_id_getter=lambda: self._tick_id,
+        )
+
         # Build and setup the behavior tree
         self.tree = bootstrap(
-            self._motion_proxy,
-            self._gait_proxy,
+            self._comm_facade,
             self.visual_patrol,
-            self.buzzer_pub,
             find_line_cls=_find_line_cls,
             logger=self._obs_logger,
             tick_id_getter=lambda: self._tick_id,
+            robot_state_setter=self._set_live_robot_state,
         )
 
         # Debug visitor: records per-node tick events to obs_logger
@@ -248,7 +282,7 @@ class MarathonBTNode(Common):
                            msg.linear_acceleration.z))))
 
         with self.lock:
-            current_state = self._bb.robot_state
+            current_state = self._live['robot_state']
 
         if current_state != 'stand':
             # Recovery in progress — don't accumulate fall counts
@@ -269,13 +303,13 @@ class MarathonBTNode(Common):
             self.count_lie = 0
             self.count_recline = 0
             with self.lock:
-                self._bb.robot_state = 'lie_to_stand'
+                self._live['robot_state'] = 'lie_to_stand'
             rospy.loginfo('[Marathon BT] fall detected: lie_to_stand')
         elif self.count_recline > self.FALL_COUNT_THRESHOLD:
             self.count_lie = 0
             self.count_recline = 0
             with self.lock:
-                self._bb.robot_state = 'recline_to_stand'
+                self._live['robot_state'] = 'recline_to_stand'
             rospy.loginfo('[Marathon BT] fall detected: recline_to_stand')
 
     def _objects_callback(self, msg):
@@ -304,15 +338,15 @@ class MarathonBTNode(Common):
             rospy.loginfo('[BB] line detected x=%.1f', line_data.x)
         else:
             rospy.loginfo('[BB] line lost (count=%d)',
-                          self._bb.camera_lost_count + 1)
+                          self._live['camera_lost_count'] + 1)
 
         with self.lock:
-            self._bb.line_data = line_data
+            self._live['line_data'] = line_data
             if line_data is not None:
-                self._bb.last_line_x = line_data.x
-                self._bb.camera_lost_count = 0
+                self._live['last_line_x'] = line_data.x
+                self._live['camera_lost_count'] = 0
             else:
-                self._bb.camera_lost_count = self._bb.camera_lost_count + 1
+                self._live['camera_lost_count'] = self._live['camera_lost_count'] + 1
 
     # ------------------------------------------------------------------
     # Color detection setup (mirrors VisualPatrolNode.set_color_srv_callback)
@@ -360,6 +394,43 @@ class MarathonBTNode(Common):
         common.loginfo('%s _set_color: %s' % (self.name, color_name))
 
     # ------------------------------------------------------------------
+    # Live → Latched input management
+    # ------------------------------------------------------------------
+
+    def _latch_inputs(self):
+        """Snapshot the live (async) input dict into the latched BB keys.
+
+        Called once per BT iteration, *before* self.tree.tick(), so every
+        node in a tick reads a consistent, frozen view of sensor inputs.
+        The copy is done under self.lock to avoid a torn read, then the
+        BB writes happen outside the lock (the BB is only touched from the
+        main thread during ticks).
+
+        ── Pause/Step hook ─────────────────────────────────────────────
+        This is the natural injection point for step-mode inspection:
+        after _latch_inputs() the BB reflects exactly what the upcoming
+        tick will see.  A future debugger could snapshot or publish the
+        latched state here before calling tree.tick().
+        """
+        with self.lock:
+            snap = dict(self._live)
+        self._bb.robot_state       = snap['robot_state']
+        self._bb.line_data         = snap['line_data']
+        self._bb.last_line_x       = snap['last_line_x']
+        self._bb.camera_lost_count = snap['camera_lost_count']
+
+    def _set_live_robot_state(self, state):
+        """Callback for RecoverFromFall to write recovery completion into live.
+
+        RecoverFromFall already writes 'stand' to the latched BB key so the
+        remainder of the current tick (PatrolControl) sees 'stand'.  It also
+        calls this setter so the *next* pre-tick latch does not overwrite the
+        BB with the stale pre-recovery live value that the IMU callback set.
+        """
+        with self.lock:
+            self._live['robot_state'] = state
+
+    # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
@@ -370,11 +441,15 @@ class MarathonBTNode(Common):
         common.loginfo('%s shutdown' % self.name)
 
     def run(self):
-        rate = rospy.Rate(15)
+        rate = rospy.Rate(10)
         while self.running and not rospy.is_shutdown():
             if self.start and self._exec_ctrl.should_tick():
                 self._tick_id += 1
-                self._bb.tick_id = self._tick_id
+                self._bb_meta.tick_id = self._tick_id
+                # Snapshot async inputs into latched BB keys before any BT
+                # node runs.  All nodes in this tick share this frozen view;
+                # new callbacks arriving mid-tick only affect the next tick.
+                self._latch_inputs()
                 self.tree.tick()
 
                 # Print tree snapshot only when a node changed status
