@@ -22,8 +22,8 @@ manager, publisher, or CommFacade references appear in this file.
 """
 import py_trees
 
-from behaviours.conditions import IsRobotStanding, IsLineDetected, IsHeadCentered
-from behaviours.actions import RecoverFromFall, FollowLine, StopWalking, FindLine, FindLineHeadSweep
+from marathon.behaviours.conditions import IsRobotStanding, IsLineDetected, IsHeadCentered
+from marathon.behaviours.actions import RecoverFromFall, FollowLine, StopWalking, FindLine, FindLineHeadSweep
 
 
 class MarathonBT(py_trees.composites.Sequence):

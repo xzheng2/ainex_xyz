@@ -4,30 +4,33 @@
 # Calculates gait control commands from line detection data; does NOT issue
 # any ROS commands directly.  The caller (MarathonSemanticFacade) is
 # responsible for passing the returned command dict to the Generic ROS Facade.
+#
+# Constructor accepts pre-built gait parameter dicts (pure data) so this
+# module has zero runtime dependency on any manager object.
 import math
 from ainex_sdk import misc, common
 
 
 class VisualPatrol:
-    def __init__(self, gait_manager):
-        self.calib_config = common.get_yaml_data('/home/ubuntu/ros_ws/src/ainex_example/config/calib.yaml')
+    def __init__(self, go_gait_param, turn_gait_param):
+        """
+        Args:
+            go_gait_param:   Gait parameter dict for straight walking.
+            turn_gait_param: Gait parameter dict for turning.
+                             Both dicts are built at the app layer from
+                             gait_manager.get_gait_param() + overrides, then
+                             passed here as plain data.
+        """
+        self.calib_config = common.get_yaml_data(
+            '/home/ubuntu/ros_ws/src/ainex_example/config/calib.yaml')
         self.x_range = [0, 0.015]
         self.yaw_range = [-8, 10]
-        # gait_manager used only for initial parameter loading (one-time read)
-        self.go_gait_param = gait_manager.get_gait_param()
-        self.go_gait_param['body_height'] = 0.025
-        self.go_gait_param['step_height'] = 0.015
-        self.go_gait_param['hip_pitch_offset'] = 25
-        self.go_gait_param['z_swap_amplitude'] = 0.006
+
+        self.go_gait_param = go_gait_param
         self.go_dsp = [300, 0.2, 0.02]
         self.go_arm_swap = 30
 
-        self.turn_gait_param = gait_manager.get_gait_param()
-        self.turn_gait_param['body_height'] = 0.025
-        self.turn_gait_param['step_height'] = 0.015
-        self.turn_gait_param['hip_pitch_offset'] = 25
-        self.turn_gait_param['z_swap_amplitude'] = 0.006
-        self.turn_gait_param['pelvis_offset'] = 8
+        self.turn_gait_param = turn_gait_param
         self.turn_dsp = [400, 0.2, 0.02]
         self.turn_arm_swap = 30
 

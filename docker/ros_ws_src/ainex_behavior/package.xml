@@ -22,4 +22,5 @@
   <exec_depend>ainex_example</exec_depend>
   <exec_depend>py_trees_msgs</exec_depend>
   <exec_depend>unique_id</exec_depend>
+  <exec_depend>python3-rospkg</exec_depend>
 </package>

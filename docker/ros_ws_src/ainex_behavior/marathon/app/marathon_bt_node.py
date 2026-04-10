@@ -10,11 +10,14 @@ import math
 import time
 import signal
 
-# --- local import paths ---
-# Allow "from behaviours.x import ..." and "from marathon_bt import ..."
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# Allow "from bt_observability.x import ..." (ainex_behavior/ parent dir)
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# ── Package path via rospkg (stable across catkin_install_python wrappers) ──
+# rospkg.get_path() returns the source directory regardless of whether the
+# node is launched from source or from an installed wrapper script.
+import rospkg as _rospkg
+_AINEX_BEHAV_DIR = _rospkg.RosPack().get_path('ainex_behavior')
+sys.path.insert(0, _AINEX_BEHAV_DIR)
+
+_LOG_DIR = os.path.join(_AINEX_BEHAV_DIR, 'marathon', 'log')
 
 import rospy
 import py_trees
@@ -24,20 +27,19 @@ from ainex_sdk import common
 from ainex_example.color_common import Common
 from ainex_interfaces.msg import ObjectsInfo, ColorDetect
 from ros_robot_controller.msg import BuzzerState
-from behaviours.visual_patrol import VisualPatrol  # type: ignore  (local copy)
 
-from marathon_bt import bootstrap  # type: ignore
-from comm_facade import CommFacade  # type: ignore
-from semantic_facade import MarathonSemanticFacade  # type: ignore
-from behaviours.actions import FindLineHeadSweep  # type: ignore
-from tree_publisher import TreeROSPublisher  # type: ignore
-from bb_ros_bridge import MarathonBBBridge  # type: ignore
-from bt_exec_controller import BTExecController  # type: ignore
+from marathon.tree.marathon_bt import bootstrap
+from marathon.comm.comm_facade import CommFacade
+from marathon.semantics.semantic_facade import MarathonSemanticFacade
+from marathon.algorithms.visual_patrol import VisualPatrol
+from marathon.behaviours.actions import FindLineHeadSweep
+from marathon.infra.tree_publisher import TreeROSPublisher
+from marathon.infra.bb_ros_bridge import MarathonBBBridge
+from marathon.infra.bt_exec_controller import BTExecController
+from marathon.infra.infra_manifest import build_infra_manifest, write_infra_manifest
+from marathon.app.ros_msg_utils import msg_to_dict
 from bt_observability.debug_event_logger import DebugEventLogger
 from bt_observability.bt_debug_visitor import BTDebugVisitor
-from bt_observability.ros_comm_tracer import ManagerProxy, ROSCommTracer
-
-_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log')
 
 
 class MarathonBTNode(Common):
@@ -105,7 +107,8 @@ class MarathonBTNode(Common):
             key="/tick_id", access=py_trees.common.Access.WRITE)
         self._bb_meta.tick_id = 0
 
-        # Buzzer publisher (passed into RecoverFromFall action)
+        # Buzzer publisher (passed into CommFacade, used by RecoverFromFall via
+        # semantic_facade → comm_facade.publish_buzzer)
         self.buzzer_pub = rospy.Publisher(
             '/ros_robot_controller/set_buzzer', BuzzerState, queue_size=1)
 
@@ -116,7 +119,7 @@ class MarathonBTNode(Common):
         # Observability: logger + visitor (tick_id managed in run())
         os.makedirs(_LOG_DIR, exist_ok=True)
         self._tick_id = 0
-        # Per-topic dedup: only emit ros_topic_received once per BT tick
+        # Per-topic dedup: only emit ros_in once per BT tick
         self._last_imu_emit_tick = -1
         self._last_obj_emit_tick = -1
         self._obs_logger = DebugEventLogger(
@@ -132,70 +135,32 @@ class MarathonBTNode(Common):
             tick_id_getter=lambda: self._tick_id,
         )
 
-        # ROS interface maps for ManagerProxy — maps Python method names to the
-        # actual ROS topic/service they communicate with.
-        _GAIT_ROS_MAP = {
-            "disable": {
-                "comm_type": "service_call", "direction": "call",
-                "target": "/walking/command", "ros_node": "ainex_controller",
-                "payload_fn": lambda args, kwargs: {"command": "disable"},
-            },
-            "enable": {
-                "comm_type": "service_call", "direction": "call",
-                "target": "/walking/command", "ros_node": "ainex_controller",
-                "payload_fn": lambda args, kwargs: {"command": "enable"},
-            },
-            "stop": {
-                "comm_type": "service_call", "direction": "call",
-                "target": "/walking/command", "ros_node": "ainex_controller",
-                "payload_fn": lambda args, kwargs: {"command": "stop"},
-            },
-            "set_step": {
-                "comm_type": "topic_publish", "direction": "publish",
-                "target": "walking/set_param", "ros_node": "ainex_controller",
-                "payload_fn": lambda args, kwargs: {
-                    "dsp": args[0] if len(args) > 0 else None,
-                    "x":   args[1] if len(args) > 1 else None,
-                    "y":   args[2] if len(args) > 2 else None,
-                    "yaw": args[3] if len(args) > 3 else None,
-                },
-            },
-        }
-        _MOTION_ROS_MAP = {
-            "run_action": {
-                "comm_type": "topic_publish", "direction": "publish",
-                "target": "ros_robot_controller/bus_servo/set_position",
-                "ros_node": "ros_robot_controller",
-                "payload_fn": lambda args, kwargs: {"action": args[0] if args else None},
-            },
-            "set_servos_position": {
-                "comm_type": "topic_publish", "direction": "publish",
-                "target": "ros_robot_controller/bus_servo/set_position",
-                "ros_node": "ros_robot_controller",
-                "payload_fn": lambda args, kwargs: {
-                    "duration":  args[0] if len(args) > 0 else None,
-                    "positions": args[1] if len(args) > 1 else None,
-                },
-            },
-        }
+        # ── Build algorithm + facade layers ─────────────────────────────
+        # Gait parameters: loaded at app layer and passed as pure data to
+        # VisualPatrol so the algorithm layer has zero runtime dependency.
+        _go_param = self.gait_manager.get_gait_param()
+        _go_param['body_height']      = 0.025
+        _go_param['step_height']      = 0.015
+        _go_param['hip_pitch_offset'] = 25
+        _go_param['z_swap_amplitude'] = 0.006
 
-        # Wrap managers with tracing proxies — visual_patrol receives the proxies
-        # so all internal gait calls (FollowLine via visual_patrol.process) are
-        # automatically logged.  CommFacade also receives the same proxies so
-        # explicit leaf-node comms share the same logging path.
-        self._gait_proxy   = ManagerProxy(self.gait_manager,   self._obs_logger,
-                                          lambda: self._tick_id, _GAIT_ROS_MAP,
-                                          "gait_manager")
-        self._motion_proxy = ManagerProxy(self.motion_manager, self._obs_logger,
-                                          lambda: self._tick_id, _MOTION_ROS_MAP,
-                                          "motion_manager")
-        self.visual_patrol = VisualPatrol(self._gait_proxy)
+        _turn_param = self.gait_manager.get_gait_param()
+        _turn_param['body_height']      = 0.025
+        _turn_param['step_height']      = 0.015
+        _turn_param['hip_pitch_offset'] = 25
+        _turn_param['z_swap_amplitude'] = 0.006
+        _turn_param['pelvis_offset']    = 8
 
-        # Generic ROS Facade — unified ROS communication exit and final log outlet.
-        # All outbound ROS calls from the semantic facade flow through here.
+        self.visual_patrol = VisualPatrol(
+            go_gait_param=_go_param,
+            turn_gait_param=_turn_param,
+        )
+
+        # Generic ROS Facade — sole business ROS exit and log outlet.
+        # Receives real manager objects (not proxies).
         self._comm_facade = CommFacade(
-            gait_manager=self._gait_proxy,
-            motion_manager=self._motion_proxy,
+            gait_manager=self.gait_manager,
+            motion_manager=self.motion_manager,
             buzzer_pub=self.buzzer_pub,
             logger=self._obs_logger,
             tick_id_getter=lambda: self._tick_id,
@@ -229,6 +194,7 @@ class MarathonBTNode(Common):
         self._snapshot_visitor = py_trees.visitors.SnapshotVisitor()
         self.tree.visitors.append(self._snapshot_visitor)
 
+        # ── Infra components ────────────────────────────────────────────
         # Publish tree state on ROS topics for rqt_py_trees and ROSA
         self._tree_publisher = TreeROSPublisher(self.tree)
         self._bb_bridge = MarathonBBBridge()
@@ -241,6 +207,10 @@ class MarathonBTNode(Common):
         rospy.Subscriber('/imu', Imu, self._imu_callback)
         rospy.Subscriber('/object/pixel_coords', ObjectsInfo,
                          self._objects_callback)
+
+        # Write static infra comm manifest (overwrites on each startup)
+        manifest_path = os.path.join(_LOG_DIR, 'infra_comm_manifest_lastrun.json')
+        write_infra_manifest(manifest_path, build_infra_manifest(self.name))
 
         # Play ready posture
         self.motion_manager.run_action('walk_ready')
@@ -264,13 +234,15 @@ class MarathonBTNode(Common):
         if self._tick_id != self._last_imu_emit_tick:
             self._last_imu_emit_tick = self._tick_id
             self._obs_logger.emit_comm({
-                "event":     "ros_topic_received",
-                "direction": "subscribe",
+                "event":     "ros_in",
+                "ts":        time.time(),
+                "tick_id":   self._tick_id,
+                "comm_type": "topic_subscribe",
+                "direction": "in",
                 "target":    "/imu",
                 "ros_node":  None,
-                "node":      self.name,
-                "tick_id":   self._tick_id,
-                "payload":   ROSCommTracer._msg_to_dict(msg),
+                "adapter":   "imu_callback",
+                "payload":   msg_to_dict(msg),
             })
         angle = abs(int(
             math.degrees(
@@ -316,13 +288,15 @@ class MarathonBTNode(Common):
         if self._tick_id != self._last_obj_emit_tick:
             self._last_obj_emit_tick = self._tick_id
             self._obs_logger.emit_comm({
-                "event":     "ros_topic_received",
-                "direction": "subscribe",
+                "event":     "ros_in",
+                "ts":        time.time(),
+                "tick_id":   self._tick_id,
+                "comm_type": "topic_subscribe",
+                "direction": "in",
                 "target":    "/object/pixel_coords",
                 "ros_node":  None,
-                "node":      self.name,
-                "tick_id":   self._tick_id,
-                "payload":   ROSCommTracer._msg_to_dict(msg),
+                "adapter":   "objects_callback",
+                "payload":   msg_to_dict(msg),
             })
         line_data = None
         for obj in msg.data:
