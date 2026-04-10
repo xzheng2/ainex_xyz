@@ -93,12 +93,12 @@ DebugEventLogger(
 
 | 文件 | 内容 | 存储策略 |
 |---|---|---|
-| `bt_debug_lastrun.jsonl` | 本次 session 全部 BT 决策事件 | 内存缓冲，每 tick 原子重写，newest-first |
-| `bt_debug_recent.jsonl` | 最近 `max_rolling_ticks` 个 tick 的 BT 事件 | 每 tick 滚动写，newest-first |
-| `bt_ros_comm_debug_lastrun.jsonl` | 本次 session 全部通信事件 | 同上 |
-| `bt_ros_comm_debug_recent.jsonl` | 最近 N 个 tick 的通信事件 | 同上 |
+| `bt_debug_lastrun.jsonl` | 本次 session 全部 BT 决策事件 | append-only（oldest-first）；`close()` 时原子倒序为 newest-first |
+| `bt_debug_recent.jsonl` | 最近 `max_rolling_ticks` 个 tick 的 BT 事件 | 每 tick 原子重写，newest-first |
+| `bt_ros_comm_debug_lastrun.jsonl` | 本次 session 全部通信事件 | 同 lastrun |
+| `bt_ros_comm_debug_recent.jsonl` | 最近 N 个 tick 的通信事件 | 同 recent |
 
-**所有文件 newest-first**（tick_id 最大的记录在文件顶部）。
+**Rolling 文件**始终 newest-first。**Lastrun 文件**在正常关闭（`close()` 调用）后变为 newest-first；异常退出（crash）时保持 oldest-first。
 
 **Rosbag 录制（可选）：**
 - 传入 `rosbag_topics` 列表时，node 启动自动在后台开启 rosbag 录制
@@ -113,7 +113,7 @@ logger.emit_comm(payload: dict)       # 发布通信事件
 logger.begin_tick(tick_id: int)       # 每 tick 开始时清空缓冲
 logger.end_tick(tick_id: int)         # 每 tick 结束时 flush 到文件
 logger.snapshot_ros_topology(tick_id) # 异步收集 rosnode/rostopic 快照
-logger.close()                        # no-op（文件无需显式关闭）
+logger.close()                        # 关闭 append 文件句柄，倒序 lastrun 为 newest-first，停止 rosbag
 ```
 
 ---
@@ -410,5 +410,5 @@ ROSA 通过以下工具消费可观测性数据：
 - `bt_debug_visitor.py` 的 `full=False`：只 visit 实际被 tick 到的节点，未执行节点不产生 `tick_end` 事件。
 - BB write 去重在每个 tick 内独立处理，跨 tick 不保留状态。
 - `ros_topology_snapshot` 异步执行（daemon thread），不阻塞主循环，可能与当前 tick 错位一个 tick。
-- `close()` 为 no-op；最后一个 tick 的数据已在 `end_tick()` 时原子写入，node 被 SIGINT 终止时不会丢失已写入内容。
+- `close()` 负责关闭 lastrun append 文件句柄并原子倒序为 newest-first。正常关闭（SIGINT → ROS shutdown hook）时调用；crash 则不调用，lastrun 文件保持 oldest-first 顺序（内容完整，仅顺序未倒序）。
 - rosbag 录制需手动在 `DebugEventLogger` 构造时传入 `rosbag_topics`，默认关闭。
