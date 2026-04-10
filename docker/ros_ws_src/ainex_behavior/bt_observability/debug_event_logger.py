@@ -3,12 +3,13 @@
 DebugEventLogger: publish ROS topic + write two-tier JSONL storage.
 
 Two-tier storage:
-  last-run  — fixed filename, cleared on each roscore start, all ticks buffered
-              in memory and atomically rewritten newest-first on each tick_end.
+  last-run  — append-only during run (oldest-first on disk); reversed to
+              newest-first in close() for ROSA reads after session ends.
   rolling   — fixed filename, last N ticks only, atomically rewritten
               on each tick_end. For ROSA/LLM context window.
 
-Both files are always newest-first (highest tick_id at top).
+Rolling files are always newest-first. Lastrun files become newest-first
+after a clean shutdown (close() call).
 """
 import os
 import json
@@ -52,15 +53,13 @@ class DebugEventLogger:
         self._bt_pub = rospy.Publisher(bt_topic, String, queue_size=100)
         self._comm_pub = rospy.Publisher(comm_topic, String, queue_size=100)
 
-        # last-run: cleared on startup, all ticks buffered in memory,
-        # atomically rewritten newest-first on each tick_end
+        # last-run: append-only during run; reversed to newest-first in close()
         self._lastrun_bt_path = bt_lastrun_jsonl
         self._lastrun_comm_path = comm_lastrun_jsonl
-        self._bt_all_ticks = []    # list of tick line-lists, oldest first
-        self._comm_all_ticks = []
-        # Clear files on startup
-        open(bt_lastrun_jsonl, "w").close()
+        open(bt_lastrun_jsonl, "w").close()        # truncate on startup
         open(comm_lastrun_jsonl, "w").close()
+        self._bt_lastrun_f   = open(bt_lastrun_jsonl,  "a", buffering=1)
+        self._comm_lastrun_f = open(comm_lastrun_jsonl, "a", buffering=1)
 
         # rolling: fixed path, atomically rewritten each tick
         self._rolling_bt_path = rolling_bt_jsonl
@@ -101,18 +100,26 @@ class DebugEventLogger:
         self._comm_tick_buf = []
 
     def end_tick(self, tick_id: int):
-        """Called by BTDebugVisitor.on_tree_tick_end(). Pushes to buffers and flushes."""
+        """Called by BTDebugVisitor.on_tree_tick_end(). Appends to files and flushes rolling."""
         if self._bt_tick_buf:
             self._bt_rolling.append(list(self._bt_tick_buf))
-            self._bt_all_ticks.append(list(self._bt_tick_buf))
+            for line in self._bt_tick_buf:
+                self._bt_lastrun_f.write(line + "\n")
         if self._comm_tick_buf:
             self._comm_rolling.append(list(self._comm_tick_buf))
-            self._comm_all_ticks.append(list(self._comm_tick_buf))
+            for line in self._comm_tick_buf:
+                self._comm_lastrun_f.write(line + "\n")
         self._flush_rolling()
-        self._flush_lastrun()
 
     def close(self):
-        """Stop rosbag recording. (JSONL files already flushed by last end_tick.)"""
+        """Close append files (reverse to newest-first), then stop rosbag."""
+        for f in (self._bt_lastrun_f, self._comm_lastrun_f):
+            try:
+                f.close()
+            except Exception:
+                pass
+        self._reverse_file(self._lastrun_bt_path)
+        self._reverse_file(self._lastrun_comm_path)
         self._stop_rosbag()
 
     # --- rosbag recording ---
@@ -219,15 +226,17 @@ class DebugEventLogger:
             [line for tick in reversed(self._comm_rolling) for line in tick],
         )
 
-    def _flush_lastrun(self):
-        self._atomic_write(
-            self._lastrun_bt_path,
-            [line for tick in reversed(self._bt_all_ticks) for line in tick],
-        )
-        self._atomic_write(
-            self._lastrun_comm_path,
-            [line for tick in reversed(self._comm_all_ticks) for line in tick],
-        )
+    def _reverse_file(self, path):
+        """Read all lines, reverse order, rewrite atomically (newest-first)."""
+        try:
+            with open(path, "r") as f:
+                lines = [l.rstrip("\n") for l in f if l.strip()]
+        except (FileNotFoundError, IOError):
+            return
+        if not lines:
+            return
+        lines.reverse()
+        self._atomic_write(path, lines)
 
     @staticmethod
     def _atomic_write(path, lines):
