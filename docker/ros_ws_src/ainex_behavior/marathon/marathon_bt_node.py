@@ -28,6 +28,7 @@ from behaviours.visual_patrol import VisualPatrol  # type: ignore  (local copy)
 
 from marathon_bt import bootstrap  # type: ignore
 from comm_facade import CommFacade  # type: ignore
+from semantic_facade import MarathonSemanticFacade  # type: ignore
 from behaviours.actions import FindLineHeadSweep  # type: ignore
 from tree_publisher import TreeROSPublisher  # type: ignore
 from bb_ros_bridge import MarathonBBBridge  # type: ignore
@@ -203,8 +204,8 @@ class MarathonBTNode(Common):
                                           "motion_manager")
         self.visual_patrol = VisualPatrol(self._gait_proxy)
 
-        # Unified comm facade — leaf nodes call this instead of managers directly.
-        # Sets proxy_context for ManagerProxy attribution; handles buzzer logging.
+        # Generic ROS Facade — unified ROS communication exit and final log outlet.
+        # All outbound ROS calls from the semantic facade flow through here.
         self._comm_facade = CommFacade(
             gait_manager=self._gait_proxy,
             motion_manager=self._motion_proxy,
@@ -213,10 +214,18 @@ class MarathonBTNode(Common):
             tick_id_getter=lambda: self._tick_id,
         )
 
-        # Build and setup the behavior tree
+        # Project Semantic Facade — translates leaf-node business intent into
+        # project-semantic commands and delegates ROS I/O to CommFacade.
+        self._semantic_facade = MarathonSemanticFacade(
+            visual_patrol=self.visual_patrol,
+            comm_facade=self._comm_facade,
+            tick_id_getter=lambda: self._tick_id,
+        )
+
+        # Build and setup the behavior tree — only semantic_facade is injected;
+        # CommFacade and VisualPatrol are internal implementation details.
         self.tree = bootstrap(
-            self._comm_facade,
-            self.visual_patrol,
+            self._semantic_facade,
             find_line_cls=_find_line_cls,
             logger=self._obs_logger,
             tick_id_getter=lambda: self._tick_id,

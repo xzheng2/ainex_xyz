@@ -16,6 +16,9 @@ Tree structure:
               --> FollowLine
           --> FindLine / FindLineHeadSweep   (RUNNING while searching/aligning)
           --> StopWalking                    (fallback)
+
+All leaf nodes receive only the Project Semantic Facade.  No direct
+manager, publisher, or CommFacade references appear in this file.
 """
 import py_trees
 
@@ -26,7 +29,7 @@ from behaviours.actions import RecoverFromFall, FollowLine, StopWalking, FindLin
 class MarathonBT(py_trees.composites.Sequence):
     """Root sequence: SafetyGate must succeed before PatrolControl runs."""
 
-    def __init__(self, comm_facade, visual_patrol,
+    def __init__(self, semantic_facade,
                  find_line_cls=None, logger=None, tick_id_getter=None,
                  robot_state_setter=None):
         super().__init__(name="MarathonBT", memory=False)
@@ -37,9 +40,11 @@ class MarathonBT(py_trees.composites.Sequence):
         recovery = py_trees.composites.Sequence(
             name="Recovery", memory=False)
         recovery.add_children([
-            StopWalking("StopWalking_recovery", comm_facade),
-            RecoverFromFall("RecoverFromFall", comm_facade,
-                            robot_state_setter=robot_state_setter),
+            StopWalking("StopWalking_recovery", semantic_facade,
+                        tick_id_getter=tick_id_getter),
+            RecoverFromFall("RecoverFromFall", semantic_facade,
+                            robot_state_setter=robot_state_setter,
+                            tick_id_getter=tick_id_getter),
         ])
         safety_gate.add_children([
             IsRobotStanding("IsRobotStanding", logger=logger,
@@ -58,31 +63,34 @@ class MarathonBT(py_trees.composites.Sequence):
             line_following.add_children([
                 IsLineDetected("IsLineDetected", logger=logger,
                                tick_id_getter=tick_id_getter),
-                FollowLine("FollowLine", visual_patrol,
-                           logger=logger, tick_id_getter=tick_id_getter),
+                FollowLine("FollowLine", semantic_facade,
+                           tick_id_getter=tick_id_getter),
             ])
-            find_line_node = FindLine("FindLine", visual_patrol, comm_facade)
+            find_line_node = FindLine("FindLine", semantic_facade,
+                                     tick_id_getter=tick_id_getter)
         else:
             # Head-sweep mode: gate FollowLine until body is aligned (head centred)
             line_following.add_children([
                 IsLineDetected("IsLineDetected", logger=logger,
                                tick_id_getter=tick_id_getter),
                 IsHeadCentered("IsHeadCentered"),
-                FollowLine("FollowLine", visual_patrol,
-                           logger=logger, tick_id_getter=tick_id_getter),
+                FollowLine("FollowLine", semantic_facade,
+                           tick_id_getter=tick_id_getter),
             ])
-            find_line_node = find_line_cls("FindLine", comm_facade, visual_patrol)
+            find_line_node = find_line_cls("FindLine", semantic_facade,
+                                           tick_id_getter=tick_id_getter)
 
         patrol_control.add_children([
             line_following,
             find_line_node,
-            StopWalking("StopWalking_idle", comm_facade),
+            StopWalking("StopWalking_idle", semantic_facade,
+                        tick_id_getter=tick_id_getter),
         ])
 
         self.add_children([safety_gate, patrol_control])
 
 
-def bootstrap(comm_facade, visual_patrol,
+def bootstrap(semantic_facade,
               find_line_cls=None, logger=None, tick_id_getter=None,
               robot_state_setter=None):
     """
@@ -93,7 +101,7 @@ def bootstrap(comm_facade, visual_patrol,
     the default gait-based FindLine.
     Pass logger + tick_id_getter to enable BT observability.
     """
-    root = MarathonBT(comm_facade, visual_patrol,
+    root = MarathonBT(semantic_facade,
                       find_line_cls=find_line_cls,
                       logger=logger, tick_id_getter=tick_id_getter,
                       robot_state_setter=robot_state_setter)

@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
-"""Unified ROS outbound communication facade for marathon BT leaf nodes.
+"""Generic ROS Facade — unified ROS communication exit and final log outlet.
 
-Replaces the scattered ``proxy_context.current_node`` boilerplate that action
-nodes previously had to set before calling managers, and replaces the
-ROSCommTracer pattern used in RecoverFromFall for buzzer publishing.
+All outbound ROS communications from the marathon BT flow through this class.
+Each method accepts bt_node and semantic_source for full attribution so that
+every emitted log carries the new-format fields:
+  bt_node, semantic_source, target, comm_type, direction, payload, tick_id.
 
-Design
-------
-- gait_manager / motion_manager should be ManagerProxy-wrapped so all
-  gait/motion calls are automatically logged via the existing proxy.
-  CommFacade only adds automatic proxy_context attribution (sets the BT node
-  name before each call so ManagerProxy knows which leaf triggered it).
-- Buzzer has no ManagerProxy, so CommFacade calls logger.emit_comm() directly
-  then publishes, equivalent to what ROSCommTracer.publish() did before.
-- If logger is None every method still works; logging is simply skipped.
+Internal gait/motion calls are routed through ManagerProxy (which also logs);
+CommFacade sets proxy_context.current_node + proxy_context.semantic_source
+before each call so ManagerProxy log entries carry the same attribution.
+Buzzer has no ManagerProxy so CommFacade logs it directly here.
 """
+import time as _time
 from bt_observability.ros_comm_tracer import proxy_context
 
 
 class CommFacade:
-    """Thin attribution + buzzer-logging wrapper around ROS managers."""
+    """Unified ROS communication exit for marathon BT leaf → semantic facade."""
 
     def __init__(self, gait_manager, motion_manager, buzzer_pub,
                  logger=None, tick_id_getter=None):
@@ -29,56 +26,75 @@ class CommFacade:
         self._logger = logger
         self._tick_id = tick_id_getter or (lambda: -1)
 
-    # ── Internal ──────────────────────────────────────────────────────────
+    # ── Attribution helpers ───────────────────────────────────────────────
 
-    def _attr(self, bt_node):
-        """Set proxy_context so ManagerProxy attributes this call to bt_node."""
-        proxy_context.current_node = bt_node or ''
+    def _attr(self, bt_node, semantic_source):
+        """Set proxy_context so ManagerProxy attributes this call correctly."""
+        proxy_context.current_node   = bt_node or ''
+        proxy_context.semantic_source = semantic_source or ''
+
+    def _reset_attr(self):
+        proxy_context.current_node   = 'unknown'
+        proxy_context.semantic_source = ''
 
     # ── Gait ─────────────────────────────────────────────────────────────
 
-    def disable_gait(self, bt_node=None):
-        self._attr(bt_node)
+    def disable_gait(self, bt_node=None, semantic_source=None, tick_id=None):
+        self._attr(bt_node, semantic_source or 'disable_gait')
         self._gait.disable()
+        self._reset_attr()
 
-    def enable_gait(self, bt_node=None):
-        self._attr(bt_node)
+    def enable_gait(self, bt_node=None, semantic_source=None, tick_id=None):
+        self._attr(bt_node, semantic_source or 'enable_gait')
         self._gait.enable()
+        self._reset_attr()
 
-    def set_step(self, bt_node=None, *, dsp, x, y, yaw,
-                 gait_param=None, arm_swap=None, step_num=0):
-        self._attr(bt_node)
+    def set_step(self, bt_node=None, semantic_source=None, tick_id=None, *,
+                 dsp, x, y, yaw, gait_param=None, arm_swap=None, step_num=0):
+        self._attr(bt_node, semantic_source or 'set_step')
         self._gait.set_step(dsp, x, y, yaw, gait_param,
                             arm_swap=arm_swap, step_num=step_num)
+        self._reset_attr()
 
     # ── Motion ───────────────────────────────────────────────────────────
 
-    def run_action(self, action_name, bt_node=None):
-        self._attr(bt_node)
+    def run_action(self, action_name, bt_node=None, semantic_source=None, tick_id=None):
+        self._attr(bt_node, semantic_source or 'run_action')
         self._motion.run_action(action_name)
+        self._reset_attr()
 
-    def set_servos_position(self, duration_ms, positions, bt_node=None):
-        self._attr(bt_node)
+    def set_servos_position(self, duration_ms, positions,
+                            bt_node=None, semantic_source=None, tick_id=None):
+        self._attr(bt_node, semantic_source or 'set_servos_position')
         self._motion.set_servos_position(duration_ms, positions)
+        self._reset_attr()
 
     # ── Buzzer ───────────────────────────────────────────────────────────
 
-    def publish_buzzer(self, buzzer_msg, bt_node=None, reason=None):
+    def publish_buzzer(self, buzzer_msg, bt_node=None, semantic_source=None,
+                       tick_id=None, reason=None):
+        tid = tick_id if tick_id is not None else self._tick_id()
         if self._logger:
             self._logger.emit_comm({
-                "event":           "ros_comm",
-                "tick_id":         self._tick_id(),
-                "bt_node":         bt_node or '',
-                "semantic_source": "publish_buzzer",
-                "comm_type":       "topic_publish",
-                "direction":       "publish",
-                "target":          "/ros_robot_controller/set_buzzer",
-                "ros_node":        "ros_robot_controller",
+                "event":               "ros_out",
+                "ts":                  _time.time(),
+                "tick_id":             tid,
+                "bt_node":             bt_node or '',
+                "semantic_source":     semantic_source or 'publish_buzzer',
+                "target":              "/ros_robot_controller/set_buzzer",
+                "comm_type":           "topic_publish",
+                "direction":           "out",
+                "ros_node":            "ros_robot_controller",
                 "payload": {
                     "freq":     getattr(buzzer_msg, 'freq',     None),
                     "on_time":  getattr(buzzer_msg, 'on_time',  None),
                     "off_time": getattr(buzzer_msg, 'off_time', None),
                     "repeat":   getattr(buzzer_msg, 'repeat',   None),
                 },
+                "summary": "{} published /ros_robot_controller/set_buzzer reason={}".format(
+                    bt_node or '', reason or ''),
+                "attribution_confidence": "high",
+                # legacy alias
+                "node": bt_node or '',
             })
         self._buzzer.publish(buzzer_msg)

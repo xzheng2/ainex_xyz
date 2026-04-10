@@ -25,9 +25,12 @@ class ProxyContext:
 
     Each BT action node sets current_node = self.name at the start of update()
     so that all ManagerProxy calls within that update() are attributed to it.
+    semantic_source is set by CommFacade to indicate the project-semantic command
+    name (e.g. 'follow_line', 'search_line') for structured log attribution.
     """
     def __init__(self):
         self.current_node: str = "unknown"
+        self.semantic_source: str = ""
 
 
 proxy_context = ProxyContext()   # module-level singleton
@@ -93,15 +96,19 @@ class ManagerProxy:
         def traced(*args, **kwargs):
             payload_fn = ros_info.get("payload_fn", lambda a, k: {})
             logger.emit_comm({
-                "event":     "ros_comm",
-                "comm_type": ros_info["comm_type"],
-                "direction": ros_info["direction"],
-                "target":    ros_info["target"],
-                "ros_node":  ros_info.get("ros_node"),
-                "source":    "{}.{}".format(proxy_name, name),
-                "payload":   payload_fn(args, kwargs),
-                "node":      proxy_context.current_node,
-                "tick_id":   tick_id_fn(),
+                "event":           "ros_out",
+                "comm_type":       ros_info["comm_type"],
+                "direction":       ros_info["direction"],
+                "target":          ros_info["target"],
+                "ros_node":        ros_info.get("ros_node"),
+                "source":          "{}.{}".format(proxy_name, name),
+                "payload":         payload_fn(args, kwargs),
+                # new-format attribution fields
+                "bt_node":         proxy_context.current_node,
+                "semantic_source": proxy_context.semantic_source,
+                # legacy field aliases (kept for transition period)
+                "node":            proxy_context.current_node,
+                "tick_id":         tick_id_fn(),
             })
             return real_method(*args, **kwargs)
 
