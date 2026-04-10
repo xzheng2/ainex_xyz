@@ -28,6 +28,8 @@ class StopWalking(py_trees.behaviour.Behaviour):
 class FollowLine(py_trees.behaviour.Behaviour):
     """Read line_data from blackboard and run visual patrol step."""
 
+    HEAD_PAN_CENTER = 500
+
     def __init__(self, name, semantic_facade, tick_id_getter=None):
         super().__init__(name)
         self._semantic = semantic_facade
@@ -40,6 +42,14 @@ class FollowLine(py_trees.behaviour.Behaviour):
 
     def update(self):
         line_data = self.bb.line_data
+        # Centre the head each time FollowLine is active.  In head-sweep mode
+        # IsHeadCentered may pass before the physical servo reaches 500, so this
+        # ensures the head is driven to centre while line-following.
+        self._semantic.move_head(
+            pan_pos=self.HEAD_PAN_CENTER,
+            bt_node=self.name,
+            tick_id=self._tick_id_getter(),
+        )
         rospy.loginfo('[FollowLine] x=%.1f width=%d', line_data.x, line_data.width)
         self._semantic.follow_line(
             line_data=line_data,

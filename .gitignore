@@ -40,8 +40,6 @@ docker/ros_ws_src/**/*_this_session.md
 # Exclude generated Python package metadata
 docker/rosa-agent/**/*.egg-info/
 
-# Exclude BT observability runtime logs
-docker/ros_ws_src/ainex_behavior/marathon/log/
 
 # Exclude secrets and generated files in rosa-agent
 docker/rosa-agent/.env

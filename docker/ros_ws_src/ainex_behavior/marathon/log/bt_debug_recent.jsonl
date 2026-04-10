@@ -1,0 +1,510 @@
+{"event": "tree_tick_start", "tick_id": 300, "ts": 1775857365.7404256}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 300, "ts": 1775857365.7406855}
+{"event": "tick_end", "tick_id": 300, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.7407706}
+{"event": "tick_end", "tick_id": 300, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.7408693}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 300, "ts": 1775857365.7409873}
+{"event": "tick_end", "tick_id": 300, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.741081}
+{"event": "tick_end", "tick_id": 300, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.7411377}
+{"event": "tick_end", "tick_id": 300, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.7542553}
+{"event": "tick_end", "tick_id": 300, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.760022}
+{"event": "tick_end", "tick_id": 300, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.7600756}
+{"event": "tree_tick_end", "tick_id": 300, "status": "Status.RUNNING", "ts": 1775857365.7601316}
+{"event": "bb_write", "tick_id": 300, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 300, "ts": 1775857365.760194}
+{"event": "bb_write", "tick_id": 300, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.7602208}
+{"event": "bb_write", "tick_id": 300, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.7602408}
+{"event": "bb_write", "tick_id": 300, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.7602596}
+{"event": "bb_write", "tick_id": 300, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.7602808}
+{"event": "bb_write", "tick_id": 300, "writer": "FindLine", "key": "/head_pan_pos", "value": 670, "ts": 1775857365.7603016}
+{"event": "tree_tick_start", "tick_id": 299, "ts": 1775857365.6414773}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 299, "ts": 1775857365.6444867}
+{"event": "tick_end", "tick_id": 299, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.6446457}
+{"event": "tick_end", "tick_id": 299, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.6447082}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 299, "ts": 1775857365.6447845}
+{"event": "tick_end", "tick_id": 299, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.6448286}
+{"event": "tick_end", "tick_id": 299, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.6448643}
+{"event": "tick_end", "tick_id": 299, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.6695302}
+{"event": "tick_end", "tick_id": 299, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.6695917}
+{"event": "tick_end", "tick_id": 299, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.6696208}
+{"event": "tree_tick_end", "tick_id": 299, "status": "Status.RUNNING", "ts": 1775857365.6696737}
+{"event": "bb_write", "tick_id": 299, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 299, "ts": 1775857365.6697118}
+{"event": "bb_write", "tick_id": 299, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.6697342}
+{"event": "bb_write", "tick_id": 299, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.6697521}
+{"event": "bb_write", "tick_id": 299, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.6697733}
+{"event": "bb_write", "tick_id": 299, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.6697905}
+{"event": "bb_write", "tick_id": 299, "writer": "FindLine", "key": "/head_pan_pos", "value": 680, "ts": 1775857365.6698072}
+{"event": "tree_tick_start", "tick_id": 298, "ts": 1775857365.5408723}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 298, "ts": 1775857365.5415065}
+{"event": "tick_end", "tick_id": 298, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.5416129}
+{"event": "tick_end", "tick_id": 298, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.5416746}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 298, "ts": 1775857365.5417616}
+{"event": "tick_end", "tick_id": 298, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.5444283}
+{"event": "tick_end", "tick_id": 298, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.5445044}
+{"event": "tick_end", "tick_id": 298, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.581706}
+{"event": "tick_end", "tick_id": 298, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.5818233}
+{"event": "tick_end", "tick_id": 298, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.5818698}
+{"event": "tree_tick_end", "tick_id": 298, "status": "Status.RUNNING", "ts": 1775857365.58195}
+{"event": "bb_write", "tick_id": 298, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 298, "ts": 1775857365.5820057}
+{"event": "bb_write", "tick_id": 298, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.5820343}
+{"event": "bb_write", "tick_id": 298, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.5820613}
+{"event": "bb_write", "tick_id": 298, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.5820897}
+{"event": "bb_write", "tick_id": 298, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.582113}
+{"event": "bb_write", "tick_id": 298, "writer": "FindLine", "key": "/head_pan_pos", "value": 690, "ts": 1775857365.5821314}
+{"event": "tree_tick_start", "tick_id": 297, "ts": 1775857365.441851}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 297, "ts": 1775857365.4420679}
+{"event": "tick_end", "tick_id": 297, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.4421253}
+{"event": "tick_end", "tick_id": 297, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.4421725}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 297, "ts": 1775857365.4422257}
+{"event": "tick_end", "tick_id": 297, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.4422631}
+{"event": "tick_end", "tick_id": 297, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.4422934}
+{"event": "tick_end", "tick_id": 297, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.495768}
+{"event": "tick_end", "tick_id": 297, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.495908}
+{"event": "tick_end", "tick_id": 297, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.4959707}
+{"event": "tree_tick_end", "tick_id": 297, "status": "Status.RUNNING", "ts": 1775857365.4960902}
+{"event": "bb_write", "tick_id": 297, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 297, "ts": 1775857365.4962077}
+{"event": "bb_write", "tick_id": 297, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.496253}
+{"event": "bb_write", "tick_id": 297, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.496279}
+{"event": "bb_write", "tick_id": 297, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.4963028}
+{"event": "bb_write", "tick_id": 297, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.496324}
+{"event": "bb_write", "tick_id": 297, "writer": "FindLine", "key": "/head_pan_pos", "value": 700, "ts": 1775857365.4963448}
+{"event": "tree_tick_start", "tick_id": 296, "ts": 1775857365.3399725}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 296, "ts": 1775857365.340443}
+{"event": "tick_end", "tick_id": 296, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.3405876}
+{"event": "tick_end", "tick_id": 296, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.3406863}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 296, "ts": 1775857365.3408008}
+{"event": "tick_end", "tick_id": 296, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.3408859}
+{"event": "tick_end", "tick_id": 296, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.3409593}
+{"event": "tick_end", "tick_id": 296, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.3729858}
+{"event": "tick_end", "tick_id": 296, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.3731182}
+{"event": "tick_end", "tick_id": 296, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.3731732}
+{"event": "tree_tick_end", "tick_id": 296, "status": "Status.RUNNING", "ts": 1775857365.3732648}
+{"event": "bb_write", "tick_id": 296, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 296, "ts": 1775857365.3733306}
+{"event": "bb_write", "tick_id": 296, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.3733754}
+{"event": "bb_write", "tick_id": 296, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.3734152}
+{"event": "bb_write", "tick_id": 296, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.373443}
+{"event": "bb_write", "tick_id": 296, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.3734686}
+{"event": "bb_write", "tick_id": 296, "writer": "FindLine", "key": "/head_pan_pos", "value": 690, "ts": 1775857365.3734915}
+{"event": "tree_tick_start", "tick_id": 295, "ts": 1775857365.2449026}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 295, "ts": 1775857365.245363}
+{"event": "tick_end", "tick_id": 295, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.2454932}
+{"event": "tick_end", "tick_id": 295, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.245564}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 295, "ts": 1775857365.2456691}
+{"event": "tick_end", "tick_id": 295, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.2457402}
+{"event": "tick_end", "tick_id": 295, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.2457936}
+{"event": "tick_end", "tick_id": 295, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.3000379}
+{"event": "tick_end", "tick_id": 295, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.3002007}
+{"event": "tick_end", "tick_id": 295, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.3002665}
+{"event": "tree_tick_end", "tick_id": 295, "status": "Status.RUNNING", "ts": 1775857365.300347}
+{"event": "bb_write", "tick_id": 295, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 295, "ts": 1775857365.300413}
+{"event": "bb_write", "tick_id": 295, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.3004475}
+{"event": "bb_write", "tick_id": 295, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.300473}
+{"event": "bb_write", "tick_id": 295, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.3005004}
+{"event": "bb_write", "tick_id": 295, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.3005297}
+{"event": "bb_write", "tick_id": 295, "writer": "FindLine", "key": "/head_pan_pos", "value": 680, "ts": 1775857365.300556}
+{"event": "tree_tick_start", "tick_id": 294, "ts": 1775857365.1397948}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 294, "ts": 1775857365.1403844}
+{"event": "tick_end", "tick_id": 294, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.1405265}
+{"event": "tick_end", "tick_id": 294, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.1406138}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 294, "ts": 1775857365.1407137}
+{"event": "tick_end", "tick_id": 294, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.1407795}
+{"event": "tick_end", "tick_id": 294, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.1408246}
+{"event": "tick_end", "tick_id": 294, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.1640584}
+{"event": "tick_end", "tick_id": 294, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.1642423}
+{"event": "tick_end", "tick_id": 294, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.164324}
+{"event": "tree_tick_end", "tick_id": 294, "status": "Status.RUNNING", "ts": 1775857365.1644132}
+{"event": "bb_write", "tick_id": 294, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 294, "ts": 1775857365.164473}
+{"event": "bb_write", "tick_id": 294, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.1645112}
+{"event": "bb_write", "tick_id": 294, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.1645398}
+{"event": "bb_write", "tick_id": 294, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.1645699}
+{"event": "bb_write", "tick_id": 294, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.1645947}
+{"event": "bb_write", "tick_id": 294, "writer": "FindLine", "key": "/head_pan_pos", "value": 670, "ts": 1775857365.1646225}
+{"event": "tree_tick_start", "tick_id": 293, "ts": 1775857365.0430095}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 293, "ts": 1775857365.0433397}
+{"event": "tick_end", "tick_id": 293, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857365.0434403}
+{"event": "tick_end", "tick_id": 293, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857365.0435038}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 293, "ts": 1775857365.0435784}
+{"event": "tick_end", "tick_id": 293, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857365.0436294}
+{"event": "tick_end", "tick_id": 293, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857365.0436687}
+{"event": "tick_end", "tick_id": 293, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857365.0722895}
+{"event": "tick_end", "tick_id": 293, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857365.0723932}
+{"event": "tick_end", "tick_id": 293, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857365.0724385}
+{"event": "tree_tick_end", "tick_id": 293, "status": "Status.RUNNING", "ts": 1775857365.0725062}
+{"event": "bb_write", "tick_id": 293, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 293, "ts": 1775857365.0725582}
+{"event": "bb_write", "tick_id": 293, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857365.0725977}
+{"event": "bb_write", "tick_id": 293, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857365.0726273}
+{"event": "bb_write", "tick_id": 293, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857365.0726569}
+{"event": "bb_write", "tick_id": 293, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857365.0726802}
+{"event": "bb_write", "tick_id": 293, "writer": "FindLine", "key": "/head_pan_pos", "value": 660, "ts": 1775857365.072975}
+{"event": "tree_tick_start", "tick_id": 292, "ts": 1775857364.9396055}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 292, "ts": 1775857364.939874}
+{"event": "tick_end", "tick_id": 292, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.9399612}
+{"event": "tick_end", "tick_id": 292, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.9400387}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 292, "ts": 1775857364.940125}
+{"event": "tick_end", "tick_id": 292, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.9403403}
+{"event": "tick_end", "tick_id": 292, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.94046}
+{"event": "tick_end", "tick_id": 292, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.971488}
+{"event": "tick_end", "tick_id": 292, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.9716144}
+{"event": "tick_end", "tick_id": 292, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.971666}
+{"event": "tree_tick_end", "tick_id": 292, "status": "Status.RUNNING", "ts": 1775857364.9717312}
+{"event": "bb_write", "tick_id": 292, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 292, "ts": 1775857364.9717896}
+{"event": "bb_write", "tick_id": 292, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.9718285}
+{"event": "bb_write", "tick_id": 292, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.9718552}
+{"event": "bb_write", "tick_id": 292, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.9718807}
+{"event": "bb_write", "tick_id": 292, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.971903}
+{"event": "bb_write", "tick_id": 292, "writer": "FindLine", "key": "/head_pan_pos", "value": 650, "ts": 1775857364.9719284}
+{"event": "tree_tick_start", "tick_id": 291, "ts": 1775857364.8401546}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 291, "ts": 1775857364.8429022}
+{"event": "tick_end", "tick_id": 291, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.8430097}
+{"event": "tick_end", "tick_id": 291, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.84307}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 291, "ts": 1775857364.8431482}
+{"event": "tick_end", "tick_id": 291, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.843204}
+{"event": "tick_end", "tick_id": 291, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.8432536}
+{"event": "tick_end", "tick_id": 291, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.8694398}
+{"event": "tick_end", "tick_id": 291, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.8695557}
+{"event": "tick_end", "tick_id": 291, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.8695993}
+{"event": "tree_tick_end", "tick_id": 291, "status": "Status.RUNNING", "ts": 1775857364.8696609}
+{"event": "bb_write", "tick_id": 291, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 291, "ts": 1775857364.8697255}
+{"event": "bb_write", "tick_id": 291, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.8697653}
+{"event": "bb_write", "tick_id": 291, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.8697884}
+{"event": "bb_write", "tick_id": 291, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.8698115}
+{"event": "bb_write", "tick_id": 291, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.8698332}
+{"event": "bb_write", "tick_id": 291, "writer": "FindLine", "key": "/head_pan_pos", "value": 640, "ts": 1775857364.869857}
+{"event": "tree_tick_start", "tick_id": 290, "ts": 1775857364.7395284}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 290, "ts": 1775857364.7397645}
+{"event": "tick_end", "tick_id": 290, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.7398372}
+{"event": "tick_end", "tick_id": 290, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.7399123}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 290, "ts": 1775857364.7399924}
+{"event": "tick_end", "tick_id": 290, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.7400322}
+{"event": "tick_end", "tick_id": 290, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.7400618}
+{"event": "tick_end", "tick_id": 290, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.7511904}
+{"event": "tick_end", "tick_id": 290, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.7512803}
+{"event": "tick_end", "tick_id": 290, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.75132}
+{"event": "tree_tick_end", "tick_id": 290, "status": "Status.RUNNING", "ts": 1775857364.751377}
+{"event": "bb_write", "tick_id": 290, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 290, "ts": 1775857364.7514162}
+{"event": "bb_write", "tick_id": 290, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.751443}
+{"event": "bb_write", "tick_id": 290, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.7514658}
+{"event": "bb_write", "tick_id": 290, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.7514877}
+{"event": "bb_write", "tick_id": 290, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.7515068}
+{"event": "bb_write", "tick_id": 290, "writer": "FindLine", "key": "/head_pan_pos", "value": 630, "ts": 1775857364.7515266}
+{"event": "tree_tick_start", "tick_id": 289, "ts": 1775857364.6429348}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 289, "ts": 1775857364.6447701}
+{"event": "tick_end", "tick_id": 289, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.6449752}
+{"event": "tick_end", "tick_id": 289, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.645075}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 289, "ts": 1775857364.645174}
+{"event": "tick_end", "tick_id": 289, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.6452298}
+{"event": "tick_end", "tick_id": 289, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.6452692}
+{"event": "tick_end", "tick_id": 289, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.6757905}
+{"event": "tick_end", "tick_id": 289, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.6759014}
+{"event": "tick_end", "tick_id": 289, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.6759424}
+{"event": "tree_tick_end", "tick_id": 289, "status": "Status.RUNNING", "ts": 1775857364.6760225}
+{"event": "bb_write", "tick_id": 289, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 289, "ts": 1775857364.6760921}
+{"event": "bb_write", "tick_id": 289, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.6766305}
+{"event": "bb_write", "tick_id": 289, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.6767452}
+{"event": "bb_write", "tick_id": 289, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.6768634}
+{"event": "bb_write", "tick_id": 289, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.6785088}
+{"event": "bb_write", "tick_id": 289, "writer": "FindLine", "key": "/head_pan_pos", "value": 620, "ts": 1775857364.6787202}
+{"event": "tree_tick_start", "tick_id": 288, "ts": 1775857364.5404377}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 288, "ts": 1775857364.5407038}
+{"event": "tick_end", "tick_id": 288, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.540784}
+{"event": "tick_end", "tick_id": 288, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.5408494}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 288, "ts": 1775857364.5409184}
+{"event": "tick_end", "tick_id": 288, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.5409575}
+{"event": "tick_end", "tick_id": 288, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.5409884}
+{"event": "tick_end", "tick_id": 288, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.5578623}
+{"event": "tick_end", "tick_id": 288, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.5579507}
+{"event": "tick_end", "tick_id": 288, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.5579848}
+{"event": "tree_tick_end", "tick_id": 288, "status": "Status.RUNNING", "ts": 1775857364.5580451}
+{"event": "bb_write", "tick_id": 288, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 288, "ts": 1775857364.558083}
+{"event": "bb_write", "tick_id": 288, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.558107}
+{"event": "bb_write", "tick_id": 288, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.5581286}
+{"event": "bb_write", "tick_id": 288, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.558149}
+{"event": "bb_write", "tick_id": 288, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.5581677}
+{"event": "bb_write", "tick_id": 288, "writer": "FindLine", "key": "/head_pan_pos", "value": 610, "ts": 1775857364.5581896}
+{"event": "tree_tick_start", "tick_id": 287, "ts": 1775857364.4405532}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 287, "ts": 1775857364.4409187}
+{"event": "tick_end", "tick_id": 287, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.4410381}
+{"event": "tick_end", "tick_id": 287, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.4411128}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 287, "ts": 1775857364.4412055}
+{"event": "tick_end", "tick_id": 287, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.4412806}
+{"event": "tick_end", "tick_id": 287, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.4413483}
+{"event": "tick_end", "tick_id": 287, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.4615214}
+{"event": "tick_end", "tick_id": 287, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.461737}
+{"event": "tick_end", "tick_id": 287, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.461814}
+{"event": "tree_tick_end", "tick_id": 287, "status": "Status.RUNNING", "ts": 1775857364.4619071}
+{"event": "bb_write", "tick_id": 287, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 287, "ts": 1775857364.461979}
+{"event": "bb_write", "tick_id": 287, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.4620428}
+{"event": "bb_write", "tick_id": 287, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.4621215}
+{"event": "bb_write", "tick_id": 287, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.4621594}
+{"event": "bb_write", "tick_id": 287, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.4621906}
+{"event": "bb_write", "tick_id": 287, "writer": "FindLine", "key": "/head_pan_pos", "value": 600, "ts": 1775857364.4622192}
+{"event": "tree_tick_start", "tick_id": 286, "ts": 1775857364.3508189}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 286, "ts": 1775857364.3510838}
+{"event": "tick_end", "tick_id": 286, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.3511665}
+{"event": "tick_end", "tick_id": 286, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.3512118}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 286, "ts": 1775857364.3512666}
+{"event": "tick_end", "tick_id": 286, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.3513052}
+{"event": "tick_end", "tick_id": 286, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.3516746}
+{"event": "tick_end", "tick_id": 286, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.372208}
+{"event": "tick_end", "tick_id": 286, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.3722858}
+{"event": "tick_end", "tick_id": 286, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.3723235}
+{"event": "tree_tick_end", "tick_id": 286, "status": "Status.RUNNING", "ts": 1775857364.372387}
+{"event": "bb_write", "tick_id": 286, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 286, "ts": 1775857364.3724253}
+{"event": "bb_write", "tick_id": 286, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.3724494}
+{"event": "bb_write", "tick_id": 286, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.372469}
+{"event": "bb_write", "tick_id": 286, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.3724866}
+{"event": "bb_write", "tick_id": 286, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.3725038}
+{"event": "bb_write", "tick_id": 286, "writer": "FindLine", "key": "/head_pan_pos", "value": 590, "ts": 1775857364.3725204}
+{"event": "tree_tick_start", "tick_id": 285, "ts": 1775857364.2396243}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 285, "ts": 1775857364.2399204}
+{"event": "tick_end", "tick_id": 285, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.239997}
+{"event": "tick_end", "tick_id": 285, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.240043}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 285, "ts": 1775857364.240103}
+{"event": "tick_end", "tick_id": 285, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.2401397}
+{"event": "tick_end", "tick_id": 285, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.2435296}
+{"event": "tick_end", "tick_id": 285, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.2625868}
+{"event": "tick_end", "tick_id": 285, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.2626708}
+{"event": "tick_end", "tick_id": 285, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.262701}
+{"event": "tree_tick_end", "tick_id": 285, "status": "Status.RUNNING", "ts": 1775857364.26276}
+{"event": "bb_write", "tick_id": 285, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 285, "ts": 1775857364.2627995}
+{"event": "bb_write", "tick_id": 285, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.2628207}
+{"event": "bb_write", "tick_id": 285, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.2628384}
+{"event": "bb_write", "tick_id": 285, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.262855}
+{"event": "bb_write", "tick_id": 285, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.2628713}
+{"event": "bb_write", "tick_id": 285, "writer": "FindLine", "key": "/head_pan_pos", "value": 580, "ts": 1775857364.2628872}
+{"event": "tree_tick_start", "tick_id": 284, "ts": 1775857364.1453207}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 284, "ts": 1775857364.1456518}
+{"event": "tick_end", "tick_id": 284, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.14577}
+{"event": "tick_end", "tick_id": 284, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.14585}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 284, "ts": 1775857364.1459525}
+{"event": "tick_end", "tick_id": 284, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.1460166}
+{"event": "tick_end", "tick_id": 284, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.1460638}
+{"event": "tick_end", "tick_id": 284, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.1650875}
+{"event": "tick_end", "tick_id": 284, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.1652088}
+{"event": "tick_end", "tick_id": 284, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.1652725}
+{"event": "tree_tick_end", "tick_id": 284, "status": "Status.RUNNING", "ts": 1775857364.1653593}
+{"event": "bb_write", "tick_id": 284, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 284, "ts": 1775857364.1654344}
+{"event": "bb_write", "tick_id": 284, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.1654718}
+{"event": "bb_write", "tick_id": 284, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.1655037}
+{"event": "bb_write", "tick_id": 284, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.1655278}
+{"event": "bb_write", "tick_id": 284, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.16555}
+{"event": "bb_write", "tick_id": 284, "writer": "FindLine", "key": "/head_pan_pos", "value": 570, "ts": 1775857364.1655734}
+{"event": "tree_tick_start", "tick_id": 283, "ts": 1775857364.0396416}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 283, "ts": 1775857364.0399847}
+{"event": "tick_end", "tick_id": 283, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857364.04012}
+{"event": "tick_end", "tick_id": 283, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857364.040241}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 283, "ts": 1775857364.040348}
+{"event": "tick_end", "tick_id": 283, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857364.0415046}
+{"event": "tick_end", "tick_id": 283, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857364.0417314}
+{"event": "tick_end", "tick_id": 283, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857364.0607784}
+{"event": "tick_end", "tick_id": 283, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857364.060884}
+{"event": "tick_end", "tick_id": 283, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857364.060931}
+{"event": "tree_tick_end", "tick_id": 283, "status": "Status.RUNNING", "ts": 1775857364.0609984}
+{"event": "bb_write", "tick_id": 283, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 283, "ts": 1775857364.0610504}
+{"event": "bb_write", "tick_id": 283, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857364.0610833}
+{"event": "bb_write", "tick_id": 283, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857364.0611074}
+{"event": "bb_write", "tick_id": 283, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857364.0611331}
+{"event": "bb_write", "tick_id": 283, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857364.0611615}
+{"event": "bb_write", "tick_id": 283, "writer": "FindLine", "key": "/head_pan_pos", "value": 560, "ts": 1775857364.0611863}
+{"event": "tree_tick_start", "tick_id": 282, "ts": 1775857363.9417365}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 282, "ts": 1775857363.9419866}
+{"event": "tick_end", "tick_id": 282, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.942044}
+{"event": "tick_end", "tick_id": 282, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.9420836}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 282, "ts": 1775857363.942132}
+{"event": "tick_end", "tick_id": 282, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.942166}
+{"event": "tick_end", "tick_id": 282, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.9421926}
+{"event": "tick_end", "tick_id": 282, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.9690707}
+{"event": "tick_end", "tick_id": 282, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.9691546}
+{"event": "tick_end", "tick_id": 282, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.9691892}
+{"event": "tree_tick_end", "tick_id": 282, "status": "Status.RUNNING", "ts": 1775857363.9692442}
+{"event": "bb_write", "tick_id": 282, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 282, "ts": 1775857363.9692838}
+{"event": "bb_write", "tick_id": 282, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.969307}
+{"event": "bb_write", "tick_id": 282, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.9693286}
+{"event": "bb_write", "tick_id": 282, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.9693472}
+{"event": "bb_write", "tick_id": 282, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.969364}
+{"event": "bb_write", "tick_id": 282, "writer": "FindLine", "key": "/head_pan_pos", "value": 550, "ts": 1775857363.9698975}
+{"event": "tree_tick_start", "tick_id": 281, "ts": 1775857363.841607}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 281, "ts": 1775857363.8421278}
+{"event": "tick_end", "tick_id": 281, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.842313}
+{"event": "tick_end", "tick_id": 281, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.843598}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 281, "ts": 1775857363.8438215}
+{"event": "tick_end", "tick_id": 281, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.8438983}
+{"event": "tick_end", "tick_id": 281, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.843945}
+{"event": "tick_end", "tick_id": 281, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.8781803}
+{"event": "tick_end", "tick_id": 281, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.8783617}
+{"event": "tick_end", "tick_id": 281, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.8784227}
+{"event": "tree_tick_end", "tick_id": 281, "status": "Status.RUNNING", "ts": 1775857363.878503}
+{"event": "bb_write", "tick_id": 281, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 281, "ts": 1775857363.8785636}
+{"event": "bb_write", "tick_id": 281, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.8785934}
+{"event": "bb_write", "tick_id": 281, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.8786159}
+{"event": "bb_write", "tick_id": 281, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.8786352}
+{"event": "bb_write", "tick_id": 281, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.878656}
+{"event": "bb_write", "tick_id": 281, "writer": "FindLine", "key": "/head_pan_pos", "value": 540, "ts": 1775857363.8786757}
+{"event": "tree_tick_start", "tick_id": 280, "ts": 1775857363.7427852}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 280, "ts": 1775857363.743283}
+{"event": "tick_end", "tick_id": 280, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.7434294}
+{"event": "tick_end", "tick_id": 280, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.7435524}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 280, "ts": 1775857363.7436986}
+{"event": "tick_end", "tick_id": 280, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.7438037}
+{"event": "tick_end", "tick_id": 280, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.7438922}
+{"event": "tick_end", "tick_id": 280, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.7969234}
+{"event": "tick_end", "tick_id": 280, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.7970846}
+{"event": "tick_end", "tick_id": 280, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.798406}
+{"event": "tree_tick_end", "tick_id": 280, "status": "Status.RUNNING", "ts": 1775857363.7986813}
+{"event": "bb_write", "tick_id": 280, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 280, "ts": 1775857363.7987921}
+{"event": "bb_write", "tick_id": 280, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.7988436}
+{"event": "bb_write", "tick_id": 280, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.7988746}
+{"event": "bb_write", "tick_id": 280, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.7989058}
+{"event": "bb_write", "tick_id": 280, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.7989326}
+{"event": "bb_write", "tick_id": 280, "writer": "FindLine", "key": "/head_pan_pos", "value": 530, "ts": 1775857363.7989554}
+{"event": "tree_tick_start", "tick_id": 279, "ts": 1775857363.639924}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 279, "ts": 1775857363.6496696}
+{"event": "tick_end", "tick_id": 279, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.6499279}
+{"event": "tick_end", "tick_id": 279, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.6500201}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 279, "ts": 1775857363.6501324}
+{"event": "tick_end", "tick_id": 279, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.650187}
+{"event": "tick_end", "tick_id": 279, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.6502318}
+{"event": "tick_end", "tick_id": 279, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.683018}
+{"event": "tick_end", "tick_id": 279, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.6831458}
+{"event": "tick_end", "tick_id": 279, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.6832016}
+{"event": "tree_tick_end", "tick_id": 279, "status": "Status.RUNNING", "ts": 1775857363.6832879}
+{"event": "bb_write", "tick_id": 279, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 279, "ts": 1775857363.683358}
+{"event": "bb_write", "tick_id": 279, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.6833994}
+{"event": "bb_write", "tick_id": 279, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.6834304}
+{"event": "bb_write", "tick_id": 279, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.6834586}
+{"event": "bb_write", "tick_id": 279, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.6834903}
+{"event": "bb_write", "tick_id": 279, "writer": "FindLine", "key": "/head_pan_pos", "value": 520, "ts": 1775857363.6835148}
+{"event": "tree_tick_start", "tick_id": 278, "ts": 1775857363.5403178}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 278, "ts": 1775857363.5421505}
+{"event": "tick_end", "tick_id": 278, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.542419}
+{"event": "tick_end", "tick_id": 278, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.54253}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 278, "ts": 1775857363.5426672}
+{"event": "tick_end", "tick_id": 278, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.5427313}
+{"event": "tick_end", "tick_id": 278, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.5427759}
+{"event": "tick_end", "tick_id": 278, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.5816245}
+{"event": "tick_end", "tick_id": 278, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.5818973}
+{"event": "tick_end", "tick_id": 278, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.58199}
+{"event": "tree_tick_end", "tick_id": 278, "status": "Status.RUNNING", "ts": 1775857363.5821025}
+{"event": "bb_write", "tick_id": 278, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 278, "ts": 1775857363.5821784}
+{"event": "bb_write", "tick_id": 278, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.5822222}
+{"event": "bb_write", "tick_id": 278, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.582345}
+{"event": "bb_write", "tick_id": 278, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.5823853}
+{"event": "bb_write", "tick_id": 278, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.5824158}
+{"event": "bb_write", "tick_id": 278, "writer": "FindLine", "key": "/head_pan_pos", "value": 510, "ts": 1775857363.5825675}
+{"event": "tree_tick_start", "tick_id": 277, "ts": 1775857363.44067}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 277, "ts": 1775857363.44101}
+{"event": "tick_end", "tick_id": 277, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.4411137}
+{"event": "tick_end", "tick_id": 277, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.441186}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 277, "ts": 1775857363.441264}
+{"event": "tick_end", "tick_id": 277, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.4413197}
+{"event": "tick_end", "tick_id": 277, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.4413598}
+{"event": "tick_end", "tick_id": 277, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.4573588}
+{"event": "tick_end", "tick_id": 277, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.4574823}
+{"event": "tick_end", "tick_id": 277, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.4575315}
+{"event": "tree_tick_end", "tick_id": 277, "status": "Status.RUNNING", "ts": 1775857363.4576013}
+{"event": "bb_write", "tick_id": 277, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 277, "ts": 1775857363.457671}
+{"event": "bb_write", "tick_id": 277, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.4577258}
+{"event": "bb_write", "tick_id": 277, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.4577584}
+{"event": "bb_write", "tick_id": 277, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.45779}
+{"event": "bb_write", "tick_id": 277, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.457818}
+{"event": "bb_write", "tick_id": 277, "writer": "FindLine", "key": "/head_pan_pos", "value": 500, "ts": 1775857363.4578571}
+{"event": "tree_tick_start", "tick_id": 276, "ts": 1775857363.3444335}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 276, "ts": 1775857363.3447316}
+{"event": "tick_end", "tick_id": 276, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.3448305}
+{"event": "tick_end", "tick_id": 276, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.3449018}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 276, "ts": 1775857363.3450055}
+{"event": "tick_end", "tick_id": 276, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.3450687}
+{"event": "tick_end", "tick_id": 276, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.345122}
+{"event": "tick_end", "tick_id": 276, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.3653302}
+{"event": "tick_end", "tick_id": 276, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.3654814}
+{"event": "tick_end", "tick_id": 276, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.3655448}
+{"event": "tree_tick_end", "tick_id": 276, "status": "Status.RUNNING", "ts": 1775857363.3656359}
+{"event": "bb_write", "tick_id": 276, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 276, "ts": 1775857363.3657038}
+{"event": "bb_write", "tick_id": 276, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.3657482}
+{"event": "bb_write", "tick_id": 276, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.3657796}
+{"event": "bb_write", "tick_id": 276, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.3658085}
+{"event": "bb_write", "tick_id": 276, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.3658476}
+{"event": "bb_write", "tick_id": 276, "writer": "FindLine", "key": "/head_pan_pos", "value": 490, "ts": 1775857363.3658793}
+{"event": "tree_tick_start", "tick_id": 275, "ts": 1775857363.2400153}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 275, "ts": 1775857363.2410932}
+{"event": "tick_end", "tick_id": 275, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.2412548}
+{"event": "tick_end", "tick_id": 275, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.2414107}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 275, "ts": 1775857363.2416713}
+{"event": "tick_end", "tick_id": 275, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.2430735}
+{"event": "tick_end", "tick_id": 275, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.243224}
+{"event": "tick_end", "tick_id": 275, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.266386}
+{"event": "tick_end", "tick_id": 275, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.2665105}
+{"event": "tick_end", "tick_id": 275, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.2665787}
+{"event": "tree_tick_end", "tick_id": 275, "status": "Status.RUNNING", "ts": 1775857363.266678}
+{"event": "bb_write", "tick_id": 275, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 275, "ts": 1775857363.2667685}
+{"event": "bb_write", "tick_id": 275, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.2668114}
+{"event": "bb_write", "tick_id": 275, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.2668388}
+{"event": "bb_write", "tick_id": 275, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.2668626}
+{"event": "bb_write", "tick_id": 275, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.266885}
+{"event": "bb_write", "tick_id": 275, "writer": "FindLine", "key": "/head_pan_pos", "value": 480, "ts": 1775857363.2669058}
+{"event": "tree_tick_start", "tick_id": 274, "ts": 1775857363.1403778}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 274, "ts": 1775857363.1406069}
+{"event": "tick_end", "tick_id": 274, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.140666}
+{"event": "tick_end", "tick_id": 274, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.1407092}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 274, "ts": 1775857363.1430805}
+{"event": "tick_end", "tick_id": 274, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.1432831}
+{"event": "tick_end", "tick_id": 274, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.1433654}
+{"event": "tick_end", "tick_id": 274, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.17302}
+{"event": "tick_end", "tick_id": 274, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.173283}
+{"event": "tick_end", "tick_id": 274, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.173345}
+{"event": "tree_tick_end", "tick_id": 274, "status": "Status.RUNNING", "ts": 1775857363.173422}
+{"event": "bb_write", "tick_id": 274, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 274, "ts": 1775857363.1734884}
+{"event": "bb_write", "tick_id": 274, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.17352}
+{"event": "bb_write", "tick_id": 274, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.1735404}
+{"event": "bb_write", "tick_id": 274, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.1735606}
+{"event": "bb_write", "tick_id": 274, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.1735797}
+{"event": "bb_write", "tick_id": 274, "writer": "FindLine", "key": "/head_pan_pos", "value": 470, "ts": 1775857363.1735966}
+{"event": "tree_tick_start", "tick_id": 273, "ts": 1775857363.0425708}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 273, "ts": 1775857363.0428238}
+{"event": "tick_end", "tick_id": 273, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857363.0428858}
+{"event": "tick_end", "tick_id": 273, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857363.0429304}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 273, "ts": 1775857363.0429952}
+{"event": "tick_end", "tick_id": 273, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857363.043041}
+{"event": "tick_end", "tick_id": 273, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857363.043072}
+{"event": "tick_end", "tick_id": 273, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857363.0632741}
+{"event": "tick_end", "tick_id": 273, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857363.0633793}
+{"event": "tick_end", "tick_id": 273, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857363.0634403}
+{"event": "tree_tick_end", "tick_id": 273, "status": "Status.RUNNING", "ts": 1775857363.064903}
+{"event": "bb_write", "tick_id": 273, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 273, "ts": 1775857363.0650542}
+{"event": "bb_write", "tick_id": 273, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857363.0650997}
+{"event": "bb_write", "tick_id": 273, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857363.0651264}
+{"event": "bb_write", "tick_id": 273, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857363.0651507}
+{"event": "bb_write", "tick_id": 273, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857363.0651717}
+{"event": "bb_write", "tick_id": 273, "writer": "FindLine", "key": "/head_pan_pos", "value": 460, "ts": 1775857363.065195}
+{"event": "tree_tick_start", "tick_id": 272, "ts": 1775857362.9400878}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 272, "ts": 1775857362.940384}
+{"event": "tick_end", "tick_id": 272, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857362.9404645}
+{"event": "tick_end", "tick_id": 272, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857362.9405227}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 272, "ts": 1775857362.9405942}
+{"event": "tick_end", "tick_id": 272, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857362.9406419}
+{"event": "tick_end", "tick_id": 272, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857362.9406838}
+{"event": "tick_end", "tick_id": 272, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857362.973805}
+{"event": "tick_end", "tick_id": 272, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857362.9738684}
+{"event": "tick_end", "tick_id": 272, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857362.9738975}
+{"event": "tree_tick_end", "tick_id": 272, "status": "Status.RUNNING", "ts": 1775857362.9739494}
+{"event": "bb_write", "tick_id": 272, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 272, "ts": 1775857362.9739835}
+{"event": "bb_write", "tick_id": 272, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857362.9740036}
+{"event": "bb_write", "tick_id": 272, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857362.9740212}
+{"event": "bb_write", "tick_id": 272, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857362.9740396}
+{"event": "bb_write", "tick_id": 272, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857362.9740567}
+{"event": "bb_write", "tick_id": 272, "writer": "FindLine", "key": "/head_pan_pos", "value": 450, "ts": 1775857362.9740734}
+{"event": "tree_tick_start", "tick_id": 271, "ts": 1775857362.839798}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 271, "ts": 1775857362.8401005}
+{"event": "tick_end", "tick_id": 271, "node": "IsRobotStanding", "type": "IsRobotStanding", "status": "Status.SUCCESS", "ts": 1775857362.8402283}
+{"event": "tick_end", "tick_id": 271, "node": "SafetyGate", "type": "Selector", "status": "Status.SUCCESS", "ts": 1775857362.8403165}
+{"event": "decision", "node": "IsLineDetected", "inputs": {"line_detected": false}, "status": "Status.FAILURE", "reason": "line_data is None", "tick_id": 271, "ts": 1775857362.8404043}
+{"event": "tick_end", "tick_id": 271, "node": "IsLineDetected", "type": "IsLineDetected", "status": "Status.FAILURE", "ts": 1775857362.8404503}
+{"event": "tick_end", "tick_id": 271, "node": "LineFollowing", "type": "Sequence", "status": "Status.FAILURE", "ts": 1775857362.840487}
+{"event": "tick_end", "tick_id": 271, "node": "FindLine", "type": "FindLineHeadSweep", "status": "Status.RUNNING", "ts": 1775857362.8564837}
+{"event": "tick_end", "tick_id": 271, "node": "PatrolControl", "type": "Selector", "status": "Status.RUNNING", "ts": 1775857362.8565567}
+{"event": "tick_end", "tick_id": 271, "node": "MarathonBT", "type": "MarathonBT", "status": "Status.RUNNING", "ts": 1775857362.8565886}
+{"event": "tree_tick_end", "tick_id": 271, "status": "Status.RUNNING", "ts": 1775857362.856642}
+{"event": "bb_write", "tick_id": 271, "writer": "MarathonBTNode_meta", "key": "/tick_id", "value": 271, "ts": 1775857362.8566785}
+{"event": "bb_write", "tick_id": 271, "writer": "MarathonBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1775857362.8567002}
+{"event": "bb_write", "tick_id": 271, "writer": "MarathonBTNode_latched", "key": "/latched/line_data", "value": null, "ts": 1775857362.8567176}
+{"event": "bb_write", "tick_id": 271, "writer": "MarathonBTNode_latched", "key": "/latched/last_line_x", "value": 320, "ts": 1775857362.8567348}
+{"event": "bb_write", "tick_id": 271, "writer": "MarathonBTNode_latched", "key": "/latched/camera_lost_count", "value": 16, "ts": 1775857362.8567512}
+{"event": "bb_write", "tick_id": 271, "writer": "FindLine", "key": "/head_pan_pos", "value": 440, "ts": 1775857362.8567674}
