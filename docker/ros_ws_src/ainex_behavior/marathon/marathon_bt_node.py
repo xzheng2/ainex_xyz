@@ -39,17 +39,6 @@ from bt_observability.ros_comm_tracer import ManagerProxy, ROSCommTracer
 
 _LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log')
 
-# Topics to record via rosbag for full message-level observability.
-# Covers all BT-relevant topics: gait control, servo, IMU, line detection.
-_ROSBAG_TOPICS = [
-    "/walking/set_param",
-    "/walking/command",
-    "/ros_robot_controller/bus_servo/set_position",
-    "/ros_robot_controller/set_buzzer",
-    "/imu",
-    "/object/pixel_coords",
-]
-
 
 class MarathonBTNode(Common):
     head_pan_init = 500
@@ -141,8 +130,6 @@ class MarathonBTNode(Common):
             rolling_comm_jsonl=os.path.join(_LOG_DIR, 'bt_ros_comm_debug_recent.jsonl'),
             max_rolling_ticks=rospy.get_param('~max_rolling_ticks', 30),
             tick_id_getter=lambda: self._tick_id,
-            rosbag_topics=_ROSBAG_TOPICS,
-            rosbag_dir=os.path.join(_LOG_DIR, 'rosbag'),
         )
 
         # ROS interface maps for ManagerProxy — maps Python method names to the
