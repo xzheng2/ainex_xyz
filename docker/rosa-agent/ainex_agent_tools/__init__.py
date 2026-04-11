@@ -12,6 +12,7 @@ from ainex_agent_tools.tools.detections import get_latest_detections
 from ainex_agent_tools.tools.logs import read_recent_ros_logs, read_last_run_summary
 from ainex_agent_tools.tools.bt_monitor import get_bt_status
 from ainex_agent_tools.tools.bt_obs import read_bt_obs
+from ainex_agent_tools.tools.bt_tick_analysis import get_bt_tick_raw, analyze_bt_tick
 from ainex_agent_tools.tools.disabled import stop_current_behavior, stand_safe
 
 # Exported tool list consumed by ainex_agent.py
@@ -24,6 +25,8 @@ AINEX_TOOLS = [
     read_recent_ros_logs,
     read_last_run_summary,
     read_bt_obs,             # BT observability: auto-selects recent or lastrun
+    analyze_bt_tick,         # one-tick fault diagnosis: explain/compare/diagnose scaffold
+    get_bt_tick_raw,         # raw JSONL evidence for a specific tick
     stop_current_behavior,   # always returns disabled message
     stand_safe,              # always returns disabled message
 ]
