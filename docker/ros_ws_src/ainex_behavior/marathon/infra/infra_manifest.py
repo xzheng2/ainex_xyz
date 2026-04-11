@@ -152,6 +152,10 @@ def build_infra_manifest(node_name: str) -> list:
             "excluded_from_generic_ros_facade": True,
         },
         # ── MarathonBTNode fixed infra ─────────────────────────────────────
+        # IMPORTANT: MarathonBTNode inherits color_common.Common.
+        # Common.__init__() creates additional interfaces not visible in MarathonBTNode
+        # directly.  Any change to Common.__init__() must be reflected here.
+        # Source: ainex_example/src/ainex_example/color_common.py
         {
             "component": "MarathonBTNode",
             "kind": "topic_sub",
@@ -183,11 +187,12 @@ def build_infra_manifest(node_name: str) -> list:
         {
             "component": "MarathonBTNode",
             "kind": "topic_pub",
-            "name": "/ainex_color_detect/color_detect",
-            "msg_or_srv_type": "ainex_interfaces/ColorDetect[]",
-            "purpose": "color detection configuration (line color, ROI)",
+            "name": "/color_detection/update_detect",
+            "msg_or_srv_type": "ainex_interfaces/ColorsDetect",
+            "purpose": "configure color_detection_node: sets target color, detect_type, ROI at startup",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
+            "notes": "self.detect_pub — created in color_common.Common.__init__(); see ainex_example/src/ainex_example/color_common.py",
         },
         {
             "component": "MarathonBTNode",
@@ -216,6 +221,7 @@ def build_infra_manifest(node_name: str) -> list:
             "purpose": "enable BT ticking (via Common base class)",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
+            "notes": "created by color_common.Common.__init__()",
         },
         {
             "component": "MarathonBTNode",
@@ -224,6 +230,68 @@ def build_infra_manifest(node_name: str) -> list:
             "resolved_name": resolve("~stop"),
             "msg_or_srv_type": "std_srvs/Empty",
             "purpose": "disable BT ticking (via Common base class)",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+            "notes": "created by color_common.Common.__init__()",
+        },
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_server",
+            "name": "~enter",
+            "resolved_name": resolve("~enter"),
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "run init_action + call /color_detection/enter (via Common base class)",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+            "notes": "created by color_common.Common.__init__()",
+        },
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_server",
+            "name": "~exit",
+            "resolved_name": resolve("~exit"),
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "stop + call /color_detection/exit (via Common base class)",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+            "notes": "created by color_common.Common.__init__()",
+        },
+        # ── color_detection_node service clients (via color_common.Common) ────
+        # Transient ServiceProxy objects created on-demand in enter_func / exit_func /
+        # start_srv_callback / stop_srv_callback (color_common.py).
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_client",
+            "name": "/color_detection/enter",
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "activate color_detection_node processing pipeline",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+        },
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_client",
+            "name": "/color_detection/exit",
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "deactivate color_detection_node processing pipeline",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+        },
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_client",
+            "name": "/color_detection/start",
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "start color detection result publishing",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+        },
+        {
+            "component": "MarathonBTNode",
+            "kind": "service_client",
+            "name": "/color_detection/stop",
+            "msg_or_srv_type": "std_srvs/Empty",
+            "purpose": "stop color detection result publishing",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
         },

@@ -187,14 +187,34 @@ purpose:
 - `/imu` — `topic_sub` — `sensor_msgs/Imu`
 - `/object/pixel_coords` — `topic_sub` — `ainex_interfaces/ObjectsInfo`
 - `/ros_robot_controller/set_buzzer` — `topic_pub` — `ros_robot_controller/BuzzerState`
-- `detect_pub` 对应颜色检测配置发布接口 — `topic_pub` — `ainex_interfaces/ColorDetect[]`
+- `/color_detection/update_detect` — `topic_pub` — `ainex_interfaces/ColorsDetect`
 - `walk_ready` — `lifecycle_action`
 - `stand` — `lifecycle_action`
+
+`MarathonBTNode` 继承自 `color_common.Common`，`Common.__init__()` 额外创建以下接口（**必须纳入清单**，否则会漏记）：
+
+Service servers（`Common.__init__()` 直接创建）：
+
+- `~start` — `service_server` — `std_srvs/Empty`
+- `~stop` — `service_server` — `std_srvs/Empty`
+- `~enter` — `service_server` — `std_srvs/Empty`
+- `~exit` — `service_server` — `std_srvs/Empty`
+
+Service clients（按需在 `enter_func` / `exit_func` / `start_srv_callback` / `stop_srv_callback` 中创建）：
+
+- `/color_detection/enter` — `service_client` — `std_srvs/Empty`
+- `/color_detection/exit` — `service_client` — `std_srvs/Empty`
+- `/color_detection/start` — `service_client` — `std_srvs/Empty`
+- `/color_detection/stop` — `service_client` — `std_srvs/Empty`
 
 说明：
 
 - `/ros_robot_controller/set_buzzer` 同时会被业务恢复动作使用，但 publisher 本体属于 node 级基础设施对象；业务日志仍由 `comm_facade.py` 负责
 - `walk_ready` 和 `stand` 是启动/关机生命周期动作，不属于 BT 决策链
+- `/color_detection/update_detect` 即 `self.detect_pub`，由 `Common.__init__()` 创建，消息类型为 `ColorsDetect`（非 `ColorDetect[]`）
+- 所有 `~enter`/`~exit`/`~start`/`~stop` 服务和 `/color_detection/*` 客户端均来自基类 `color_common.Common`，参见 `ainex_example/src/ainex_example/color_common.py`
+
+**维护原则**：`infra_manifest.py` 为手动维护静态文件，每次修改 `Common.__init__()` 必须同步更新此文件。
 
 ---
 
@@ -237,15 +257,23 @@ purpose:
 
 ## 8. 验收标准
 
-- [ ] `infra_manifest.py` 已新增
-- [ ] `marathon_bt_node.py` 启动时会生成 `log/infra_comm_manifest_lastrun.json`
-- [ ] 每次启动会覆盖旧文件
-- [ ] 文件中包含 `tree_publisher.py` 的 3 个 topic
-- [ ] 文件中包含 `bb_ros_bridge.py` 的 BB 镜像 topic
-- [ ] 文件中包含 `bt_exec_controller.py` 的 mode topic 和 3 个 service
-- [ ] 文件中包含 `marathon_bt_node.py` 的固定基础设施输入/输出
-- [ ] 每条记录包含 `bt_decision_related=false`
-- [ ] 每条记录包含 `excluded_from_generic_ros_facade=true`
+- [x] `infra_manifest.py` 已新增（位于 `marathon/infra/infra_manifest.py`）
+- [x] `marathon_bt_node.py` 启动时会生成 `log/infra_comm_manifest_lastrun.json`
+- [x] 每次启动会覆盖旧文件
+- [x] 文件中包含 `tree_publisher.py` 的 3 个 topic
+- [x] 文件中包含 `bb_ros_bridge.py` 的 BB 镜像 topic
+- [x] 文件中包含 `bt_exec_controller.py` 的 mode topic 和 3 个 service
+- [x] 文件中包含 `marathon_bt_node.py` 的固定基础设施输入/输出
+- [x] 每条记录包含 `bt_decision_related=false`
+- [x] 每条记录包含 `excluded_from_generic_ros_facade=true`
+
+以下为补充验收项（2026-04-10 修正，来自 `color_common.Common` 继承链审查）：
+
+- [x] `detect_pub` 记录为 `/color_detection/update_detect`（非 `/ainex_color_detect/color_detect`）
+- [x] `detect_pub` 消息类型为 `ainex_interfaces/ColorsDetect`（非 `ColorDetect[]`）
+- [x] 文件中包含 `~enter`、`~exit` service server（`Common.__init__()` 创建）
+- [x] 文件中包含 `/color_detection/enter|exit|start|stop` service client（共 4 条）
+- [x] `infra_manifest.py` 中含源锚注释，指向 `color_common.py`，防止维护漏记
 
 ---
 
