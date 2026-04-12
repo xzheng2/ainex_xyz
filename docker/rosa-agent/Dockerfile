@@ -95,6 +95,14 @@ RUN bash -c "\
 # Add generated Python bindings to PYTHONPATH
 ENV PYTHONPATH="/opt/ainex_msgs_ws/devel/lib/python3/dist-packages:${PYTHONPATH}"
 
+# ---------- 4c. ttyd web terminal (aarch64 prebuilt binary) ----------
+# ttyd is not in Ubuntu 20.04 arm64 apt. Download from GitHub releases.
+# Used to expose ainex_agent.py as a browser terminal on port 7681.
+RUN curl -fsSL \
+      "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.aarch64" \
+      -o /usr/local/bin/ttyd \
+    && chmod +x /usr/local/bin/ttyd
+
 # ---------- 5. Install ROSA from local vendor copy (preferred) or PyPI ----------
 WORKDIR /opt/rosa-agent
 

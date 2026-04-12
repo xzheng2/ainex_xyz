@@ -13,3 +13,7 @@ langchain-ollama>=0.2.0
 python-dotenv>=1.0.1
 PyYAML>=6.0.1
 rich>=13.0.0
+
+# Runtime debug page backend
+fastapi>=0.111.0
+uvicorn>=0.30.0

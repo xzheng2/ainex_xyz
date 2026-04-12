@@ -14,6 +14,13 @@
 !docker/rosa-agent/**
 !docker/docker-compose.yml
 
+# Allow runtime debug page
+!runtime_debug_page/
+!runtime_debug_page/**
+
+# Allow design docs in docker/
+!docker/ROSA_RQT_NOVNC_TERMINAL_PAGE_DESIGN.md
+
 # Allow Claude config (memory, settings, CLAUDE.md)
 !.claude/
 !.claude/projects/

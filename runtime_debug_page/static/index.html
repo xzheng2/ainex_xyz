@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AINEX Runtime Debug</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div id="layout">
+
+      <iframe
+        id="rqt-frame"
+        title="rqt via noVNC"
+        allowfullscreen>
+      </iframe>
+
+      <div id="status-bar">
+        <div class="status-cell tick-cell">
+          tick: <span id="tick-id">?</span>
+        </div>
+        <div class="status-cell">
+          source: <span id="tick-source">/bt/marathon/bb/tick_id</span>
+        </div>
+        <div class="status-cell">
+          status: <span id="tick-status">connecting</span>
+        </div>
+        <div class="status-cell">
+          age: <span id="tick-age">?</span>
+        </div>
+      </div>
+
+      <iframe
+        id="rosa-terminal"
+        title="ROSA CLI terminal">
+      </iframe>
+
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
