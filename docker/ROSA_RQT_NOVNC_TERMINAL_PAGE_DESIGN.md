@@ -3,7 +3,9 @@
 > Goal: Put Ainex rqt runtime display and ROSA interaction into one lightweight browser page.
 > UI strategy: Embed existing rqt through noVNC iframe, embed ROSA CLI through web terminal iframe.
 > Tick source: subscribe to ROS topic `/bt/marathon/bb/tick_id`, not screen-scrape rqt and not read JSONL for the status bar.
-> Deployment: the page runs on the host Raspberry Pi; Ainex ROS and ROSA run in separate Docker containers.
+> Deployment: the page backend runs inside the **rosa-agent container** (host Pi has no `rospy`); ainex ROS and ROSA run in separate Docker containers.
+
+**Status: MVP implemented (Apr 12 2026). Start: `./runtime_debug_page/start_all.sh`**
 
 ---
 
@@ -48,10 +50,10 @@ Do not rewrite rqt as a web UI for MVP.
 ROSA MVP interaction uses the existing CLI:
 
 ```text
-ainex_agent.py interactive CLI -> ttyd / wetty -> browser iframe
+ainex_agent.py interactive CLI -> ttyd -> browser iframe
 ```
 
-This avoids writing a chat backend for MVP. The user gets the same ROSA CLI in the page.
+`ttyd` chosen over `wetty` (simpler binary, no Node.js dependency). This avoids writing a chat backend for MVP.
 
 ### 2.3 Status Bar Tick Source: ROS Topic
 
@@ -75,7 +77,7 @@ The value is expected to be JSON text from the BB bridge, for example:
 1618
 ```
 
-or a JSON string representation depending on bridge output. The backend should parse both plain numeric strings and JSON values.
+or a JSON string representation depending on bridge output. The backend parses both plain numeric strings and JSON values.
 
 Why this is preferred:
 
@@ -93,93 +95,101 @@ Why this is preferred:
 ```text
 Host Raspberry Pi
   ├── Browser
-  │   ├── iframe: noVNC rqt desktop
-  │   ├── status bar: current tick from host page backend
-  │   └── iframe: ROSA web terminal
-  │
-  ├── Page Backend
-  │   ├── serves static HTML/CSS/JS
-  │   ├── subscribes /bt/marathon/bb/tick_id from Ainex ROS master
-  │   ├── exposes GET /api/current_tick
-  │   └── optional CLI control endpoints for rqt runtime page changes
+  │   ├── iframe: noVNC rqt desktop (port 6080)
+  │   ├── status bar: tick from page backend API
+  │   └── iframe: ROSA web terminal (port 7681)
   │
   └── Docker CLI access
-      ├── starts/stops rqt/noVNC processes in the Ainex container
-      └── starts/stops ROSA terminal in the ROSA container
+      ├── starts/stops rqt/noVNC processes in ainex container
+      └── starts/stops ROSA terminal + page backend in rosa-agent container
 
-Ainex Docker Container
+Ainex Docker Container (host network)
   ├── ROS master / Ainex BT node
   ├── publishes /bt/marathon/bb/tick_id
-  ├── Xvfb
-  ├── rqt
-  ├── x11vnc
-  └── websockify/noVNC
+  ├── Xvfb :99
+  ├── rqt (DISPLAY=:99)
+  ├── x11vnc (port 5900)
+  └── websockify/noVNC (port 6080)
 
-ROSA Docker Container
+ROSA Agent Docker Container (host network)
   ├── ainex_agent.py interactive CLI
-  └── ttyd or wetty web terminal
+  ├── ttyd (port 7681) — wraps ainex_agent.py
+  └── app.py — FastAPI page backend (port 8090)
+      ├── rospy subscriber: /bt/marathon/bb/tick_id
+      ├── GET /api/current_tick
+      └── serves static/ (index.html, style.css, app.js)
 ```
 
 Logical browser layout:
 
 ```text
-Browser Page
-  ├── iframe: noVNC rqt desktop
-  ├── status bar: current tick from page backend
-  └── iframe: ROSA web terminal
+Browser Page  (served from port 8090)
+  ├── iframe: noVNC rqt desktop (port 6080)
+  ├── status bar: polls /api/current_tick every 500 ms
+  └── iframe: ROSA web terminal (port 7681)
 ```
 
 ### 3.1 Container Boundary
 
-The page process is hosted on the Pi, not inside either Docker container.
+The page backend runs inside the **rosa-agent container**, not on the host Pi.
 
-The page does not need to own ROSA or rqt directly. It embeds:
+Reason: the host Pi does not have `rospy` installed, and the ROS Noetic apt repo arm64 packages are no longer available (404). Installing ROS on the host is not feasible.
 
-```text
-noVNC URL from Ainex container, e.g. http://<pi-host>:6080/...
-ROSA terminal URL from ROSA container, e.g. http://<pi-host>:7681/...
-```
-
-The host page backend needs read access to the Ainex ROS graph for `/bt/marathon/bb/tick_id`.
-
-MVP assumption:
+The rosa-agent container already provides:
 
 ```text
-The Ainex ROS container uses host networking, or otherwise exposes ROS master and topic transport so the host backend can subscribe with rospy.
+- Python 3.9
+- rospy (via PYTHONPATH=/opt/ros/noetic/lib/python3/dist-packages)
+- host networking (shares 127.0.0.1 with ROS master at port 11311)
+- fastapi + uvicorn (added to requirements.txt)
 ```
 
-If the host does not have ROS Python available, use a tiny tick bridge in the Ainex container later. MVP keeps the selected source as the ROS topic and documents the host ROS requirement.
+The page source lives on the host at `/home/pi/runtime_debug_page/` and is volume-mounted read-only into the container at `/opt/ainex_page/`. Edits on the host are visible immediately inside the container.
+
+```yaml
+# docker-compose.yml volume entry (rosa-agent service):
+- /home/pi/runtime_debug_page:/opt/ainex_page:ro
+```
+
+`rospy.init_node` uses `disable_signals=True` so rospy does not interfere with uvicorn's signal handlers.
 
 ---
 
-## 4. Files to Add
+## 4. Files
 
-Suggested location:
-
-```text
-ainex_xyz-master/runtime_debug_page/
-```
-
-Create:
+### 4.1 runtime_debug_page/ (host, git-tracked)
 
 ```text
 runtime_debug_page/
-├── app.py
+├── app.py            ← FastAPI backend (rospy subscriber + API + static serve)
 ├── static/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
-└── README.md
+│   ├── index.html    ← 3-panel layout
+│   ├── style.css     ← CSS grid
+│   └── app.js        ← 500 ms tick polling + hostname-aware iframe URLs
+├── start_all.sh      ← one-shot startup script (runs all services from host)
+└── README.md         ← startup, verification, rqt control, troubleshooting
 ```
 
-Optional later:
+### 4.2 Container changes
 
 ```text
-runtime_debug_page/start_runtime_page.sh
-runtime_debug_page/rqt_control.py
+docker/rosa-agent/Dockerfile
+  - added: ttyd 1.7.7 aarch64 binary (/usr/local/bin/ttyd)
+  - source: https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.aarch64
+
+docker/rosa-agent/requirements.txt
+  - added: fastapi>=0.111.0
+  - added: uvicorn>=0.30.0
+
+docker/docker-compose.yml
+  - added volume: /home/pi/runtime_debug_page:/opt/ainex_page:ro
 ```
 
-For MVP, a documented command sequence is enough.
+### 4.3 Future (not MVP)
+
+```text
+runtime_debug_page/rqt_control.py  ← CLI wrapper for rqt perspective switching
+```
 
 ---
 
@@ -197,10 +207,7 @@ For MVP, a documented command sequence is enough.
   </head>
   <body>
     <div id="layout">
-      <iframe
-        id="rqt-frame"
-        src="">
-      </iframe>
+      <iframe id="rqt-frame" title="rqt via noVNC" allowfullscreen></iframe>
 
       <div id="status-bar">
         <div class="status-cell tick-cell">
@@ -217,28 +224,24 @@ For MVP, a documented command sequence is enough.
         </div>
       </div>
 
-      <iframe
-        id="rosa-terminal"
-        src="">
-      </iframe>
+      <iframe id="rosa-terminal" title="ROSA CLI terminal"></iframe>
     </div>
-
     <script src="/static/app.js"></script>
   </body>
 </html>
 ```
 
-`app.js` should set iframe URLs using the browser's current host name, so the page works both on the Pi itself and from another computer on the same network:
+`app.js` sets iframe URLs using the browser's current hostname so the page works both on the Pi and from another machine on the same network:
 
 ```js
 const host = window.location.hostname;
 document.getElementById("rqt-frame").src =
-  `http://${host}:6080/vnc.html?autoconnect=true&resize=scale`;
+  "http://" + host + ":6080/vnc.html?autoconnect=true&resize=scale";
 document.getElementById("rosa-terminal").src =
-  `http://${host}:7681`;
+  "http://" + host + ":7681";
 ```
 
-Do not hardcode `localhost` in the iframe URLs unless the browser always runs directly on the Pi.
+Do not hardcode `localhost` in the iframe URLs.
 
 ### 5.2 CSS Layout
 
@@ -307,20 +310,20 @@ body {
 
 ## 6. Page Backend
 
-### 6.1 Recommended Framework
+### 6.1 Framework
 
-Use FastAPI because it is small and easy to serve static files plus JSON endpoints.
+FastAPI + uvicorn, running inside the rosa-agent container.
 
 ```text
-runtime_debug_page/app.py
+/opt/ainex_page/app.py  (host: runtime_debug_page/app.py)
 ```
 
 Responsibilities:
 
 1. Serve `/` and `/static/*`.
-2. Initialize `rospy` once.
+2. Initialize `rospy` in a daemon thread (`disable_signals=True`).
 3. Subscribe to `/bt/marathon/bb/tick_id`.
-4. Store the latest tick in memory.
+4. Store the latest tick in memory (thread-safe with `threading.Lock`).
 5. Expose `GET /api/current_tick`.
 
 ### 6.2 Backend State
@@ -350,16 +353,6 @@ Type:
 std_msgs/String
 ```
 
-Parsing policy:
-
-```python
-def parse_tick_value(data: str) -> int:
-    # Accept:
-    #   "1618"
-    #   1618 encoded as JSON
-    #   "\"1618\"" encoded as JSON string
-```
-
 Parsing algorithm:
 
 ```text
@@ -373,7 +366,7 @@ Parsing algorithm:
 
 ### 6.4 API: `GET /api/current_tick`
 
-Response:
+Response (live):
 
 ```json
 {
@@ -387,7 +380,7 @@ Response:
 }
 ```
 
-If no message received:
+Response (no tick received yet):
 
 ```json
 {
@@ -412,14 +405,9 @@ Stale is allowed because pause/step mode may freeze the tick.
 Status interpretation:
 
 ```text
-age_seconds <= STALE_SECONDS:
-  status = "live"
-
-age_seconds > STALE_SECONDS:
-  status = "paused/stale"
-
-no tick received:
-  status = "waiting"
+age_seconds <= STALE_SECONDS:  status = "live"
+age_seconds > STALE_SECONDS:   status = "paused/stale"
+no tick received:              status = "waiting"
 ```
 
 Do not treat stale as an error.
@@ -432,19 +420,19 @@ Do not treat stale as an error.
 
 ```js
 async function refreshTick() {
-  const tickId = document.getElementById("tick-id");
+  const tickId     = document.getElementById("tick-id");
   const tickStatus = document.getElementById("tick-status");
-  const tickAge = document.getElementById("tick-age");
+  const tickAge    = document.getElementById("tick-age");
 
   try {
-    const res = await fetch("/api/current_tick", { cache: "no-store" });
+    const res  = await fetch("/api/current_tick", { cache: "no-store" });
     const data = await res.json();
 
     tickStatus.classList.remove("status-warn", "status-error");
 
     if (!data.ok) {
-      tickId.textContent = "?";
-      tickAge.textContent = "?";
+      tickId.textContent     = "?";
+      tickAge.textContent    = "?";
       tickStatus.textContent = data.error || data.status || "unavailable";
       tickStatus.classList.add("status-error");
       return;
@@ -461,8 +449,8 @@ async function refreshTick() {
       tickStatus.textContent = "live";
     }
   } catch (err) {
-    tickId.textContent = "?";
-    tickAge.textContent = "?";
+    tickId.textContent     = "?";
+    tickAge.textContent    = "?";
     tickStatus.textContent = "api error";
     tickStatus.classList.add("status-error");
   }
@@ -478,17 +466,32 @@ Polling every 500 ms is enough. The page does not need 15 Hz UI refresh.
 
 ## 8. Runtime Services
 
-### 8.1 rqt via noVNC
+### 8.1 rqt via noVNC (ainex container)
 
-The rqt/noVNC stack runs in the Ainex Docker container because rqt needs the ROS packages and message types from the Ainex ROS workspace.
+The rqt/noVNC stack runs in the ainex Docker container because rqt needs the ROS packages and message types from the ainex ROS workspace.
 
-Typical host-side commands:
+**noVNC packages are not in the `ainex-backup:20260308` image. Install once into the running container:**
 
 ```bash
-docker exec ainex bash -lc 'Xvfb :99 -screen 0 1600x900x24 &'
-docker exec ainex bash -lc 'DISPLAY=:99 rqt &'
-docker exec ainex bash -lc 'x11vnc -display :99 -forever -shared -rfbport 5900 &'
-docker exec ainex bash -lc 'websockify --web /usr/share/novnc 6080 localhost:5900 &'
+docker exec ainex apt-get update
+docker exec ainex apt-get install -y xvfb x11vnc novnc python3-websockify
+```
+
+These installs are **ephemeral** — lost if the container is recreated. After debugging stabilises, run:
+
+```bash
+docker commit ainex ainex-backup:novnc
+```
+
+to preserve the install in a new image snapshot.
+
+Start commands (from host):
+
+```bash
+docker exec -d ainex bash -c 'Xvfb :99 -screen 0 1600x900x24 &'
+docker exec -d ainex bash -c 'sleep 1 && DISPLAY=:99 rqt &'
+docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5900 &'
+docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5900 &'
 ```
 
 The page iframe points to:
@@ -497,16 +500,27 @@ The page iframe points to:
 http://<pi-host>:6080/vnc.html?autoconnect=true&resize=scale
 ```
 
-If noVNC uses a different path in the installed package, update `index.html`.
+noVNC static path confirmed at `/usr/share/novnc/vnc.html` in the installed package.
 
-### 8.2 ROSA via Web Terminal
+### 8.2 ROSA via Web Terminal (rosa-agent container)
 
-Use `ttyd` or `wetty`.
+`ttyd` is used. `wetty` not chosen (requires Node.js).
 
-Recommended first choice:
+`ttyd` is not in the Ubuntu 20.04 arm64 apt repos. It is installed in the Dockerfile as a prebuilt binary:
+
+```dockerfile
+RUN curl -fsSL \
+      "https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.aarch64" \
+      -o /usr/local/bin/ttyd \
+    && chmod +x /usr/local/bin/ttyd
+```
+
+Note: the binary filename is `ttyd.aarch64`, not `ttyd_linux.aarch64`.
+
+Start command (from host):
 
 ```bash
-docker exec rosa-agent bash -lc 'ttyd -p 7681 python3.9 /opt/rosa-agent/ainex_agent.py'
+docker exec -d rosa-agent ttyd -p 7681 python3.9 /opt/rosa-agent/ainex_agent.py
 ```
 
 The page iframe points to:
@@ -515,22 +529,15 @@ The page iframe points to:
 http://<pi-host>:7681
 ```
 
-If `python3.9` is not the runtime executable in the container, use the environment's normal Python command.
+### 8.3 Page Backend (rosa-agent container)
 
-### 8.3 Page Backend
-
-Example:
+The backend runs inside rosa-agent, not on the host Pi. The source is volume-mounted from the host:
 
 ```bash
-cd ainex_xyz-master
-python3 runtime_debug_page/app.py
+docker exec -it rosa-agent python3.9 /opt/ainex_page/app.py
 ```
 
-Suggested port:
-
-```text
-8090
-```
+Port: `8090`
 
 Browser opens:
 
@@ -538,24 +545,23 @@ Browser opens:
 http://<pi-host>:8090
 ```
 
-The page backend runs on the host Pi. It must be launched in an environment that can reach the Ainex ROS master and import `rospy`.
+No `ROS_MASTER_URI` export needed on the host — the container already has `ROS_MASTER_URI=http://127.0.0.1:11311` set in its environment (docker-compose.yml).
 
-Expected environment:
+### 8.4 One-Shot Startup
 
 ```bash
-export ROS_MASTER_URI=http://127.0.0.1:11311
-export ROS_IP=<pi-host-ip>
+./runtime_debug_page/start_all.sh
 ```
 
-Adjust `ROS_MASTER_URI` if the Ainex ROS master is not exposed through host networking.
+This runs all four service groups sequentially and leaves the page backend in the foreground (Ctrl-C to stop).
 
 ---
 
 ## 9. Runtime rqt Page Control via CLI
 
-The MVP should leave room to modify the rqt view while the page is running.
+The MVP leaves room to modify the rqt view while the page is running.
 
-Do not implement browser buttons for this in MVP. Use host CLI commands that control the rqt process inside the Ainex Docker container. Because noVNC displays the same virtual X display, changing/restarting rqt inside the container is immediately reflected in the iframe.
+Do not implement browser buttons for this in MVP. Use host CLI commands that control the rqt process inside the ainex Docker container. Because noVNC displays the same virtual X display, changing/restarting rqt inside the container is immediately reflected in the iframe.
 
 ### 9.1 Control Model
 
@@ -568,7 +574,7 @@ Host CLI
 
 The browser page remains unchanged. Only the content displayed in the noVNC iframe changes.
 
-### 9.2 Suggested CLI Wrapper
+### 9.2 Suggested CLI Wrapper (not MVP)
 
 Later create:
 
@@ -586,41 +592,35 @@ python3 runtime_debug_page/rqt_control.py restart-perspective <path>
 python3 runtime_debug_page/rqt_control.py stop-rqt
 ```
 
-MVP can start with documented shell commands instead of implementing this wrapper immediately.
-
 ### 9.3 Example Commands
 
 Restart default rqt:
 
 ```bash
-docker exec ainex bash -lc 'pkill -f "rqt" || true; DISPLAY=:99 rqt &'
+docker exec ainex bash -c 'pkill -f rqt || true; DISPLAY=:99 rqt &'
 ```
 
 Restart rqt with a saved perspective:
 
 ```bash
-docker exec ainex bash -lc 'pkill -f "rqt" || true; DISPLAY=:99 rqt --perspective-file /root/.config/ainex/rqt_tree.perspective &'
+docker exec ainex bash -c \
+  'pkill -f rqt || true; DISPLAY=:99 rqt --perspective-file /root/.config/ainex/rqt_tree.perspective &'
 ```
 
 Restart only noVNC bridge if the iframe disconnects:
 
 ```bash
-docker exec ainex bash -lc 'pkill -f "websockify" || true; websockify --web /usr/share/novnc 6080 localhost:5900 &'
+docker exec ainex bash -c \
+  'pkill -f websockify || true; websockify --web /usr/share/novnc 6080 localhost:5900 &'
 ```
 
 ### 9.4 Safety Rules
-
-CLI control should be allowlisted.
-
-Recommended MVP rule:
 
 ```text
 Only provide predefined commands for rqt/noVNC display control.
 Do not expose arbitrary shell execution through the browser page.
 Do not let ROSA execute these commands automatically in read-only mode.
 ```
-
-The user or developer can run these commands manually on the host Pi when changing the rqt page layout.
 
 ---
 
@@ -635,8 +635,8 @@ BT tick loop
   -> updates /tick_id blackboard key
   -> BB bridge publishes /bt/marathon/bb/tick_id
   -> tree publisher updates /marathon_bt/log/tree and rqt view
-  -> page backend receives tick_id
-  -> browser status bar updates
+  -> page backend (in rosa-agent) receives tick_id via rospy subscriber
+  -> browser status bar polls /api/current_tick and updates
 ```
 
 In pause/step mode:
@@ -645,7 +645,7 @@ In pause/step mode:
 BT stops advancing
 rqt tree view stays on the paused state
 /bt/marathon/bb/tick_id stays at the paused tick
-status bar shows the same tick and may become paused/stale
+status bar shows the same tick and transitions to paused/stale after 10 s
 ```
 
 This is desired behavior.
@@ -654,7 +654,7 @@ This is desired behavior.
 
 ## 11. User Workflow
 
-1. User opens the page.
+1. User opens the page at `http://<pi-ip>:8090`.
 2. User watches rqt in the noVNC iframe.
 3. User sees current tick id in the narrow status bar.
 4. User uses ROSA terminal below.
@@ -681,11 +681,12 @@ ROSA should use `analyze_bt_tick` for this query.
 Likely causes:
 
 ```text
-Xvfb not running
+Xvfb not running in ainex
 rqt not running on DISPLAY=:99
 x11vnc not attached to DISPLAY=:99
 websockify/noVNC not running
-wrong noVNC URL
+noVNC packages not installed (apt-get step skipped after container recreation)
+wrong noVNC URL (path confirmed: /usr/share/novnc/vnc.html)
 ```
 
 ### 12.2 ROSA terminal blank
@@ -693,11 +694,10 @@ wrong noVNC URL
 Likely causes:
 
 ```text
-ttyd/wetty not running
-wrong iframe URL
+ttyd not running (start_all.sh not executed)
 ainex_agent.py failed to start
-missing OPENAI/API config
-ROS master not reachable
+missing OPENAI/API config in .env
+ROS master not reachable from rosa-agent container
 ```
 
 ### 12.3 Tick shows waiting
@@ -707,8 +707,8 @@ Likely causes:
 ```text
 BT node not running
 MarathonBBBridge not publishing /bt/marathon/bb/tick_id
-ROS_MASTER_URI wrong for page backend
-backend did not initialize rospy
+app.py not running in rosa-agent
+rospy.init_node failed (check container logs)
 topic type mismatch
 ```
 
@@ -720,14 +720,13 @@ Investigate only if the user expects continuous run mode.
 
 ---
 
-## 13. MVP Verification
+## 13. Verification
 
 ### 13.1 ROS Topic Check
 
-Inside the ROS environment:
-
 ```bash
-rostopic echo -n 1 /bt/marathon/bb/tick_id
+docker exec rosa-agent bash -c \
+  'source /opt/ros/noetic/setup.bash && rostopic echo -n 1 /bt/marathon/bb/tick_id'
 ```
 
 Expected:
@@ -736,28 +735,30 @@ Expected:
 data: "1618"
 ```
 
-or equivalent JSON/string numeric representation.
-
 ### 13.2 Backend Check
 
 ```bash
-curl http://<pi-host>:8090/api/current_tick
+curl http://localhost:8090/api/current_tick
 ```
 
-Expected:
+Expected (BT running):
 
 ```json
-{"ok": true, "tick_id": 1618, ...}
+{"ok": true, "tick_id": 1618, "status": "live", ...}
 ```
 
-### 13.3 Page Check
+Expected (BT not running):
 
-Expected:
+```json
+{"ok": false, "tick_id": null, "status": "waiting", ...}
+```
 
-```text
-rqt iframe visible
-status bar tick id updates or stays paused
-ROSA terminal interactive
+### 13.3 Service Health Check
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:6080/vnc.html   # 200
+curl -s -o /dev/null -w "%{http_code}" http://localhost:7681             # 200
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/            # 200
 ```
 
 ### 13.4 ROSA One-Tick Query Check
@@ -789,7 +790,40 @@ After MVP:
    "分析 tick <id>。机器人现实表现：..."
 4. Replace ROSA terminal iframe with a proper chat panel.
 5. Add a one-click Analyze Current Tick form that calls analyze_bt_tick directly.
-6. Add ROSBridge/WebSocket frontend path if direct browser ROS subscriptions are preferred later.
+6. Commit ainex container as ainex-backup:novnc after noVNC install is stable.
+7. Add ROSBridge/WebSocket frontend path if direct browser ROS subscriptions are preferred later.
 ```
 
 MVP should avoid these until the basic page is stable.
+
+---
+
+## 15. Implementation Notes (Apr 12 2026)
+
+Deviations from the original design and rationale:
+
+### 15.1 Page backend location
+
+Original design said: "page runs on the host Raspberry Pi".
+
+Actual: **runs inside rosa-agent container**.
+
+Reason: host Pi has no `rospy`. ROS Noetic arm64 apt packages are unavailable (404). rosa-agent already has Python 3.9, rospy via PYTHONPATH, and host networking — it is the natural host for the backend.
+
+The source is edited on the host and volume-mounted into the container; there is no workflow change for development.
+
+### 15.2 ttyd binary filename
+
+`ttyd.aarch64`, not `ttyd_linux.aarch64`. The GitHub release asset name differs from what the docs implied. Confirmed from the GitHub API: `https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.aarch64`.
+
+### 15.3 noVNC install is ephemeral
+
+`Xvfb`, `x11vnc`, `novnc`, `python3-websockify` are installed via `apt-get` into the running `ainex` container. They are not in the base image `ainex-backup:20260308`. They will be lost on container recreation. Plan: run `docker commit ainex ainex-backup:novnc` after the page is confirmed stable.
+
+### 15.4 rospy + uvicorn coexistence
+
+`rospy.spin()` runs in a `threading.Thread(daemon=True)`. `rospy.init_node` uses `disable_signals=True` to prevent rospy from overriding uvicorn's SIGINT/SIGTERM handlers. Without this flag, Ctrl-C would be intercepted by rospy before uvicorn can handle graceful shutdown.
+
+### 15.5 start_all.sh
+
+The `start_runtime_page.sh` suggested in §4 was implemented as `start_all.sh` covering all four service groups (Xvfb, rqt, x11vnc, websockify + ttyd + app.py).
