@@ -16,9 +16,12 @@ Browser-based runtime debugging UI combining rqt (via noVNC) and ROSA CLI (via t
 
 | Port | Service | Container |
 |------|---------|-----------|
-| 6080 | noVNC (rqt desktop) | ainex |
+| 5910 | x11vnc (internal VNC) | ainex |
+| 6080 | noVNC websockify → browser | ainex |
 | 7681 | ttyd ROSA terminal | rosa-agent |
 | 8090 | page backend + static | rosa-agent |
+
+> Port 5900 (default VNC) is permanently occupied by `wayvnc` on the host Pi. x11vnc uses 5910 instead.
 
 ## Prerequisites
 
@@ -62,10 +65,11 @@ http://<pi-ip>:8090
 
 ```bash
 # noVNC stack (ainex)
+# Note: port 5910 used for x11vnc — host wayvnc permanently occupies 5900
 docker exec -d ainex bash -c 'Xvfb :99 -screen 0 1600x900x24 &'
 docker exec -d ainex bash -c 'sleep 1 && DISPLAY=:99 rqt &'
-docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5900 &'
-docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5900 &'
+docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5910 &'
+docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5910 &'
 
 # ROSA terminal (rosa-agent)
 docker exec -d rosa-agent ttyd -p 7681 python3.9 /opt/rosa-agent/ainex_agent.py
@@ -109,14 +113,14 @@ docker exec ainex bash -c \
 
 # Restart noVNC bridge if iframe disconnects
 docker exec ainex bash -c \
-  'pkill -f websockify || true; websockify --web /usr/share/novnc 6080 localhost:5900 &'
+  'pkill -f websockify || true; websockify --web /usr/share/novnc 6080 localhost:5910 &'
 ```
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---------|-------------|
-| noVNC iframe blank | Xvfb / rqt / x11vnc / websockify not running in ainex; wrong URL |
+| noVNC iframe blank | Xvfb / rqt / x11vnc / websockify not running in ainex; x11vnc failed to bind (check port 5910 free); wrong URL |
 | ROSA terminal blank | ttyd not running; ainex_agent.py startup failed; missing API key |
 | tick shows `waiting` | BT node not running; BB bridge not publishing; wrong ROS_MASTER_URI |
 | tick shows `paused/stale` | Normal in pause/step mode — only investigate if run mode expected |
@@ -127,3 +131,4 @@ docker exec ainex bash -c \
 - `rosa-agent` uses host networking, so it reaches the Ainex ROS master at `127.0.0.1:11311` directly.
 - Volume mount: `/home/pi/runtime_debug_page` → `/opt/ainex_page:ro` (edit on host, instant in container).
 - `disable_signals=True` in `rospy.init_node` prevents rospy from conflicting with uvicorn's signal handlers.
+- x11vnc uses port **5910** (not 5900) — `wayvnc` on the host Pi permanently occupies 5900; host networking means the conflict is shared across all containers.
