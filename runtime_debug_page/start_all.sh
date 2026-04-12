@@ -22,10 +22,11 @@ echo "[2/5] Starting rqt on DISPLAY=:99 in ainex..."
 docker exec -d ainex bash -c 'sleep 1 && DISPLAY=:99 rqt &' 2>/dev/null || true
 
 echo "[3/5] Starting x11vnc in ainex..."
-docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5900 &' 2>/dev/null || true
+# Port 5910 used instead of default 5900 — wayvnc on the host occupies 5900.
+docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5910 &' 2>/dev/null || true
 
 echo "[4/5] Starting websockify/noVNC in ainex (port 6080)..."
-docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5900 &' 2>/dev/null || true
+docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5910 &' 2>/dev/null || true
 
 # ── 2. ROSA web terminal ──────────────────────────────────────────────────────
 echo "[5/5] Starting ttyd ROSA terminal (port 7681) in rosa-agent..."

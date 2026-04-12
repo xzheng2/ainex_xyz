@@ -490,9 +490,11 @@ Start commands (from host):
 ```bash
 docker exec -d ainex bash -c 'Xvfb :99 -screen 0 1600x900x24 &'
 docker exec -d ainex bash -c 'sleep 1 && DISPLAY=:99 rqt &'
-docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5900 &'
-docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5900 &'
+docker exec -d ainex bash -c 'sleep 2 && x11vnc -display :99 -forever -shared -nopw -rfbport 5910 &'
+docker exec -d ainex bash -c 'sleep 3 && websockify --web /usr/share/novnc 6080 localhost:5910 &'
 ```
+
+**Note**: port 5910 is used instead of the default 5900. The host Pi runs `wayvnc` which permanently occupies 5900. x11vnc binds to 5910; websockify proxies from 5910.
 
 The page iframe points to:
 
@@ -824,6 +826,10 @@ The source is edited on the host and volume-mounted into the container; there is
 
 `rospy.spin()` runs in a `threading.Thread(daemon=True)`. `rospy.init_node` uses `disable_signals=True` to prevent rospy from overriding uvicorn's SIGINT/SIGTERM handlers. Without this flag, Ctrl-C would be intercepted by rospy before uvicorn can handle graceful shutdown.
 
-### 15.5 start_all.sh
+### 15.5 Port 5910 for x11vnc
+
+Default VNC port 5900 is permanently occupied by `wayvnc` on the host Pi (Wayland VNC server, pid 977). Because all containers use host networking, x11vnc cannot bind to 5900. x11vnc uses port 5910 instead; websockify proxies from 5910.
+
+### 15.6 start_all.sh
 
 The `start_runtime_page.sh` suggested in §4 was implemented as `start_all.sh` covering all four service groups (Xvfb, rqt, x11vnc, websockify + ttyd + app.py).
