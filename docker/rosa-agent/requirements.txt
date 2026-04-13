@@ -17,3 +17,5 @@ rich>=13.0.0
 # Runtime debug page backend
 fastapi>=0.111.0
 uvicorn>=0.30.0
+websockets>=13.0   # WebSocket proxy for same-origin ttyd terminal
+httpx>=0.27.0      # HTTP proxy for ttyd terminal page

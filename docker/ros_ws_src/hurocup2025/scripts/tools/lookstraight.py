@@ -8,6 +8,8 @@ servo_control = Board()
 
 
 position = 500  # 位置(0-1000)(position (0-1000))
-position2 = 500
 duration = 0.5  # 时间(0.02-30s)(time (0.02-30))
-servo_control.bus_servo_set_position(duration, [[23, position], [24, position2]])
+#servo_control.bus_servo_enable_torque(24, True)
+#time.sleep(0.1)
+
+servo_control.bus_servo_set_position(duration, [[23, position], [24, position]])

@@ -97,7 +97,8 @@
       "Bash(docker exec ainex cat /root/.zshrc 2>/dev/null || echo \"no root zshrc\")",
       "Bash(docker exec ainex2 cat /home/ubuntu/.bashrc 2>/dev/null | head -30)",
       "Bash(docker exec ainex ls /home/ubuntu/.zsh* 2>/dev/null)",
-      "Bash(docker exec ainex du -sh /home/ubuntu/.oh-my-zsh 2>/dev/null)"
+      "Bash(docker exec ainex du -sh /home/ubuntu/.oh-my-zsh 2>/dev/null)",
+      "Bash(chmod +x /home/pi/runtime_debug_page/start_all.sh)"
     ]
   }
 }

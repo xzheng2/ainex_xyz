@@ -30,10 +30,19 @@
         </div>
       </div>
 
-      <iframe
-        id="rosa-terminal"
-        title="ROSA CLI terminal">
-      </iframe>
+      <!-- ROSA chat — replaces the old ttyd iframe -->
+      <div id="rosa-chat">
+        <pre id="rosa-output"></pre>
+        <div id="rosa-input-bar">
+          <input
+            id="rosa-input"
+            type="text"
+            placeholder="Type your ROSA query and press Enter…"
+            autocomplete="off"
+            autofocus />
+          <button id="rosa-send">Send ↵</button>
+        </div>
+      </div>
 
     </div>
     <script src="/static/app.js"></script>

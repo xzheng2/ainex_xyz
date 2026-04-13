@@ -5,19 +5,27 @@ Runs inside the rosa-agent container (Python 3.9, rospy on PYTHONPATH).
   - Subscribes /bt/marathon/bb/tick_id (std_msgs/String)
   - Exposes GET /api/current_tick
   - Serves static/ (index.html, style.css, app.js)
+  - Spawns ainex_agent.py in a PTY at /terminal/ws (direct, no ttyd dependency)
 
 Start:
     python3.9 /opt/ainex_page/app.py
 Port: 8090
 """
 
+import asyncio
+import fcntl
 import json
+import os
+import pty
+import struct
+import subprocess
+import termios
 import threading
 import time
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -132,6 +140,80 @@ async def current_tick():
         "status": status,
         "error": snap.get("error"),
     })
+
+
+# ── ROSA agent PTY terminal ───────────────────────────────────────────────────
+# Spawns ainex_agent.py directly in a PTY — no ttyd dependency.
+# Browser JS sends "1"+JSON for resize, "0"+text for input.
+# Server sends "0"+text for output (ttyd-compatible wire format).
+
+_AGENT_CMD = ["python3.9", "/opt/rosa-agent/ainex_agent.py"]
+
+
+@app.websocket("/terminal/ws")
+async def terminal_ws_pty(ws: WebSocket):
+    """Spawn ainex_agent.py in a PTY and proxy I/O to the browser."""
+    await ws.accept(subprotocol="tty")
+
+    # Allocate PTY and spawn agent
+    master_fd, slave_fd = pty.openpty()
+    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+    proc = subprocess.Popen(
+        _AGENT_CMD,
+        stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+        close_fds=True, start_new_session=True,
+    )
+    os.close(slave_fd)
+
+    loop = asyncio.get_event_loop()
+
+    async def forward_output():
+        """Read PTY output in executor thread and forward to browser."""
+        while True:
+            try:
+                data = await loop.run_in_executor(
+                    None, lambda: os.read(master_fd, 4096)
+                )
+                if data:
+                    await ws.send_text("0" + data.decode("utf-8", errors="replace"))
+            except OSError:
+                break
+
+    fwd = asyncio.create_task(forward_output())
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
+            text = msg.get("text") or ""
+            if not text:
+                continue
+            cmd, body = text[0], text[1:]
+            if cmd == "0":          # input from browser
+                try:
+                    os.write(master_fd, body.encode("utf-8"))
+                except OSError:
+                    break
+            elif cmd == "1":        # terminal resize
+                try:
+                    size = json.loads(body)
+                    rows = int(size.get("rows", 24))
+                    cols = int(size.get("cols", 80))
+                    fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
+                                struct.pack("HHHH", rows, cols, 0, 0))
+                except Exception:
+                    pass
+    finally:
+        fwd.cancel()
+        try:
+            proc.kill()
+            proc.wait(timeout=3)
+        except Exception:
+            pass
+        try:
+            os.close(master_fd)
+        except Exception:
+            pass
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

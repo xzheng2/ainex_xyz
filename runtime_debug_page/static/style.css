@@ -12,8 +12,7 @@ body {
   background: #0f1115;
 }
 
-#rqt-frame,
-#rosa-terminal {
+#rqt-frame {
   width: 100%;
   height: 100%;
   border: 0;
@@ -47,10 +46,65 @@ body {
   color: #7ee787;
 }
 
-.status-warn {
-  color: #f2cc60;
+.status-warn  { color: #f2cc60; }
+.status-error { color: #ff7b72; }
+
+/* ── ROSA chat panel ─────────────────────────────────────────── */
+
+#rosa-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0d1117;
+  overflow: hidden;
 }
 
-.status-error {
-  color: #ff7b72;
+#rosa-output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
+
+#rosa-input-bar {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #30343b;
+  height: 36px;
+  background: #151922;
+  flex-shrink: 0;
+}
+
+#rosa-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e6e8ee;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  padding: 0 12px;
+}
+
+#rosa-input::placeholder {
+  color: #484f58;
+}
+
+#rosa-send {
+  background: #238636;
+  color: #fff;
+  border: none;
+  padding: 0 16px;
+  height: 100%;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+
+#rosa-send:hover { background: #2ea043; }

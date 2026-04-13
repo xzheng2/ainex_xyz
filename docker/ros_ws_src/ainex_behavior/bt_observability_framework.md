@@ -3,7 +3,7 @@
 > 适用范围：所有基于 `py_trees` + ROS 的 BT 项目
 > 参考实现：`marathon/`（`ainex_behavior` 包）
 > 共享模块：`ainex_behavior/bt_observability/`
-> 最后更新：2026-04-10
+> 最后更新：2026-04-12
 
 ---
 
@@ -29,7 +29,7 @@ ainex_behavior/
     ├── __init__.py
     ├── debug_event_logger.py   # 统一输出层（ROS topic + JSONL）
     ├── bt_debug_visitor.py     # BT 决策层 Visitor
-    └── ros_comm_tracer.py      # 工具类（ROSCommTracer）
+    └── ros_comm_tracer.py      # ⚠️ LEGACY / optional — 新项目不引入
 ```
 
 新 BT 项目**直接 import，不复制**：
@@ -38,6 +38,11 @@ ainex_behavior/
 from bt_observability.debug_event_logger import DebugEventLogger
 from bt_observability.bt_debug_visitor import BTDebugVisitor
 ```
+
+> **`ros_comm_tracer.py` 标注说明**：
+> `ROSCommTracer` 和 `ManagerProxy` 是 legacy 工具类，**新项目默认不使用，不得引入业务主链**。
+> `BTDebugVisitor` 内部使用 `ROSCommTracer._msg_to_dict` 做 BB value 序列化（这是共享模块内部实现细节，不属于公开 API）。
+> 新项目业务出站通信唯一出口是 `comm/comm_facade.py`，禁止通过 `ManagerProxy` 或 `ROSCommTracer` 替代。
 
 ---
 
@@ -81,7 +86,7 @@ ainex_behavior/
 
 ```
 app/<project>_bt_node.py
-    │  ros_in（输入适配日志）← 每个传感器 callback 在首次 tick 时 emit_comm
+    │  ros_in（business_in 输入适配日志）← 每个传感器 callback 按 tick 去重后 emit_comm
     ▼
 tree/<project>_bt.py
     ▼
@@ -92,23 +97,36 @@ behaviours/actions.py + conditions.py
 semantics/semantic_facade.py
     │  只调用 comm_facade.*
     ▼
-comm/comm_facade.py              ← 唯一 ros_out / ros_result emit_comm 出口
+comm/comm_facade.py              ← 唯一 business_out（ros_out / ros_result）emit_comm 出口
     ▼
 runtime（GaitManager / Publisher / ServiceProxy）
 ```
 
 `bt_observability/` 横切所有层，由 `app` 层初始化后注入，**不在各层直接 import**。
 
+### 通信边界三类分类
+
+| 边界类型 | 定义 | 记录位置 | 日志事件 |
+|---|---|---|---|
+| **business_out** | BT leaf 触发，经 behaviours → semantics → comm → runtime 发出的出站通信 | `comm/comm_facade.py` | `ros_out` / `ros_result` |
+| **business_in** | 传感器或外部输入 callback 收到的消息事件（输入适配） | `app/<project>_bt_node.py` | `ros_in` |
+| **infra** | 服务 node 框架本身的非业务通信（树可视化、BB 镜像、exec 控制、生命周期等） | `infra_comm_manifest_lastrun.json` | 不进入 `bt_ros_comm_debug` |
+
+**传感器订阅的双重性**（重要）：
+- 传感器 subscriber **接口注册**（topic 名、消息类型是否存在）→ 属于 **infra**，写入 `infra_comm_manifest_lastrun.json`
+- 传感器 callback **收到消息**的每次采样事件（每 tick 记一次）→ 属于 **business_in**，在 `app/` 中记录为 `ros_in`，写入 `bt_ros_comm_debug_*.jsonl`
+
 ### 日志责任归属原则
 
-| 事件类型 | 谁负责 emit | 说明 |
-|---|---|---|
-| `ros_in` | `app/<project>_bt_node.py` callback | 每 tick 第一次收到时记录一次，避免 30 Hz 刷屏 |
-| `ros_out` / `ros_result` | `comm/comm_facade.py` 各公开方法 | 唯一出口，不可绕过 |
-| `decision` | `behaviours/conditions.py`（可选） | condition 节点主动上报判断输入/结果 |
-| `tree_tick_start/end` | `BTDebugVisitor`（自动） | 挂载后自动记录，无需手动 |
-| `tick_end`（节点级） | `BTDebugVisitor`（自动） | 同上 |
-| `bb_write` | `BTDebugVisitor`（自动） | flush 时自动记录 BB 写入去重结果 |
+| 事件类型 | 边界类型 | 谁负责 emit | 说明 |
+|---|---|---|---|
+| `ros_in` | business_in | `app/<project>_bt_node.py` callback | 每 tick 第一次收到时记录一次，避免 30 Hz 刷屏 |
+| `ros_out` | business_out | `comm/comm_facade.py` 各公开方法 | 在 runtime 调用**前**写，表示通信意图 |
+| `ros_result` | business_out | `comm/comm_facade.py` 各公开方法 | 有返回值或异常时另写，与 ros_out 配对 |
+| `decision` | — | `behaviours/conditions.py`（可选） | condition 节点主动上报判断输入/结果 |
+| `tree_tick_start/end` | — | `BTDebugVisitor`（自动） | 挂载后自动记录，无需手动 |
+| `tick_end`（节点级） | — | `BTDebugVisitor`（自动） | 同上 |
+| `bb_write` | — | `BTDebugVisitor`（自动） | flush 时自动记录 BB 写入去重结果 |
 
 ---
 
@@ -193,7 +211,14 @@ def _<sensor>_callback(self, msg):
 
 ### Step 5：在 `comm_facade.py` 中添加 `ros_out` 日志
 
-每个公开业务方法执行后调用 `_emit()`：
+`comm_facade.py` 每个公开业务方法的标准写法：
+1. 裁剪 payload
+2. `_emit(ros_out)` — 表示通信意图，**在 runtime 调用前写**
+3. 执行 runtime 调用
+4. 如有返回值或异常，另写 `ros_result`
+
+> **时序说明**：`ros_out` 记录的是"即将发出"的意图，不代表调用已成功。
+> 如需区分是否成功，在 runtime 调用后额外 emit `ros_result`。
 
 ```python
 def _emit(self, bt_node, semantic_source, target, comm_type,
@@ -214,14 +239,18 @@ def _emit(self, bt_node, semantic_source, target, comm_type,
         "payload":          payload,
         "summary":          summary,
         "attribution_confidence": "high",
-        "node":             bt_node,
+        "node":             bt_node,   # legacy alias
     })
 
 def some_business_method(self, bt_node, ...):
-    # 执行 ROS 调用
-    self._gait_manager.do_something(...)
-    # 记录日志
-    self._emit(bt_node, "some_business_method", "/target_topic", "topic_publish", "out", ...)
+    # 1. 裁剪 payload（如需）
+    payload = {...}
+    # 2. emit ros_out — 在 runtime 调用之前
+    self._emit(bt_node, "some_business_method", "/target_topic", "topic_publish", "out",
+               "target_ros_node", payload)
+    # 3. 执行 runtime 调用
+    self._runtime.do_something(...)
+    # 4. 如有返回值或异常，emit ros_result（可选）
 ```
 
 ### Step 6：condition 节点可选主动上报决策
@@ -275,10 +304,14 @@ def run(self):
 ```json
 {"event": "tree_tick_start", "tick_id": 42, "ts": 1712345678.0}
 {"event": "tree_tick_end",   "tick_id": 42, "status": "SUCCESS", "ts": 1712345678.1}
-{"event": "tick_end",  "node": "NodeName", "status": "Status.SUCCESS", "tick_id": 42, "ts": ...}
+{"event": "tick_end",  "node": "NodeName", "type": "ClassName", "status": "Status.SUCCESS", "tick_id": 42, "ts": ...}
 {"event": "decision",  "node": "CondName", "inputs": {...}, "status": "...", "reason": "...", "tick_id": 42, "ts": ...}
-{"event": "bb_write",  "tick_id": 42, "writes": [{"key": "/ns/key", "value_repr": "...", "position": "first|only|last"}], "ts": ...}
+{"event": "bb_write",  "tick_id": 42, "writer": "ClientName", "key": "/ns/key", "value": "...", "ts": ...}
 ```
+
+> **`bb_write` 说明**：每条 BB 写入对应一条独立记录（`writer`/`key`/`value` 三字段）。
+> `BTDebugVisitor` 对同一 tick 内同一 key 的连续相同值进行了压缩（保留每段连续值的 first 和 last），
+> 因此同一 key 可能在一个 tick 中出现多条记录。无 `writes: [...]` 聚合字段。
 
 ### 通信层（`/bt_ros_comm_debug` + `bt_ros_comm_debug_*.jsonl`）
 
@@ -321,9 +354,16 @@ python3 <project>/check_imports.py
 | `algorithms/` | `rospy`, `<project>.comm`, `<project>.infra`, `bt_observability` | `.emit_comm()` |
 | `tree/` | `<project>.comm`, `<project>.infra`, `<project>.algorithms` | `rospy.Publisher()`, `CommFacade` |
 
-`emit_comm()` 只允许出现在两处：
-- `comm/comm_facade.py`（业务出站）
-- `app/<project>_bt_node.py`（传感器输入适配）
+`emit_comm()` 允许出现的位置：
+
+| 位置 | 用途 | 说明 |
+|---|---|---|
+| `comm/comm_facade.py` | business_out（`ros_out` / `ros_result`） | 唯一业务出站出口 |
+| `app/<project>_bt_node.py` | business_in（`ros_in`） | 传感器 callback 输入适配 |
+| `bt_observability/debug_event_logger.py` 内部 | `ros_topology_snapshot` | 共享观测模块内部事件；不属于业务通信链；业务层禁止直接调用 |
+
+> **legacy 提示**：`bt_observability.ros_comm_tracer`（`ROSCommTracer` / `ManagerProxy`）已标为 legacy，
+> 新项目禁止在 `semantics/` 及以上各层 import。`check_imports.py` 中应将其列为 `semantics/` 禁止 import。
 
 ---
 
