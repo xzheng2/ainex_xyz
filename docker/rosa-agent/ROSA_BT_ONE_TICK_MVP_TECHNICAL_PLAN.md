@@ -70,7 +70,7 @@ ainex_agent_tools/tools/bt_tick_analysis.py ✓ 已创建
 修改文件：
 
 ```text
-ainex_agent_tools/__init__.py   ✓ 已修改（新增 2 个 tool 导出，共 12 个 tool）
+ainex_agent_tools/__init__.py   ✓ 已修改（新增 2 个 tool 导出，共 7 个 tool）
 ainex_agent_tools/prompts.py   ✓ 已修改（capabilities + critical_instructions rules 5–7）
 ```
 
@@ -764,7 +764,7 @@ raw tick bundle[]
 3. ✓ 实现 get_bt_tick_raw（bt_tick_analysis.py）
 4. ✓ 用现有 recent log 验证 raw 输出（tick 1618 + neighbor 1617，stale warning 正确）
 5. ✓ 实现 analyze_bt_tick scaffold（explain_only / full 两种 mode）
-6. ✓ 更新 ainex_agent_tools/__init__.py（12 个 tool，analyze_bt_tick + get_bt_tick_raw 在 read_bt_obs 之后）
+6. ✓ 更新 ainex_agent_tools/__init__.py（7 个 tool，analyze_bt_tick + get_bt_tick_raw）
 7. ✓ 更新 prompts.py（capabilities + critical_instructions rules 5–7）
 8. 手工 query 测试（待运行时验证）
 9. Scaffold 微调（视稳定性决定）

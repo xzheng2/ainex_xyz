@@ -1,8 +1,0 @@
-<launch>
-  <node pkg="ainex_behavior" type="marathon_bt_node.py" name="marathon_bt"
-        output="screen" required="true">
-    <param name="start"      value="true"/>
-    <param name="color"      value="green"/>
-    <param name="find_line"  value="head_sweep"/>
-  </node>
-</launch>

@@ -1,25 +1,49 @@
 #!/usr/bin/env python3
-"""L1 Condition: SUCCESS if robot_state == 'stand'."""
+"""L1 Condition: check whether the robot is in the standing state.
+
+Reads /latched/robot_state from the blackboard.
+SUCCESS  → robot_state == 'stand'
+FAILURE  → any other state (lie_to_stand, recline_to_stand, …)
+
+Reference implementation: marathon/behaviours/conditions.py :: IsRobotStanding
+"""
 import py_trees
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
-from ainex_bt_edu.blackboard_keys import BB
 
 
 class L1_Balance_IsStanding(AinexBTNode):
-    LEVEL = 'L1'
-    BB_LOG_KEYS = [BB.ROBOT_STATE]
+    """SUCCESS if /latched/robot_state == 'stand'."""
 
-    def __init__(self, name='L1_Balance_IsStanding'):
+    LEVEL = 'L1'
+    BB_LOG_KEYS = ['/latched/robot_state']
+
+    def __init__(self, name: str = 'L1_Balance_IsStanding',
+                 logger=None, tick_id_getter=None):
         super().__init__(name)
+        self._logger = logger
+        self._tick_id_getter = tick_id_getter or (lambda: -1)
         self._bb = None
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
-        self._bb = self.attach_blackboard_client(name=self.name)
-        self._bb.register_key(key=BB.ROBOT_STATE, access=Access.READ)
+        self._bb = self.attach_blackboard_client(
+            name=self.name, namespace='/latched')
+        self._bb.register_key(key='robot_state', access=Access.READ)
 
-    def update(self):
-        if self._bb.get(BB.ROBOT_STATE) == 'stand':
-            return Status.SUCCESS
-        return Status.FAILURE
+    def update(self) -> Status:
+        state = self._bb.robot_state
+        passed = (state == 'stand')
+        status = Status.SUCCESS if passed else Status.FAILURE
+
+        if self._logger:
+            self._logger.emit_bt({
+                'event': 'decision',
+                'node': self.name,
+                'inputs': {'robot_state': state},
+                'status': str(status),
+                'reason': "robot_state == 'stand'" if passed
+                          else f"robot_state == '{state}'",
+            })
+
+        return status

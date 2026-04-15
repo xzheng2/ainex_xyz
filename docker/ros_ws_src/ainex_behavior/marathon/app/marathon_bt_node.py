@@ -32,7 +32,7 @@ from marathon.tree.marathon_bt import bootstrap
 from marathon.comm.comm_facade import CommFacade
 from marathon.semantics.semantic_facade import MarathonSemanticFacade
 from marathon.algorithms.visual_patrol import VisualPatrol
-from marathon.behaviours.actions import FindLineHeadSweep
+from ainex_bt_edu.behaviours.L2_locomotion.L2_Head_FindLineSweep import L2_Head_FindLineSweep as FindLineHeadSweep
 from marathon.infra.tree_publisher import TreeROSPublisher
 from marathon.infra.bb_ros_bridge import MarathonBBBridge
 from marathon.infra.bt_exec_controller import BTExecController

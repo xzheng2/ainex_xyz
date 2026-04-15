@@ -34,12 +34,13 @@ docker/
     ├── ainex_agent_tools/          # 只读工具层
     │   ├── __init__.py
     │   ├── prompts.py              # Ainex 专用 ROSA 提示词
+    │   ├── bt_analysis/
+    │   │   └── raw_tick.py         # deterministic recent JSONL retrieval
     │   └── tools/
     │       ├── health.py           # get_robot_health
-    │       ├── behavior.py         # get_current_behavior
     │       ├── walking.py          # get_walking_state
-    │       ├── detections.py       # get_latest_detections
-    │       ├── logs.py             # read_recent_ros_logs
+    │       ├── bt_monitor.py       # get_bt_status
+    │       ├── bt_tick_analysis.py # analyze_bt_tick, get_bt_tick_raw
     │       └── disabled.py         # stop_current_behavior, stand_safe (禁用)
     ├── config/
     │   ├── readonly.yaml           # 只读模式配置
@@ -245,7 +246,7 @@ docker compose run --rm rosa-agent python3.9 ainex_agent.py \
 
 ### 当前风险
 1. **Python 3.9 + ROS Noetic 兼容性**：ROS Noetic 的 Python 包在 Ubuntu 20.04 上编译为 Python 3.8。通过 PYTHONPATH 传递给 Python 3.9 的纯 Python 包（rospy, rosgraph, std_msgs 等）可正常工作；含 C 扩展的包（如 roslz4）可能有版本不匹配，但这些包不在关键路径上。
-2. **ainex_interfaces 消息**：walking.py 和 detections.py 中的 `from ainex_interfaces.srv import ...` 需要 ainex_interfaces 安装到 rosa-agent 的 PYTHONPATH 中。当前 Dockerfile 不包含此步骤——若这些工具报 ImportError，需要将 ainex_interfaces 的 Python 包拷贝进容器或通过卷挂载。
+2. **ainex_interfaces 消息**：walking.py 中的 `from ainex_interfaces.srv import ...` 需要 ainex_interfaces 安装到 rosa-agent 的 PYTHONPATH 中。当前 Dockerfile 不包含此步骤——若该工具报 ImportError，需要将 ainex_interfaces 的 Python 包拷贝进容器或通过卷挂载。
 
 ### 未完成项（Phase 2）
 - [ ] 将 ainex_interfaces 消息定义挂载/复制到 rosa-agent 容器
@@ -253,7 +254,6 @@ docker compose run --rm rosa-agent python3.9 ainex_agent.py \
 - [ ] 实现 `stop_current_behavior` 和 `stand_safe` 的真实逻辑（需 Phase 2 写权限审计）
 - [ ] 添加 ROS 节点模式的 launch 文件
 - [ ] 添加 vision streaming（/camera/image_raw 截图诊断）
-- [ ] 集成 ainex_behavior 行为树状态查询
 
 ---
 

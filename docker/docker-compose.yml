@@ -54,6 +54,7 @@ services:
       - /home/pi/runtime_debug_page:/opt/ainex_page:ro                               # runtime debug page source
       - /etc/localtime:/etc/localtime:ro             # sync timezone with host
       - /etc/timezone:/etc/timezone:ro
+      - /etc/resolv.conf:/etc/resolv.conf:ro         # always use host DNS (survives WiFi changes)
 
     # Healthcheck: verify ROS master is reachable
     healthcheck:

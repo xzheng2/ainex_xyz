@@ -30,9 +30,10 @@ Usage in leaf nodes
 import time
 import rospy
 from ros_robot_controller.msg import BuzzerState
+from ainex_bt_edu.base_facade import AinexBTFacade
 
 
-class MarathonSemanticFacade:
+class MarathonSemanticFacade(AinexBTFacade):
     """Translates marathon leaf-node intent to project-semantic ROS commands."""
 
     # ── Line-search tuning (moved from FindLine) ──────────────────────────

@@ -872,7 +872,7 @@ Key implementation notes:
 Created: `ainex_agent_tools/tools/bt_tick_analysis.py`
 
 `get_bt_tick_raw` and `analyze_bt_tick` exported from `ainex_agent_tools/__init__.py`.
-Inserted after `read_bt_obs`, before disabled stubs. Total: 12 tools.
+Inserted before disabled stubs. Total: 7 tools.
 
 ### Phase 3: MVP Prompt Scaffold ✓
 
@@ -884,7 +884,7 @@ Neighbor ticks included in output but labeled as context-only; usage gated by ru
 ### Phase 4: Prompt Update ✓
 
 Updated `ainex_agent_tools/prompts.py`:
-- `about_your_capabilities`: `analyze_bt_tick` and `get_bt_tick_raw` added before `read_bt_obs`.
+- `about_your_capabilities`: `analyze_bt_tick` and `get_bt_tick_raw` added to PRIORITY 1 custom tools.
 - `critical_instructions`: rules 5–7 added (one-tick routing, ros_out ≠ execution, neighbor policy).
 
 ### Phase 5: Test with Existing Marathon Logs ✓
