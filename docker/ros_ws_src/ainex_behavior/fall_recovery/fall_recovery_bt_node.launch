@@ -1,0 +1,9 @@
+<launch>
+  <node pkg="ainex_behavior" type="fall_recovery_bt_node.py" name="fall_recovery_bt"
+        output="screen" required="true">
+    <param name="start" value="true"/>
+    <!-- BT exec mode: run / pause / step (default: run) -->
+    <!-- <param name="bt_mode" value="run"/> -->
+    <!-- <param name="max_rolling_ticks" value="30"/> -->
+  </node>
+</launch>
