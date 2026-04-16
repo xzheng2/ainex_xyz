@@ -15,7 +15,7 @@ import rospkg as _rospkg
 _AINEX_BEHAV_DIR = _rospkg.RosPack().get_path('ainex_behavior')
 sys.path.insert(0, _AINEX_BEHAV_DIR)
 
-_LOG_DIR = os.path.join(_AINEX_BEHAV_DIR, 'fall_recovery', 'log')
+_LOG_DIR = os.path.join(_AINEX_BEHAV_DIR, 'log')
 
 import rospy
 import py_trees
