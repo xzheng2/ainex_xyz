@@ -30,6 +30,10 @@
 !.claude/projects/-home-pi/CLAUDE.md
 !.claude/settings.json
 !.claude/settings.local.json
+!.claude/skills/
+!.claude/skills/**
+!.claude/hooks/
+!.claude/hooks/**
 
 # Exclude generated/binary files within allowed paths
 docker/ros_ws_src/**/__pycache__/
