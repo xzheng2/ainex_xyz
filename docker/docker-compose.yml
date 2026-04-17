@@ -50,7 +50,7 @@ services:
       - /home/pi/docker/rosa-agent:/opt/rosa-agent  # live-mount source (edit on host, instant in container)
       - rosa_agent_logs:/opt/rosa-agent/logs
       - /home/pi/docker/ros_log:/root/.ros/log:ro   # ainex ROS logs (read-only)
-      - /home/pi/docker/ros_ws_src/ainex_behavior/marathon/log:/opt/ainex_bt_log:ro  # BT observability logs
+      - /home/pi/docker/ros_ws_src/ainex_behavior/log:/opt/ainex_bt_log:ro  # BT observability logs
       - /home/pi/runtime_debug_page:/opt/ainex_page:ro                               # runtime debug page source
       - /etc/localtime:/etc/localtime:ro             # sync timezone with host
       - /etc/timezone:/etc/timezone:ro

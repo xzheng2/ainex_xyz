@@ -157,20 +157,22 @@ def build_infra_manifest(node_name: str) -> list:
         # directly.  Any change to Common.__init__() must be reflected here.
         # Source: ainex_example/src/ainex_example/color_common.py
         {
-            "component": "MarathonBTNode",
+            "component": "ImuBalanceStateAdapter",
             "kind": "topic_sub",
             "name": "/imu",
             "msg_or_srv_type": "sensor_msgs/Imu",
-            "purpose": "fall detection — updates robot_state in live store",
+            "purpose": "fall detection — updates robot_state in live store; "
+                       "owned by ainex_bt_edu/input_adapters/imu_balance_state_adapter.py",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
         },
         {
-            "component": "MarathonBTNode",
+            "component": "LineDetectionAdapter",
             "kind": "topic_sub",
             "name": "/object/pixel_coords",
             "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
-            "purpose": "line detection — updates line_data in live store",
+            "purpose": "line detection — updates line_data, last_line_x, camera_lost_count; "
+                       "owned by ainex_bt_edu/input_adapters/line_detection_adapter.py",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
         },

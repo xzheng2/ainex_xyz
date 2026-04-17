@@ -1,8 +1,32 @@
-# BT 基础设施通信参照文件框架
+# BT 基础设施通信参照文件框架 — ADR
 
 > 适用范围：所有基于 `py_trees` + ROS 的 BT 项目
-> 参考实现：`marathon/infra/infra_manifest.py`（`ainex_behavior` 包）
-> 最后更新：2026-04-12
+> 最后更新：2026-04-16
+> **完整规则同步维护于 skill**: `~/.claude/skills/ainex-bt-project/references/bt_infra_manifest_rules.md`
+
+---
+
+## 决策背景
+
+每次 BT node 启动时，将所有**非业务、基础设施级别** ROS 通信接口记录到静态 JSON 文件，
+作为诊断、维护、ROSA 查询的参照依据。清单"启动即覆盖"，反映真实初始化后的实际接口。
+
+---
+
+## 核心约束（4 条）
+
+1. **清单写入时机**：所有 infra 对象创建完毕后，在 `__init__()` 末尾调用
+   `write_infra_manifest(path, build_infra_manifest(self.name))`
+
+2. **传感器订阅双重性**：
+   - subscriber **接口注册** → 属于 infra → 写入本清单
+   - subscriber **callback 收到消息** → 属于 business_in → 写入 `bt_ros_comm_debug`
+
+3. **父类接口必须显式记录**：继承链（如 `color_common.Common`）创建的接口在子类代码中
+   不可见，必须在 `infra_manifest.py` 的 `notes` 字段注明父类和源文件路径
+
+4. **节点组合约束**（与 bt_observability_framework.md 一致）：
+   `package.xml` 必须声明 `<exec_depend>ainex_bt_edu</exec_depend>`
 
 ---
 
@@ -262,5 +286,6 @@ for r in d['interfaces']:
 ## 10. 参考实现
 
 - `infra_manifest.py`：`ainex_behavior/marathon/infra/infra_manifest.py`
-- 执行方案（marathon 专项）：`ainex_behavior/marathon/marathon_infra_manifest_execution_plan.md`
 - node 集成示例：`ainex_behavior/marathon/app/marathon_bt_node.py`，`__init__()` 末尾
+- 完整规则（10 节，含验证命令）：`~/.claude/skills/ainex-bt-project/references/bt_infra_manifest_rules.md`
+- 新项目脚手架：`/ainex-bt-project <project_name>` (Claude Code skill)

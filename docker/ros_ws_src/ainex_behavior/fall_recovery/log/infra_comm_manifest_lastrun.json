@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_ts": 1776312304.9982152,
+  "generated_ts": 1776310792.7139704,
   "description": "Static fall_recovery BT infrastructure communication manifest. All items are excluded from the Generic ROS Facade business log.",
   "interfaces": [
     {

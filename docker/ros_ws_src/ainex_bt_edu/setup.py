@@ -8,6 +8,7 @@ d = generate_distutils_setup(
         'ainex_bt_edu.behaviours.L1_perception',
         'ainex_bt_edu.behaviours.L2_locomotion',
         'ainex_bt_edu.behaviours.L3_mission',
+        'ainex_bt_edu.input_adapters',
     ],
     package_dir={'': 'src'},
 )

@@ -1,0 +1,210 @@
+{"event": "tree_tick_start", "tick_id": 705, "ts": 1776310868.9980276}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 705, "ts": 1776310868.99829}
+{"event": "tick_end", "tick_id": 705, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.9983964}
+{"event": "tick_end", "tick_id": 705, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.9984624}
+{"event": "tree_tick_end", "tick_id": 705, "status": "Status.SUCCESS", "ts": 1776310868.9985163}
+{"event": "bb_write", "tick_id": 705, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 705, "ts": 1776310868.9985697}
+{"event": "bb_write", "tick_id": 705, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.9985983}
+{"event": "tree_tick_start", "tick_id": 704, "ts": 1776310868.89805}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 704, "ts": 1776310868.8986368}
+{"event": "tick_end", "tick_id": 704, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.8988233}
+{"event": "tick_end", "tick_id": 704, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.8989122}
+{"event": "tree_tick_end", "tick_id": 704, "status": "Status.SUCCESS", "ts": 1776310868.8989718}
+{"event": "bb_write", "tick_id": 704, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 704, "ts": 1776310868.8990371}
+{"event": "bb_write", "tick_id": 704, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.8990903}
+{"event": "tree_tick_start", "tick_id": 703, "ts": 1776310868.7981825}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 703, "ts": 1776310868.798521}
+{"event": "tick_end", "tick_id": 703, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.798631}
+{"event": "tick_end", "tick_id": 703, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.7987049}
+{"event": "tree_tick_end", "tick_id": 703, "status": "Status.SUCCESS", "ts": 1776310868.7987795}
+{"event": "bb_write", "tick_id": 703, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 703, "ts": 1776310868.7988565}
+{"event": "bb_write", "tick_id": 703, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.7989008}
+{"event": "tree_tick_start", "tick_id": 702, "ts": 1776310868.697942}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 702, "ts": 1776310868.698129}
+{"event": "tick_end", "tick_id": 702, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.698211}
+{"event": "tick_end", "tick_id": 702, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.6982665}
+{"event": "tree_tick_end", "tick_id": 702, "status": "Status.SUCCESS", "ts": 1776310868.6983209}
+{"event": "bb_write", "tick_id": 702, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 702, "ts": 1776310868.6983602}
+{"event": "bb_write", "tick_id": 702, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.6983833}
+{"event": "tree_tick_start", "tick_id": 701, "ts": 1776310868.6017504}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 701, "ts": 1776310868.6021218}
+{"event": "tick_end", "tick_id": 701, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.6023033}
+{"event": "tick_end", "tick_id": 701, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.6023872}
+{"event": "tree_tick_end", "tick_id": 701, "status": "Status.SUCCESS", "ts": 1776310868.6024573}
+{"event": "bb_write", "tick_id": 701, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 701, "ts": 1776310868.60366}
+{"event": "bb_write", "tick_id": 701, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.603779}
+{"event": "tree_tick_start", "tick_id": 700, "ts": 1776310868.4980564}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 700, "ts": 1776310868.4983091}
+{"event": "tick_end", "tick_id": 700, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.4984145}
+{"event": "tick_end", "tick_id": 700, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.4984872}
+{"event": "tree_tick_end", "tick_id": 700, "status": "Status.SUCCESS", "ts": 1776310868.4985433}
+{"event": "bb_write", "tick_id": 700, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 700, "ts": 1776310868.4985893}
+{"event": "bb_write", "tick_id": 700, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.498619}
+{"event": "tree_tick_start", "tick_id": 699, "ts": 1776310868.3980289}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 699, "ts": 1776310868.3982172}
+{"event": "tick_end", "tick_id": 699, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.398318}
+{"event": "tick_end", "tick_id": 699, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.398422}
+{"event": "tree_tick_end", "tick_id": 699, "status": "Status.SUCCESS", "ts": 1776310868.3984926}
+{"event": "bb_write", "tick_id": 699, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 699, "ts": 1776310868.3985388}
+{"event": "bb_write", "tick_id": 699, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.3985708}
+{"event": "tree_tick_start", "tick_id": 698, "ts": 1776310868.29794}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 698, "ts": 1776310868.298099}
+{"event": "tick_end", "tick_id": 698, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.2981627}
+{"event": "tick_end", "tick_id": 698, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.298212}
+{"event": "tree_tick_end", "tick_id": 698, "status": "Status.SUCCESS", "ts": 1776310868.2982616}
+{"event": "bb_write", "tick_id": 698, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 698, "ts": 1776310868.2983108}
+{"event": "bb_write", "tick_id": 698, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.2983387}
+{"event": "tree_tick_start", "tick_id": 697, "ts": 1776310868.1979735}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 697, "ts": 1776310868.1981766}
+{"event": "tick_end", "tick_id": 697, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.198261}
+{"event": "tick_end", "tick_id": 697, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.1983078}
+{"event": "tree_tick_end", "tick_id": 697, "status": "Status.SUCCESS", "ts": 1776310868.1983454}
+{"event": "bb_write", "tick_id": 697, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 697, "ts": 1776310868.1983757}
+{"event": "bb_write", "tick_id": 697, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.1983953}
+{"event": "tree_tick_start", "tick_id": 696, "ts": 1776310868.0999506}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 696, "ts": 1776310868.1002135}
+{"event": "tick_end", "tick_id": 696, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310868.1003308}
+{"event": "tick_end", "tick_id": 696, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310868.100412}
+{"event": "tree_tick_end", "tick_id": 696, "status": "Status.SUCCESS", "ts": 1776310868.1004922}
+{"event": "bb_write", "tick_id": 696, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 696, "ts": 1776310868.10056}
+{"event": "bb_write", "tick_id": 696, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310868.100615}
+{"event": "tree_tick_start", "tick_id": 695, "ts": 1776310867.9980865}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 695, "ts": 1776310867.9983013}
+{"event": "tick_end", "tick_id": 695, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.9983792}
+{"event": "tick_end", "tick_id": 695, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.9984229}
+{"event": "tree_tick_end", "tick_id": 695, "status": "Status.SUCCESS", "ts": 1776310867.99846}
+{"event": "bb_write", "tick_id": 695, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 695, "ts": 1776310867.9984908}
+{"event": "bb_write", "tick_id": 695, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.9985113}
+{"event": "tree_tick_start", "tick_id": 694, "ts": 1776310867.8979526}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 694, "ts": 1776310867.898135}
+{"event": "tick_end", "tick_id": 694, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.89822}
+{"event": "tick_end", "tick_id": 694, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.8982887}
+{"event": "tree_tick_end", "tick_id": 694, "status": "Status.SUCCESS", "ts": 1776310867.8983393}
+{"event": "bb_write", "tick_id": 694, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 694, "ts": 1776310867.8983798}
+{"event": "bb_write", "tick_id": 694, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.8984044}
+{"event": "tree_tick_start", "tick_id": 693, "ts": 1776310867.7979434}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 693, "ts": 1776310867.7981596}
+{"event": "tick_end", "tick_id": 693, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.7982485}
+{"event": "tick_end", "tick_id": 693, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.7983136}
+{"event": "tree_tick_end", "tick_id": 693, "status": "Status.SUCCESS", "ts": 1776310867.7983835}
+{"event": "bb_write", "tick_id": 693, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 693, "ts": 1776310867.7984393}
+{"event": "bb_write", "tick_id": 693, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.798467}
+{"event": "tree_tick_start", "tick_id": 692, "ts": 1776310867.6980393}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 692, "ts": 1776310867.698258}
+{"event": "tick_end", "tick_id": 692, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.6983829}
+{"event": "tick_end", "tick_id": 692, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.6984956}
+{"event": "tree_tick_end", "tick_id": 692, "status": "Status.SUCCESS", "ts": 1776310867.698751}
+{"event": "bb_write", "tick_id": 692, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 692, "ts": 1776310867.698814}
+{"event": "bb_write", "tick_id": 692, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.6988504}
+{"event": "tree_tick_start", "tick_id": 691, "ts": 1776310867.5996413}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 691, "ts": 1776310867.5998619}
+{"event": "tick_end", "tick_id": 691, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.5999672}
+{"event": "tick_end", "tick_id": 691, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.6011403}
+{"event": "tree_tick_end", "tick_id": 691, "status": "Status.SUCCESS", "ts": 1776310867.6014736}
+{"event": "bb_write", "tick_id": 691, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 691, "ts": 1776310867.6015732}
+{"event": "bb_write", "tick_id": 691, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.6016223}
+{"event": "tree_tick_start", "tick_id": 690, "ts": 1776310867.4985256}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 690, "ts": 1776310867.4987316}
+{"event": "tick_end", "tick_id": 690, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.4988036}
+{"event": "tick_end", "tick_id": 690, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.4988482}
+{"event": "tree_tick_end", "tick_id": 690, "status": "Status.SUCCESS", "ts": 1776310867.498885}
+{"event": "bb_write", "tick_id": 690, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 690, "ts": 1776310867.4989145}
+{"event": "bb_write", "tick_id": 690, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.4989352}
+{"event": "tree_tick_start", "tick_id": 689, "ts": 1776310867.3982034}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 689, "ts": 1776310867.3983855}
+{"event": "tick_end", "tick_id": 689, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.3984697}
+{"event": "tick_end", "tick_id": 689, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.398534}
+{"event": "tree_tick_end", "tick_id": 689, "status": "Status.SUCCESS", "ts": 1776310867.398594}
+{"event": "bb_write", "tick_id": 689, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 689, "ts": 1776310867.3986366}
+{"event": "bb_write", "tick_id": 689, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.3986652}
+{"event": "tree_tick_start", "tick_id": 688, "ts": 1776310867.297952}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 688, "ts": 1776310867.2989376}
+{"event": "tick_end", "tick_id": 688, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.2991657}
+{"event": "tick_end", "tick_id": 688, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.2992558}
+{"event": "tree_tick_end", "tick_id": 688, "status": "Status.SUCCESS", "ts": 1776310867.2993789}
+{"event": "bb_write", "tick_id": 688, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 688, "ts": 1776310867.299438}
+{"event": "bb_write", "tick_id": 688, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.299484}
+{"event": "tree_tick_start", "tick_id": 687, "ts": 1776310867.198222}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 687, "ts": 1776310867.198535}
+{"event": "tick_end", "tick_id": 687, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.1986337}
+{"event": "tick_end", "tick_id": 687, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.198692}
+{"event": "tree_tick_end", "tick_id": 687, "status": "Status.SUCCESS", "ts": 1776310867.1987505}
+{"event": "bb_write", "tick_id": 687, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 687, "ts": 1776310867.1988406}
+{"event": "bb_write", "tick_id": 687, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.1988945}
+{"event": "tree_tick_start", "tick_id": 686, "ts": 1776310867.0981412}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 686, "ts": 1776310867.0985022}
+{"event": "tick_end", "tick_id": 686, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.0986364}
+{"event": "tick_end", "tick_id": 686, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.0987105}
+{"event": "tree_tick_end", "tick_id": 686, "status": "Status.SUCCESS", "ts": 1776310867.0987587}
+{"event": "bb_write", "tick_id": 686, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 686, "ts": 1776310867.0987976}
+{"event": "bb_write", "tick_id": 686, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.098825}
+{"event": "tree_tick_start", "tick_id": 685, "ts": 1776310867.0056782}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 685, "ts": 1776310867.005947}
+{"event": "tick_end", "tick_id": 685, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310867.0060503}
+{"event": "tick_end", "tick_id": 685, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310867.0061188}
+{"event": "tree_tick_end", "tick_id": 685, "status": "Status.SUCCESS", "ts": 1776310867.0061715}
+{"event": "bb_write", "tick_id": 685, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 685, "ts": 1776310867.0062215}
+{"event": "bb_write", "tick_id": 685, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310867.0062492}
+{"event": "tree_tick_start", "tick_id": 684, "ts": 1776310866.898379}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 684, "ts": 1776310866.8989854}
+{"event": "tick_end", "tick_id": 684, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.8991303}
+{"event": "tick_end", "tick_id": 684, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.899194}
+{"event": "tree_tick_end", "tick_id": 684, "status": "Status.SUCCESS", "ts": 1776310866.899249}
+{"event": "bb_write", "tick_id": 684, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 684, "ts": 1776310866.8993895}
+{"event": "bb_write", "tick_id": 684, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.8994532}
+{"event": "tree_tick_start", "tick_id": 683, "ts": 1776310866.798121}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 683, "ts": 1776310866.7983859}
+{"event": "tick_end", "tick_id": 683, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.7984912}
+{"event": "tick_end", "tick_id": 683, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.7985628}
+{"event": "tree_tick_end", "tick_id": 683, "status": "Status.SUCCESS", "ts": 1776310866.7986238}
+{"event": "bb_write", "tick_id": 683, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 683, "ts": 1776310866.7986734}
+{"event": "bb_write", "tick_id": 683, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.7987082}
+{"event": "tree_tick_start", "tick_id": 682, "ts": 1776310866.6982992}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 682, "ts": 1776310866.6987293}
+{"event": "tick_end", "tick_id": 682, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.6989083}
+{"event": "tick_end", "tick_id": 682, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.6990423}
+{"event": "tree_tick_end", "tick_id": 682, "status": "Status.SUCCESS", "ts": 1776310866.6991646}
+{"event": "bb_write", "tick_id": 682, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 682, "ts": 1776310866.6994028}
+{"event": "bb_write", "tick_id": 682, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.6994944}
+{"event": "tree_tick_start", "tick_id": 681, "ts": 1776310866.5979261}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 681, "ts": 1776310866.5980792}
+{"event": "tick_end", "tick_id": 681, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.598175}
+{"event": "tick_end", "tick_id": 681, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.5982385}
+{"event": "tree_tick_end", "tick_id": 681, "status": "Status.SUCCESS", "ts": 1776310866.598286}
+{"event": "bb_write", "tick_id": 681, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 681, "ts": 1776310866.598322}
+{"event": "bb_write", "tick_id": 681, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.5983481}
+{"event": "tree_tick_start", "tick_id": 680, "ts": 1776310866.4979181}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 680, "ts": 1776310866.4980605}
+{"event": "tick_end", "tick_id": 680, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.4981232}
+{"event": "tick_end", "tick_id": 680, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.4981647}
+{"event": "tree_tick_end", "tick_id": 680, "status": "Status.SUCCESS", "ts": 1776310866.4982023}
+{"event": "bb_write", "tick_id": 680, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 680, "ts": 1776310866.4982338}
+{"event": "bb_write", "tick_id": 680, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.4982543}
+{"event": "tree_tick_start", "tick_id": 679, "ts": 1776310866.3979228}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 679, "ts": 1776310866.398062}
+{"event": "tick_end", "tick_id": 679, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.3981218}
+{"event": "tick_end", "tick_id": 679, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.398166}
+{"event": "tree_tick_end", "tick_id": 679, "status": "Status.SUCCESS", "ts": 1776310866.3982038}
+{"event": "bb_write", "tick_id": 679, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 679, "ts": 1776310866.3982317}
+{"event": "bb_write", "tick_id": 679, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.3982522}
+{"event": "tree_tick_start", "tick_id": 678, "ts": 1776310866.2997324}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 678, "ts": 1776310866.2999327}
+{"event": "tick_end", "tick_id": 678, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.3001544}
+{"event": "tick_end", "tick_id": 678, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.3002272}
+{"event": "tree_tick_end", "tick_id": 678, "status": "Status.SUCCESS", "ts": 1776310866.300316}
+{"event": "bb_write", "tick_id": 678, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 678, "ts": 1776310866.30038}
+{"event": "bb_write", "tick_id": 678, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.3004153}
+{"event": "tree_tick_start", "tick_id": 677, "ts": 1776310866.1983218}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 677, "ts": 1776310866.1986706}
+{"event": "tick_end", "tick_id": 677, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.1988149}
+{"event": "tick_end", "tick_id": 677, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.1989079}
+{"event": "tree_tick_end", "tick_id": 677, "status": "Status.SUCCESS", "ts": 1776310866.1989832}
+{"event": "bb_write", "tick_id": 677, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 677, "ts": 1776310866.1990383}
+{"event": "bb_write", "tick_id": 677, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.1990948}
+{"event": "tree_tick_start", "tick_id": 676, "ts": 1776310866.0983703}
+{"event": "decision", "node": "IsRobotStanding", "inputs": {"robot_state": "stand"}, "status": "Status.SUCCESS", "reason": "robot_state == 'stand'", "tick_id": 676, "ts": 1776310866.0988188}
+{"event": "tick_end", "tick_id": 676, "node": "IsRobotStanding", "type": "L1_Balance_IsStanding", "status": "Status.SUCCESS", "ts": 1776310866.0990202}
+{"event": "tick_end", "tick_id": 676, "node": "FallRecoveryBT", "type": "FallRecoveryBT", "status": "Status.SUCCESS", "ts": 1776310866.0991547}
+{"event": "tree_tick_end", "tick_id": 676, "status": "Status.SUCCESS", "ts": 1776310866.0992389}
+{"event": "bb_write", "tick_id": 676, "writer": "FallRecoveryBTNode_meta", "key": "/tick_id", "value": 676, "ts": 1776310866.099338}
+{"event": "bb_write", "tick_id": 676, "writer": "FallRecoveryBTNode_latched", "key": "/latched/robot_state", "value": "stand", "ts": 1776310866.0993984}

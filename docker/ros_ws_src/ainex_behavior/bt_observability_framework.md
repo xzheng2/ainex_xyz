@@ -1,9 +1,36 @@
-# BT 可观测性系统框架
+# BT 可观测性系统框架 — ADR
 
 > 适用范围：所有基于 `py_trees` + ROS 的 BT 项目
-> 参考实现：`marathon/`（`ainex_behavior` 包）
-> 共享模块：`ainex_behavior/bt_observability/`
-> 最后更新：2026-04-12
+> 最后更新：2026-04-16
+> **完整规则同步维护于 skill**: `~/.claude/skills/ainex-bt-project/references/bt_observability_rules.md`
+
+---
+
+## 决策背景
+
+每个 BT 项目需要统一、可插拔的可观测性能力，覆盖 BT 决策层日志、ROS 通信层日志、
+双层存储（ROS topic 实时 + JSONL 离线）、以及 ROSA/LLM 可查询的结构化输出。
+
+---
+
+## 核心约束（5 条）
+
+1. **共享模块直接 import，不复制**
+   ```python
+   from bt_observability.debug_event_logger import DebugEventLogger
+   from bt_observability.bt_debug_visitor import BTDebugVisitor
+   ```
+
+2. **通信边界三类**：`business_out`（唯一出口：`comm/comm_facade.py`）、
+   `business_in`（唯一出口：`ainex_bt_edu/input_adapters/`，`app/` 层禁止 `rospy.Subscriber` 和 `ros_in` emit）、
+   `infra`（写入 `infra_comm_manifest_lastrun.json`，不进 `bt_ros_comm_debug`）
+
+3. **节点组合约束**：`tree/` 优先 import `ainex_bt_edu` 标准节点；项目节点继承
+   `AinexBTNode`；`semantic_facade.py` 继承 `AinexBTFacade`；节点不直接调用 rospy
+
+4. **`logger=None` 零成本**：所有 `emit_bt` / `emit_comm` 为 no-op，不影响无日志环境
+
+5. **`tick_id`** 在 `should_tick()` 之后、`tree.tick()` 之前递增；`ros_in` 按 tick 去重
 
 ---
 
@@ -31,6 +58,18 @@ ainex_behavior/
     ├── bt_debug_visitor.py     # BT 决策层 Visitor
     └── ros_comm_tracer.py      # ⚠️ LEGACY / optional — 新项目不引入
 ```
+
+`ainex_bt_edu/input_adapters/` 是传感器输入适配层，**共享，不属于任何单个项目**：
+
+```
+ainex_bt_edu/src/ainex_bt_edu/
+└── input_adapters/
+    ├── __init__.py
+    ├── imu_balance_state_adapter.py    # /imu → /latched/robot_state
+    └── line_detection_adapter.py       # /object/pixel_coords → /latched/{line_data,...}
+```
+
+`rospy.Subscriber` **只允许** 出现在 `input_adapters/` 中，不允许出现在 `app/` 或任何 BT 层。
 
 新 BT 项目**直接 import，不复制**：
 
@@ -85,8 +124,13 @@ ainex_behavior/
 ## 4. 架构分层与日志责任
 
 ```
-app/<project>_bt_node.py
-    │  ros_in（business_in 输入适配日志）← 每个传感器 callback 按 tick 去重后 emit_comm
+ainex_bt_edu/input_adapters/        ← rospy.Subscriber 唯一合法位置
+    ImuBalanceStateAdapter              每 tick：snapshot_and_reset()（under lock）
+    LineDetectionAdapter                         + write_snapshot()（after lock）
+    │  emits: ros_in（received_count>0 时）+ input_state（每 tick 必有）
+    ▼
+app/<project>_bt_node.py            ← 装配层；禁止 rospy.Subscriber 和 emit_comm
+    │  创建 adapters，装配 tree/facade/infra；调用 adapter.snapshot_and_reset/write_snapshot
     ▼
 tree/<project>_bt.py
     ▼
@@ -109,18 +153,19 @@ runtime（GaitManager / Publisher / ServiceProxy）
 | 边界类型 | 定义 | 记录位置 | 日志事件 |
 |---|---|---|---|
 | **business_out** | BT leaf 触发，经 behaviours → semantics → comm → runtime 发出的出站通信 | `comm/comm_facade.py` | `ros_out` / `ros_result` |
-| **business_in** | 传感器或外部输入 callback 收到的消息事件（输入适配） | `app/<project>_bt_node.py` | `ros_in` |
+| **business_in** | 传感器或外部输入 callback 收到的消息事件（输入适配） | `ainex_bt_edu/input_adapters/` | `ros_in` + `input_state` |
 | **infra** | 服务 node 框架本身的非业务通信（树可视化、BB 镜像、exec 控制、生命周期等） | `infra_comm_manifest_lastrun.json` | 不进入 `bt_ros_comm_debug` |
 
 **传感器订阅的双重性**（重要）：
 - 传感器 subscriber **接口注册**（topic 名、消息类型是否存在）→ 属于 **infra**，写入 `infra_comm_manifest_lastrun.json`
-- 传感器 callback **收到消息**的每次采样事件（每 tick 记一次）→ 属于 **business_in**，在 `app/` 中记录为 `ros_in`，写入 `bt_ros_comm_debug_*.jsonl`
+- 传感器 callback **收到消息**的每次采样事件（每 tick 记一次）→ 属于 **business_in**，在 `input_adapters/` 中记录为 `ros_in` + `input_state`，写入 `bt_ros_comm_debug_*.jsonl`
 
 ### 日志责任归属原则
 
 | 事件类型 | 边界类型 | 谁负责 emit | 说明 |
 |---|---|---|---|
-| `ros_in` | business_in | `app/<project>_bt_node.py` callback | 每 tick 第一次收到时记录一次，避免 30 Hz 刷屏 |
+| `ros_in` | business_in | `input_adapters/` 的 `write_snapshot()` | received_count>0 时每 tick 记一次；received_count 是自上次 latch 后收到的消息数 |
+| `input_state` | business_in | `input_adapters/` 的 `write_snapshot()` | 每 tick 必有一条；bb_writes 记录本 tick latch_to_blackboard() 实际写入 py_trees BB 的值 |
 | `ros_out` | business_out | `comm/comm_facade.py` 各公开方法 | 在 runtime 调用**前**写，表示通信意图 |
 | `ros_result` | business_out | `comm/comm_facade.py` 各公开方法 | 有返回值或异常时另写，与 ros_out 配对 |
 | `decision` | — | `behaviours/conditions.py`（可选） | condition 节点主动上报判断输入/结果 |
@@ -185,29 +230,47 @@ def run(self):
         rate.sleep()
 ```
 
-### Step 4：在传感器 callback 中添加 `ros_in` 日志
+### Step 4：使用 InputAdapter 适配传感器输入
 
-每个传感器 callback 记录一次，使用 `_last_*_emit_tick` 去重（同一 tick 只记一条）：
+不在 `app/` 层直接创建 `rospy.Subscriber` 或 emit `ros_in`。
+每个传感器对应一个 `ainex_bt_edu/input_adapters/` 中的 Adapter 类。
+
+`app/<project>_bt_node.py` 中：
 
 ```python
-self._last_<sensor>_emit_tick = -1
+from ainex_bt_edu.input_adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
+from ainex_bt_edu.input_adapters.line_detection_adapter import LineDetectionAdapter
 
-def _<sensor>_callback(self, msg):
-    if self._tick_id != self._last_<sensor>_emit_tick:
-        self._last_<sensor>_emit_tick = self._tick_id
-        self._obs_logger.emit_comm({
-            "event":     "ros_in",
-            "ts":        time.time(),
-            "tick_id":   self._tick_id,
-            "comm_type": "topic_subscribe",
-            "direction": "in",
-            "target":    "/<sensor_topic>",
-            "ros_node":  None,
-            "adapter":   "<sensor>_callback",
-            "payload":   msg_to_dict(msg),
-        })
-    # ... 实际业务逻辑
+# 在 __init__() 中创建 adapters（在 obs_logger 创建之后）：
+self._imu_adapter = ImuBalanceStateAdapter(
+    lock=self.lock,
+    logger=self._obs_logger,
+    tick_id_getter=lambda: self._tick_id,
+)
+self._line_adapter = LineDetectionAdapter(
+    lock=self.lock,
+    logger=self._obs_logger,
+    tick_id_getter=lambda: self._tick_id,
+)
 ```
+
+在 `run()` 的 `tree.tick()` 之前，两阶段 latch（保证同一 tick 快照一致性）：
+
+```python
+# Phase 1：在同一 lock 临界区内原子 snapshot 所有 adapters
+with self.lock:
+    imu_snap  = self._imu_adapter.snapshot_and_reset()
+    line_snap = self._line_adapter.snapshot_and_reset()
+# Phase 2：lock 释放后写 BB + emit 日志（主线程，无竞争）
+self._imu_adapter.write_snapshot(imu_snap,  self._tick_id)
+self._line_adapter.write_snapshot(line_snap, self._tick_id)
+self.tree.tick()
+```
+
+`write_snapshot()` 内部：
+- 若 `received_count > 0`：emit `ros_in`（简化 schema，含 `source` / `received_count`，不含完整 payload）
+- 写 BB（`self._bb.<key> = snap[...]`）
+- 无论 `received_count` 为多少：emit `input_state`（`bb_writes` 记录实际写入 BB 的值）
 
 ### Step 5：在 `comm_facade.py` 中添加 `ros_out` 日志
 
@@ -327,13 +390,31 @@ def run(self):
 {
   "event": "ros_in",
   "tick_id": 42, "ts": ...,
-  "comm_type": "topic_subscribe", "direction": "in",
-  "target": "/sensor_topic", "ros_node": null,
-  "adapter": "callback_name", "payload": {...}
+  "source": "/imu",
+  "adapter": "ImuBalanceStateAdapter",
+  "received_count": 16
+}
+{
+  "event": "input_state",
+  "tick_id": 42, "ts": ...,
+  "adapter": "ImuBalanceStateAdapter",
+  "bb_writes": {"/latched/robot_state": "stand"}
+}
+{
+  "event": "input_state",
+  "tick_id": 42, "ts": ...,
+  "adapter": "LineDetectionAdapter",
+  "bb_writes": {
+    "/latched/line_data": {"x": 80.0, "width": 12.0},
+    "/latched/last_line_x": 80.0,
+    "/latched/camera_lost_count": 0
+  }
 }
 ```
 
-> `ros_in` 无 `bt_node` 字段 — callback 在 BT 执行上下文之外运行。
+> `ros_in`：`received_count` = 自上次 latch 后该 adapter 收到的 ROS 消息数（每次 latch 后置 0）；不含 payload，无 `bt_node` 字段（callback 在 BT 执行上下文之外运行）。
+>
+> `input_state`：每 tick 必有一条（即使 `received_count==0`）；`bb_writes` 记录 `write_snapshot()` 实际写入 py_trees blackboard 的 key-value，代表该 tick BT 节点实际读到的输入状态。
 
 ---
 
@@ -349,8 +430,9 @@ python3 <project>/check_imports.py
 
 | 层 | 禁止 import | 禁止调用 |
 |---|---|---|
-| `behaviours/` | `<project>.comm`, `<project>.infra` | `rospy.Publisher()`, `rospy.ServiceProxy()`, `.emit_comm()` |
-| `semantics/` | `<project>.infra`, `bt_observability.ros_comm_tracer` | 同上 |
+| `app/` | — | `rospy.Subscriber()`, `.emit_comm()` |
+| `behaviours/` | `<project>.comm`, `<project>.infra` | `rospy.Publisher()`, `rospy.Subscriber()`, `rospy.ServiceProxy()`, `.emit_comm()` |
+| `semantics/` | `<project>.infra`, `bt_observability.ros_comm_tracer` | `rospy.Publisher()`, `rospy.ServiceProxy()`, `.emit_comm()` |
 | `algorithms/` | `rospy`, `<project>.comm`, `<project>.infra`, `bt_observability` | `.emit_comm()` |
 | `tree/` | `<project>.comm`, `<project>.infra`, `<project>.algorithms` | `rospy.Publisher()`, `CommFacade` |
 
@@ -359,8 +441,11 @@ python3 <project>/check_imports.py
 | 位置 | 用途 | 说明 |
 |---|---|---|
 | `comm/comm_facade.py` | business_out（`ros_out` / `ros_result`） | 唯一业务出站出口 |
-| `app/<project>_bt_node.py` | business_in（`ros_in`） | 传感器 callback 输入适配 |
+| `ainex_bt_edu/input_adapters/` | business_in（`ros_in` + `input_state`） | 传感器输入适配；`app/` 层禁止直接 emit |
 | `bt_observability/debug_event_logger.py` 内部 | `ros_topology_snapshot` | 共享观测模块内部事件；不属于业务通信链；业务层禁止直接调用 |
+
+> **`rospy.Subscriber` 唯一合法位置**：`ainex_bt_edu/input_adapters/`。
+> `app/`、`behaviours/`、`tree/`、`semantics/`、`algorithms/` 均禁止出现 `rospy.Subscriber`。
 
 > **legacy 提示**：`bt_observability.ros_comm_tracer`（`ROSCommTracer` / `ManagerProxy`）已标为 legacy，
 > 新项目禁止在 `semantics/` 及以上各层 import。`check_imports.py` 中应将其列为 `semantics/` 禁止 import。
@@ -390,7 +475,7 @@ python3 <project>/check_imports.py
 | Step 1 | `DebugEventLogger` 在 `__init__()` 中创建，路径指向项目 `log/` | logger 对象存在，文件路径正确 |
 | Step 2 | `BTDebugVisitor` 挂载到 tree（visitors + pre/post_tick_handlers） | 启动后 `/bt_debug` topic 有输出 |
 | Step 3 | `run()` 中 `tick_id` 在 `should_tick()` 之后、`tree.tick()` 之前递增 | `bt_debug_lastrun.jsonl` 中 tick_id 单调递增 |
-| Step 4 | 每个传感器 callback 有 `_last_*_emit_tick` 去重的 `ros_in` 日志 | `bt_ros_comm_debug_*.jsonl` 中有 `ros_in` 事件 |
+| Step 4 | 每个传感器有对应 InputAdapter 类；`snapshot_and_reset()` 在 lock 下与其他 adapter 一起原子调用；`write_snapshot()` emit `ros_in`（received_count>0 时）+ `input_state`（每 tick 必有） | `bt_ros_comm_debug_*.jsonl` 中有 `ros_in` 和 `input_state` 事件 |
 | Step 5 | `comm_facade.py` 每个公开方法调用 `_emit()` | `bt_ros_comm_debug_*.jsonl` 中有 `ros_out` 事件 |
 | Step 6 | `shutdown` / `run()` 末尾调用 `logger.close()` | 正常关闭后 lastrun 文件为 newest-first |
 | Step 7 | `infra_manifest.py` 写入 `infra_comm_manifest_lastrun.json` | 启动后 JSON 文件存在，接口数量正确 |
@@ -418,5 +503,6 @@ python3 <project>/check_imports.py
 | `marathon/app/marathon_bt_node.py` | 完整集成示例（Steps 1–7） |
 | `marathon/comm/comm_facade.py` | `ros_out` 日志实现参考 |
 | `marathon/check_imports.py` | 分层约束 AST 检查参考 |
-| `marathon/ainex_bt_observability_execution_plan.md` | marathon 专项技术参考 |
 | `bt_infra_manifest_framework.md` | 基础设施通信清单框架（Step 7 详情） |
+| 完整规则（12 节）| `~/.claude/skills/ainex-bt-project/references/bt_observability_rules.md` |
+| 新项目脚手架 | `/ainex-bt-project <project_name>` (Claude Code skill) |

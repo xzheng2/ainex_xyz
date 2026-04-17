@@ -27,6 +27,16 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 RULES = {
+    'app': {
+        # app/ is the assembly layer: it creates adapters and wires up the tree,
+        # but must not own any ROS subscribers or emit ros_in/ros_out directly.
+        # rospy.Subscriber belongs exclusively in ainex_bt_edu/input_adapters/.
+        # emit_comm belongs in comm/comm_facade.py (ros_out) and input_adapters/ (ros_in).
+        'bad_imports':      [],
+        'bad_calls':        [('rospy', 'Subscriber')],
+        'bad_method_names': ['emit_comm'],
+        'bad_names':        [],
+    },
     'behaviours': {
         'bad_imports':      ['marathon.comm', 'marathon.infra'],
         'bad_calls':        [('rospy', 'Publisher'),
