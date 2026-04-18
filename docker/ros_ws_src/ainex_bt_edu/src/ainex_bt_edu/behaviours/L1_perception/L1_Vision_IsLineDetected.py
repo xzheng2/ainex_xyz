@@ -9,13 +9,14 @@ Reference implementation: marathon/behaviours/conditions.py :: IsLineDetected
 """
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L1_Vision_IsLineDetected(AinexBTNode):
     """SUCCESS if /latched/line_data is present (not None)."""
 
     LEVEL = 'L1'
-    BB_LOG_KEYS = ['/latched/line_data']
+    BB_LOG_KEYS = [BB.LINE_DATA]
 
     def __init__(self, name: str = 'L1_Vision_IsLineDetected',
                  logger=None, tick_id_getter=None):
@@ -27,8 +28,8 @@ class L1_Vision_IsLineDetected(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace='/latched')
-        self._bb.register_key(key='line_data', access=Access.READ)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.LINE_DATA_KEY, access=Access.READ)
 
     def update(self) -> Status:
         line_data = self._bb.line_data

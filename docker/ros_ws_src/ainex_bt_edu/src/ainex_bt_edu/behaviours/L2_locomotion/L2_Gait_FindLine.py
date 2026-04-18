@@ -14,13 +14,14 @@ import rospy
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
 from ainex_bt_edu.base_facade import AinexBTFacade
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L2_Gait_FindLine(AinexBTNode):
     """Turn in-place to recover a lost line. Always returns RUNNING."""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = ['/latched/last_line_x', '/latched/camera_lost_count']
+    BB_LOG_KEYS = [BB.LAST_LINE_X, BB.CAMERA_LOST_COUNT]
 
     def __init__(self, name: str = 'L2_Gait_FindLine',
                  facade: AinexBTFacade = None, tick_id_getter=None):
@@ -32,9 +33,9 @@ class L2_Gait_FindLine(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace='/latched')
-        self._bb.register_key(key='last_line_x',       access=Access.READ)
-        self._bb.register_key(key='camera_lost_count', access=Access.READ)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.LAST_LINE_X_KEY,       access=Access.READ)
+        self._bb.register_key(key=BB.CAMERA_LOST_COUNT_KEY, access=Access.READ)
 
     def update(self) -> Status:
         gait_yaw = self._facade.search_line(

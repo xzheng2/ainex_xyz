@@ -1,7 +1,7 @@
 # BT 可观测性系统框架 — ADR
 
 > 适用范围：所有基于 `py_trees` + ROS 的 BT 项目
-> 最后更新：2026-04-16
+> 最后更新：2026-04-17
 > **完整规则同步维护于 skill**: `~/.claude/skills/ainex-bt-project/references/bt_observability_rules.md`
 
 ---
@@ -216,7 +216,10 @@ self.tree.post_tick_handlers.append(self._bt_visitor.on_tree_tick_end)
 
 ### Step 3：在 run() 中递增 tick_id
 
-`tick_id` 必须在 `tree.tick()` 之前递增，且只在 `should_tick()` 通过时递增：
+`tick_id` 必须在 `tree.tick()` 之前递增，且只在 `should_tick()` 通过时递增。
+`write_snapshot()` 调用必须在 `tree.tick()` 之前，以便 `ros_in`/`input_state` 事件在
+`begin_tick()` 之前写入 `_comm_tick_buf`（`begin_tick()` 不清空 `_comm_tick_buf`；
+`_comm_tick_buf` 由 `end_tick()` flush 后清空）：
 
 ```python
 def run(self):
@@ -225,7 +228,13 @@ def run(self):
         if self.start and self._exec_ctrl.should_tick():
             self._tick_id += 1
             self._bb_meta.tick_id = self._tick_id   # 写入 BB（可选，供 BB bridge 使用）
-            self._latch_inputs()
+            # Phase 1：原子 snapshot（under lock）
+            with self.lock:
+                imu_snap  = self._imu_adapter.snapshot_and_reset()
+                line_snap = self._line_adapter.snapshot_and_reset()
+            # Phase 2：写 BB + emit ros_in/input_state（在 tree.tick() 之前）
+            self._imu_adapter.write_snapshot(imu_snap,  self._tick_id)
+            self._line_adapter.write_snapshot(line_snap, self._tick_id)
             self.tree.tick()
         rate.sleep()
 ```
@@ -491,6 +500,7 @@ python3 <project>/check_imports.py
 - **crash 场景**：`close()` 不会被调用，`lastrun` 文件保持 oldest-first，内容完整但未倒序。ROSA 的 `read_bt_obs` 工具需在读取时主动倒序。
 - **rosbag 录制**：默认关闭；需要时在 `DebugEventLogger` 构造时传入 `rosbag_topics` 列表。
 - **`logger=None`**：所有 `emit_bt` / `emit_comm` 调用均为 no-op，可安全用于无日志的单元测试环境。
+- **`_comm_tick_buf` 清空时机**：`begin_tick()`（由 `tree.tick()` 的 pre_tick_handler 触发）只清空 `_bt_tick_buf`，**不清空 `_comm_tick_buf`**。原因：adapter 的 `write_snapshot()` 在 `tree.tick()` 之前调用，其 `ros_in`/`input_state` 事件已写入 `_comm_tick_buf`；若 `begin_tick()` 清空 `_comm_tick_buf` 则这些事件全部丢失。`_comm_tick_buf` 由 `end_tick()` flush 后清空。
 
 ---
 

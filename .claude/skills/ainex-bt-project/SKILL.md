@@ -27,6 +27,49 @@ If ambiguous, ask: "新建项目还是给已有项目加节点？"
 
 ---
 
+## System Thinking Principle — Adapter ↔ BB ↔ Behaviour
+
+Every behaviour node that reads the blackboard is part of a **three-component system**.
+Before writing or modifying **any single component**, trace the full chain:
+
+```
+Input Adapter                 →  blackboard_keys.py (BB.*)  →  Behaviour Node
+ainex_bt_edu/input_adapters/     single source of truth         behaviours/
+  emits: ros_in + input_state    BB.*_KEY / BB.* / BB.LATCHED_NS  reads BB.LATCHED_NS
+```
+
+| Question to answer | Where to look |
+|---|---|
+| What BB key does the behaviour need? | node's `BB_LOG_KEYS` / `register_key` |
+| Is that key defined in `blackboard_keys.py`? | look for `BB.*_KEY` + `BB.*` |
+| Which adapter writes that key? | `ainex_bt_edu/input_adapters/` |
+| No adapter yet? → **add adapter first**, then BB key, then node |
+
+**BB key naming convention** (`blackboard_keys.py` — never hardcode strings):
+
+| Use | Pattern | Example |
+|---|---|---|
+| `attach_blackboard_client` namespace | `BB.LATCHED_NS` | `namespace=BB.LATCHED_NS` |
+| `register_key` on `/latched/` client | `BB.*_KEY` (short) | `key=BB.ROBOT_STATE_KEY` |
+| `register_key` on root-ns client | `BB.*` (absolute) | `key=BB.HEAD_PAN_POS` |
+| `BB_LOG_KEYS` / `bb_writes` dict | `BB.*` (absolute) | `[BB.LINE_DATA]` |
+
+**Active adapter-written keys** (as of v2.1.0):
+
+| BB key (absolute) | Constant | Written by |
+|---|---|---|
+| `/latched/robot_state` | `BB.ROBOT_STATE` | `ImuBalanceStateAdapter` |
+| `/latched/line_data` | `BB.LINE_DATA` | `LineDetectionAdapter` |
+| `/latched/last_line_x` | `BB.LAST_LINE_X` | `LineDetectionAdapter` |
+| `/latched/camera_lost_count` | `BB.CAMERA_LOST_COUNT` | `LineDetectionAdapter` |
+| `/head_pan_pos` | `BB.HEAD_PAN_POS` | `L2_Head_FindLineSweep` (BB write, not adapter) |
+
+> **Legacy warning**: `/locomotion/robot_state` and `/perception/line_data` are
+> **deprecated** — do NOT use them in new code.  `behaviours_tem/` nodes that
+> reference these keys are legacy archive (v1.2.1) and must not be used as templates.
+
+---
+
 ## Mode 1 — Create new BT project
 
 ### Trigger
@@ -80,7 +123,8 @@ ainex_behavior/<project_name>/
 │   └── <project>_bt.py
 ├── behaviours/
 │   ├── __init__.py
-│   └── conditions.py
+│   ├── conditions.py
+│   └── actions.py
 ├── semantics/
 │   ├── __init__.py
 │   └── semantic_facade.py
@@ -92,14 +136,24 @@ ainex_behavior/<project_name>/
 ├── infra/
 │   ├── __init__.py
 │   ├── infra_manifest.py
-│   ├── tree_publisher.py      ← copy from marathon/infra/tree_publisher.py
-│   ├── bb_ros_bridge.py       ← create project-specific bridge
-│   └── bt_exec_controller.py  ← copy from marathon/infra/bt_exec_controller.py
-└── log/
-    └── .gitkeep
+│   ├── tree_publisher.py
+│   ├── bb_ros_bridge.py
+│   └── bt_exec_controller.py
+├── log/
+│   └── .gitkeep
+├── <project>_bt_node.launch
+└── <project>_bringup.launch
 ```
 
 All `__init__.py` files are empty.
+
+**`algorithms/` architecture:**
+- Pure computation only: visual error → gait params, target selection, state judgment helpers.
+- NO `rospy`, `gait_manager`, `motion_manager`, publisher, service, or `emit_comm` here.
+- Called exclusively by `semantics/semantic_facade.py`.
+- To surface debug info: return structured dicts (e.g. `{'gait_yaw': 0.3, 'reason': 'line_lost'}`);
+  semantic_facade passes them as payload/summary into the comm_facade call;
+  comm_facade records them in `ros_out` via `_emit()`.
 
 ### Step 3 — Generate skeleton files
 
@@ -107,19 +161,24 @@ Render the following templates from `assets/templates/`, substituting:
 - `{{PROJECT}}` → project_name (snake_case), e.g. `ball_kick`
 - `{{PROJECT_CLASS}}` → PascalCase, e.g. `BallKick`
 - `{{PROJECT_NODE_CLASS}}` → e.g. `BallKickBTNode`
+- `{{PROJECT_UPPER}}` → `PROJECT.upper().replace('-','_')`, e.g. `BALL_KICK`
 - `{{TASK_DESC}}` → task_description
 
 Files to generate from templates:
 | Template | Output |
 |---|---|
-| `assets/templates/bt_node.py.tpl` | `app/{{PROJECT}}_bt_node.py` |
-| `assets/templates/project_bt.py.tpl` | `tree/{{PROJECT}}_bt.py` |
-| `assets/templates/semantic_facade.py.tpl` | `semantics/semantic_facade.py` |
-| `assets/templates/comm_facade.py.tpl` | `comm/comm_facade.py` |
-| `assets/templates/infra_manifest.py.tpl` | `infra/infra_manifest.py` |
-| `assets/templates/conditions.py.tpl` | `behaviours/conditions.py` |
-
-Also copy `marathon/app/ros_msg_utils.py` verbatim → `app/ros_msg_utils.py`.
+| `bt_node.py.tpl` | `app/{{PROJECT}}_bt_node.py` |
+| `project_bt.py.tpl` | `tree/{{PROJECT}}_bt.py` |
+| `semantic_facade.py.tpl` | `semantics/semantic_facade.py` |
+| `comm_facade.py.tpl` | `comm/comm_facade.py` |
+| `infra_manifest.py.tpl` | `infra/infra_manifest.py` |
+| `conditions.py.tpl` | `behaviours/conditions.py` |
+| `actions.py.tpl` | `behaviours/actions.py` |
+| `bt_exec_controller.py.tpl` | `infra/bt_exec_controller.py` |
+| `tree_publisher.py.tpl` | `infra/tree_publisher.py` |
+| `ros_msg_utils.py.tpl` | `app/ros_msg_utils.py` |
+| `bb_ros_bridge.py.tpl` | `infra/bb_ros_bridge.py` |
+| `bringup.launch.tpl` | `{{PROJECT}}_bringup.launch` |
 
 ### Step 4 — Node composition check
 
@@ -130,6 +189,11 @@ Verify the generated `tree/{{PROJECT}}_bt.py`:
       from `ainex_bt_edu.behaviours.L2_locomotion`
 - [ ] Project-specific nodes come from `<project>.behaviours.*`
 - [ ] No node inherits `py_trees.behaviour.Behaviour` directly
+
+Verify BB constant usage across all generated behaviour nodes:
+- [ ] All `BB_LOG_KEYS` use `BB.*` constants (never `'/latched/...'` strings)
+- [ ] All `attach_blackboard_client` calls use `namespace=BB.LATCHED_NS`
+- [ ] All `register_key` calls use `BB.*_KEY` for `/latched/` keys; `BB.HEAD_PAN_POS` for root-ns
 
 ### Step 5 — Interface check
 
@@ -161,6 +225,14 @@ marking which are auto-satisfied by the scaffold and which need manual completio
 ✅ auto  Step 6: logger.close() called in run() after loop
 ⬜ TODO  Step 7: infra_manifest.py — add project-specific interfaces
 ⬜ TODO  Step 8: check_imports.py passes (run after implementing callbacks)
+⬜ TODO  [bb_bridge]  Add project-specific BB keys to bb_ros_bridge.py if needed;
+                      keep in sync with infra_manifest.py PROJECT_INTERFACES
+⬜ TODO  [bringup]    Fill in {{PROJECT}}_bringup.launch with required hardware nodes
+⬜ TODO  [services]   Verify BT exec controller:
+                        rosservice call /{{PROJECT}}_bt/bt/run   → mode='run'
+                        rosservice call /{{PROJECT}}_bt/bt/pause → mode='pause'
+                        rosservice call /{{PROJECT}}_bt/bt/step  → one tick, then pause
+                        rostopic echo  /{{PROJECT}}_bt/bt/mode
 ```
 
 ### Step 8 — `chmod +x` the node script
@@ -187,9 +259,9 @@ install(DIRECTORY {{PROJECT}}/
     PATTERN "log" EXCLUDE)
 ```
 
-### Step 10 — Create launch file
+### Step 10 — Launch files
 
-Create `docker/ros_ws_src/ainex_behavior/{{PROJECT}}/{{PROJECT}}_bt_node.launch`:
+**BT-only launch** (generated from template — `{{PROJECT}}_bt_node.launch`):
 
 ```xml
 <launch>
@@ -200,6 +272,21 @@ Create `docker/ros_ws_src/ainex_behavior/{{PROJECT}}/{{PROJECT}}_bt_node.launch`
     <!-- <param name="max_rolling_ticks" value="30"/> -->
   </node>
 </launch>
+```
+
+**Full hardware bringup** (`{{PROJECT}}_bringup.launch`) is generated from
+`bringup.launch.tpl`. It includes base hardware + camera + BT node. The user
+must fill in the TODO sections for project-specific nodes (object detection,
+vision pipeline, etc.).
+
+Launch with BT-only (no hardware):
+```bash
+roslaunch ainex_behavior {{PROJECT}}_bt_node.launch
+```
+
+Launch with full hardware:
+```bash
+roslaunch ainex_behavior {{PROJECT}}_bringup.launch [use_camera:=true]
 ```
 
 ### Step 11 — Build and verify
@@ -273,24 +360,65 @@ Ask if not clear:
 Read `ainex_bt_edu/src/ainex_bt_edu/behaviours/` to check if an equivalent node
 already exists.
 
-- **If yes** → instruct user to import it directly in `tree/<project>_bt.py`. Stop here.
-- **If no** → proceed to Step 3.
+- **If yes** → import it directly in `tree/<project>_bt.py`. Stop here.
+- **If no, and it is a condition** (L1 perception check, SUCCESS/FAILURE only)
+  → add to `behaviours/conditions.py`. Proceed to Step 3.
+- **If no, and it is an action** (L2+ actuator command, may return RUNNING)
+  → add to `behaviours/actions.py`. Rules for new action nodes:
+  - Only allowed when NO generic equivalent exists in `ainex_bt_edu`.
+  - Must inherit `AinexBTNode` — never `py_trees.behaviour.Behaviour` directly.
+  - No direct `rospy`, `gait_manager`, `motion_manager`, publisher, or service calls.
+  - All ROS output via `self._facade.*` → `semantic_facade` → `comm_facade`.
+  - `logger=None` must be zero-cost no-op.
+  - Emit `decision` and/or `action_intent` via `self._logger.emit_bt()`;
+    `ros_out` is emitted ONLY by `comm_facade._emit()` — never in the BT node.
+  Proceed to Step 3.
 
-### Step 3 — Generate project-specific node
+### Step 3 — System trace (required before writing any code)
+
+Apply the **System Thinking Principle**: trace the full adapter → BB → behaviour chain
+for every BB key the new node will read or write.
+
+For each BB key:
+
+1. **Check `blackboard_keys.py`** — is the key already defined?
+   - Yes → use existing `BB.*_KEY` / `BB.*` constants.  Do not hardcode strings.
+   - No → add to `blackboard_keys.py` **before** writing the node:
+     ```python
+     SOME_KEY_KEY = 'short_name'                            # register_key() argument
+     SOME_KEY     = LATCHED_NS + '/' + SOME_KEY_KEY         # BB_LOG_KEYS / bb_writes
+     ```
+
+2. **Check input_adapters** — which adapter writes that key?
+   - Key in active adapter table (see System Thinking section) → adapter exists; no change.
+   - New key → create a new adapter in `ainex_bt_edu/input_adapters/` following the
+     two-phase latch protocol (`snapshot_and_reset` under lock, `write_snapshot` after),
+     emitting `ros_in` + `input_state`.  Wire it into `app/<project>_bt_node.py`
+     `__init__()` + `run()`.
+
+3. **Only then** proceed to Step 4 to write the behaviour node.
+
+> **Never use deprecated keys**: `/locomotion/robot_state` and `/perception/line_data`
+> are not written by any active adapter.  Do not create nodes that read them.
+
+### Step 4 — Generate project-specific node
 
 Create file in `<project>/behaviours/` following this checklist:
 
+- [ ] Add `from ainex_bt_edu.blackboard_keys import BB` import
 - [ ] Inherits `AinexBTNode` (not `py_trees.behaviour.Behaviour`)
 - [ ] Declares `LEVEL = 'L1' | 'L2' | 'L3'`
-- [ ] Declares `BB_LOG_KEYS = ['/latched/...']` for all blackboard keys it reads
+- [ ] Declares `BB_LOG_KEYS = [BB.SOME_KEY]` (absolute path constant — never `'/latched/...'`)
 - [ ] Constructor accepts `facade: AinexBTFacade` (if it calls any ROS action)
 - [ ] All ROS actions delegated through `facade.*`, no direct rospy calls
-- [ ] Uses `/latched/` namespace for blackboard clients (keys written by `_latch_inputs`)
+- [ ] `attach_blackboard_client(namespace=BB.LATCHED_NS)` — never hardcode `'/latched/'`
+- [ ] `register_key(key=BB.SOME_KEY_KEY)` for `/latched/` keys; `key=BB.HEAD_PAN_POS` for root-ns
 - [ ] If condition node: optionally emits `"decision"` event via `self._logger.emit_bt()`
 
-Use `assets/templates/conditions.py.tpl` as the starting skeleton.
+Use `assets/templates/conditions.py.tpl` as the starting skeleton for condition nodes.
+Use `assets/templates/actions.py.tpl` as the starting skeleton for action nodes.
 
-### Step 4 — Wire into tree
+### Step 5 — Wire into tree
 
 Show the exact diff to `tree/<project>_bt.py` — where the new node slots into the
 existing tree structure. Consider:
@@ -298,7 +426,7 @@ existing tree structure. Consider:
 - Does it gate another node (i.e., insert into a Sequence before it)?
 - Does it add a new branch to a Selector?
 
-### Step 5 — Check if SemanticFacade needs a new method
+### Step 6 — Check if SemanticFacade needs a new method
 
 If the new node calls a `facade.*` method that doesn't exist yet:
 1. Add the abstract method to `ainex_bt_edu/base_facade.py`
@@ -307,17 +435,22 @@ If the new node calls a `facade.*` method that doesn't exist yet:
 
 Verify `AinexBTFacade` still fully implemented: `isinstance(facade, AinexBTFacade)` → True.
 
-### Step 6 — Check infra_manifest
+### Step 7 — Check infra_manifest and bb_ros_bridge
 
-If the new node (or its supporting callbacks) introduces new ROS interfaces
-(subscriber, publisher, service client):
+If the new node (or its supporting callbacks) introduces new ROS interfaces,
+BB keys, or input adapters:
 
 - Determine if the interface is **infra** (framework-level) or **business_in/out**
 - If infra → add record to `<project>/infra/infra_manifest.py`
-- If business_in → provided by `ainex_bt_edu/input_adapters/` (no `app/` change needed; adapters handle `ros_in` + `input_state` automatically)
+- If business_in → provided by `ainex_bt_edu/input_adapters/` (no `app/` change needed;
+  adapters handle `ros_in` + `input_state` automatically)
+- If new BB key introduced → also add to `<project>/infra/bb_ros_bridge.py`
+  (`{{PROJECT_UPPER}}_BB_TOPIC_MAP`) so ROSA/debug tools can observe it
+- These two must stay consistent: any BB key in the bridge must have a
+  corresponding record in `infra_manifest.py` PROJECT_INTERFACES
 - `write_infra_manifest()` runs automatically on next node startup
 
-### Step 7 — Run import checker
+### Step 8 — Run import checker
 
 Remind user to verify no layered import violations:
 

@@ -95,9 +95,11 @@ class DebugEventLogger:
         self._comm_tick_buf.append(line)
 
     def begin_tick(self, tick_id: int):
-        """Called by BTDebugVisitor.on_tree_tick_start(). Clears per-tick buffers."""
+        """Called by BTDebugVisitor.on_tree_tick_start(). Clears BT buffer only.
+        _comm_tick_buf is NOT cleared here — adapter events (ros_in, input_state)
+        are emitted by write_snapshot() before tree.tick() calls begin_tick(), so
+        clearing here would discard them. _comm_tick_buf is cleared at end of end_tick()."""
         self._bt_tick_buf = []
-        self._comm_tick_buf = []
 
     def end_tick(self, tick_id: int):
         """Called by BTDebugVisitor.on_tree_tick_end(). Appends to files and flushes rolling."""
@@ -110,6 +112,7 @@ class DebugEventLogger:
             for line in self._comm_tick_buf:
                 self._comm_lastrun_f.write(line + "\n")
         self._flush_rolling()
+        self._comm_tick_buf = []
 
     def close(self):
         """Close append files (reverse to newest-first), then stop rosbag."""

@@ -26,6 +26,7 @@ import threading
 import rospy
 import py_trees
 from ainex_interfaces.msg import ObjectsInfo
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class LineDetectionAdapter:
@@ -50,10 +51,10 @@ class LineDetectionAdapter:
 
         # ── Latched BB client — written only by write_snapshot() (main thread) ──
         self._bb = py_trees.blackboard.Client(
-            name="LineDetectionAdapter", namespace="/latched")
-        self._bb.register_key(key="line_data",         access=py_trees.common.Access.WRITE)
-        self._bb.register_key(key="last_line_x",       access=py_trees.common.Access.WRITE)
-        self._bb.register_key(key="camera_lost_count", access=py_trees.common.Access.WRITE)
+            name="LineDetectionAdapter", namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.LINE_DATA_KEY,         access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LAST_LINE_X_KEY,       access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.CAMERA_LOST_COUNT_KEY, access=py_trees.common.Access.WRITE)
         # Initialise BB before first tick so BT nodes never hit KeyError.
         self._bb.line_data         = self._live_line_data
         self._bb.last_line_x       = self._live_last_line_x
@@ -150,8 +151,8 @@ class LineDetectionAdapter:
                 "ts":      time.time(),
                 "adapter": "LineDetectionAdapter",
                 "bb_writes": {
-                    "/latched/line_data":         line_data_log,
-                    "/latched/last_line_x":       snap['last_line_x'],
-                    "/latched/camera_lost_count": snap['camera_lost_count'],
+                    BB.LINE_DATA:         line_data_log,
+                    BB.LAST_LINE_X:       snap['last_line_x'],
+                    BB.CAMERA_LOST_COUNT: snap['camera_lost_count'],
                 },
             })

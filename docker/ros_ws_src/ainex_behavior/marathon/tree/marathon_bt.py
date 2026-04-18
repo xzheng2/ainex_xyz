@@ -31,9 +31,10 @@ from ainex_bt_edu.behaviours.L2_locomotion.L2_Gait_FindLine import L2_Gait_FindL
 from ainex_bt_edu.behaviours.L2_locomotion.L2_Head_FindLineSweep import L2_Head_FindLineSweep
 from ainex_bt_edu.behaviours.L2_locomotion.L2_Balance_RecoverFromFall import L2_Balance_RecoverFromFall
 
-# marathon-specific node (no generic equivalent — depends on /head_pan_pos BB key
-# written by L2_Head_FindLineSweep; used only in head-sweep mode)
-from marathon.behaviours.conditions import IsHeadCentered
+# L1_Head_IsHeadCentered — promoted from marathon to ainex_bt_edu; imported directly
+from ainex_bt_edu.behaviours.L1_perception.L1_Head_IsHeadCentered import (
+    L1_Head_IsHeadCentered as IsHeadCentered,
+)
 
 
 class MarathonBT(py_trees.composites.Sequence):
@@ -90,7 +91,9 @@ class MarathonBT(py_trees.composites.Sequence):
                 L1_Vision_IsLineDetected("IsLineDetected",
                                          logger=logger,
                                          tick_id_getter=tick_id_getter),
-                IsHeadCentered("IsHeadCentered"),
+                IsHeadCentered("IsHeadCentered",
+                               logger=logger,
+                               tick_id_getter=tick_id_getter),
                 L2_Gait_FollowLine("FollowLine",
                                    facade=semantic_facade,
                                    tick_id_getter=tick_id_getter),

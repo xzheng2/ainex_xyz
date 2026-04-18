@@ -36,13 +36,14 @@ import rospy
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
 from ainex_bt_edu.base_facade import AinexBTFacade
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L2_Head_FindLineSweep(AinexBTNode):
     """Sweep-then-align head search. RUNNING during search; SUCCESS when aligned."""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = ['/latched/line_data', '/latched/last_line_x', '/head_pan_pos']
+    BB_LOG_KEYS = [BB.LINE_DATA, BB.LAST_LINE_X, BB.HEAD_PAN_POS]
 
     # ── Servo ──────────────────────────────────────────────────────────────
     HEAD_PAN_CENTER   = 500
@@ -82,12 +83,12 @@ class L2_Head_FindLineSweep(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=f'{self.name}_latched', namespace='/latched')
-        self._bb.register_key(key='line_data',   access=Access.READ)
-        self._bb.register_key(key='last_line_x', access=Access.READ)
+            name=f'{self.name}_latched', namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.LINE_DATA_KEY,   access=Access.READ)
+        self._bb.register_key(key=BB.LAST_LINE_X_KEY, access=Access.READ)
 
         self._bb_pan = self.attach_blackboard_client(name=self.name)
-        self._bb_pan.register_key(key='/head_pan_pos', access=Access.WRITE)
+        self._bb_pan.register_key(key=BB.HEAD_PAN_POS, access=Access.WRITE)
         self._bb_pan.head_pan_pos = self.HEAD_PAN_CENTER  # initialise for IsHeadCentered
 
     def initialise(self):

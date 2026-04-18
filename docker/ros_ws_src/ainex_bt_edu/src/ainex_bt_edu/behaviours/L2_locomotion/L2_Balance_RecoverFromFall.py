@@ -13,13 +13,14 @@ Reference implementation: marathon/behaviours/actions.py :: RecoverFromFall
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
 from ainex_bt_edu.base_facade import AinexBTFacade
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L2_Balance_RecoverFromFall(AinexBTNode):
     """Execute fall recovery via facade, then mark robot_state='stand'."""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = ['/latched/robot_state']
+    BB_LOG_KEYS = [BB.ROBOT_STATE]
 
     def __init__(self, name: str = 'L2_Balance_RecoverFromFall',
                  facade: AinexBTFacade = None,
@@ -37,8 +38,8 @@ class L2_Balance_RecoverFromFall(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace='/latched')
-        self._bb.register_key(key='robot_state', access=Access.WRITE)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.ROBOT_STATE_KEY, access=Access.WRITE)
 
     def update(self) -> Status:
         state = self._bb.robot_state

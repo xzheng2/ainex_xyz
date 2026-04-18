@@ -11,6 +11,7 @@ MARATHON_BB_TOPIC_MAP = {
     '/latched/last_line_x':       '/bt/marathon/bb/last_line_x',
     '/latched/camera_lost_count': '/bt/marathon/bb/camera_lost_count',
     '/tick_id':                   '/bt/marathon/bb/tick_id',
+    '/head_pan_pos':              '/bt/marathon/bb/head_pan_pos',
 }
 
 

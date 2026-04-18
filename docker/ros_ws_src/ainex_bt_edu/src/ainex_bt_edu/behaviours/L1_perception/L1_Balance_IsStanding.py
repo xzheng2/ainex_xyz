@@ -10,13 +10,14 @@ Reference implementation: marathon/behaviours/conditions.py :: IsRobotStanding
 import py_trees
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L1_Balance_IsStanding(AinexBTNode):
     """SUCCESS if /latched/robot_state == 'stand'."""
 
     LEVEL = 'L1'
-    BB_LOG_KEYS = ['/latched/robot_state']
+    BB_LOG_KEYS = [BB.ROBOT_STATE]
 
     def __init__(self, name: str = 'L1_Balance_IsStanding',
                  logger=None, tick_id_getter=None):
@@ -28,8 +29,8 @@ class L1_Balance_IsStanding(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace='/latched')
-        self._bb.register_key(key='robot_state', access=Access.READ)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.ROBOT_STATE_KEY, access=Access.READ)
 
     def update(self) -> Status:
         state = self._bb.robot_state

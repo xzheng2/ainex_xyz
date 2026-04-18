@@ -27,6 +27,7 @@ import threading
 import rospy
 import py_trees
 from sensor_msgs.msg import Imu
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class ImuBalanceStateAdapter:
@@ -56,8 +57,8 @@ class ImuBalanceStateAdapter:
 
         # ── Latched BB client — written only by write_snapshot() (main thread) ──
         self._bb = py_trees.blackboard.Client(
-            name="ImuBalanceStateAdapter", namespace="/latched")
-        self._bb.register_key(key="robot_state", access=py_trees.common.Access.WRITE)
+            name="ImuBalanceStateAdapter", namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.ROBOT_STATE_KEY, access=py_trees.common.Access.WRITE)
         # Initialise BB before first tick so BT nodes never hit KeyError.
         self._bb.robot_state = self._live_robot_state
 
@@ -171,6 +172,6 @@ class ImuBalanceStateAdapter:
                 "ts":      time.time(),
                 "adapter": "ImuBalanceStateAdapter",
                 "bb_writes": {
-                    "/latched/robot_state": snap['robot_state'],
+                    BB.ROBOT_STATE: snap['robot_state'],
                 },
             })

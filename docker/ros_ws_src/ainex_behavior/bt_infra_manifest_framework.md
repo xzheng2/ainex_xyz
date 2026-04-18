@@ -1,7 +1,7 @@
 # BT 基础设施通信参照文件框架 — ADR
 
 > 适用范围：所有基于 `py_trees` + ROS 的 BT 项目
-> 最后更新：2026-04-16
+> 最后更新：2026-04-17
 > **完整规则同步维护于 skill**: `~/.claude/skills/ainex-bt-project/references/bt_infra_manifest_rules.md`
 
 ---
@@ -50,16 +50,16 @@
 |---|---|---|---|
 | **infra（基础设施通信）** | 服务 node 运行框架本身，不代表 BT 决策意图 | 树可视化 topic、BB 镜像、exec 控制 service、生命周期 service、传感器 subscriber 接口注册 | 本清单（`infra_comm_manifest_lastrun.json`） |
 | **business_out（业务出站）** | 由 BT leaf node 触发，经 behaviours → semantics → comm → runtime 发出 | 步态指令、蜂鸣器、颜色检测配置 | `comm/comm_facade.py`（`ros_out` / `ros_result`） |
-| **business_in（业务入站）** | 传感器或外部输入 callback 收到的消息事件（输入适配） | 摄像头 line_data callback、IMU callback 收到数据 | `app/<project>_bt_node.py`（`ros_in`） |
+| **business_in（业务入站）** | 传感器或外部输入 callback 收到的消息事件（输入适配） | 摄像头 line_data callback、IMU callback 收到数据 | `ainex_bt_edu/input_adapters/`（`ros_in` / `input_state`） |
 
 **传感器订阅的双重性**（重要区分）：
 
 | 维度 | 归属 | 记录到哪里 |
 |---|---|---|
 | subscriber **接口注册**（topic 名称、消息类型、是否存在） | infra | 本清单 |
-| subscriber **callback 收到消息**的采样事件（每 tick 记一次） | business_in | `bt_ros_comm_debug_*.jsonl`（`ros_in` 事件） |
+| subscriber **callback 收到消息**的采样事件（每 tick 记一次） | business_in | `ainex_bt_edu/input_adapters/` → `bt_ros_comm_debug_*.jsonl`（`ros_in` / `input_state`） |
 
-infra 通信**不纳入** `bt_ros_comm_debug` 业务日志。business_in（`ros_in`）**纳入** `bt_ros_comm_debug`。
+infra 通信**不纳入** `bt_ros_comm_debug` 业务日志。business_in（`ros_in` / `input_state`）**纳入** `bt_ros_comm_debug`。
 
 ### 2.2 "真实启动"的含义
 
@@ -198,7 +198,7 @@ write_infra_manifest(manifest_path, build_infra_manifest(self.name))
 | `super().__init__()` 已执行 | 父类接口已全部注册 |
 
 > subscriber 接口写入 infra manifest 记录的是接口**是否存在**。
-> subscriber callback 实际收到的消息事件属于 business_in，在 `app/` 中以 `ros_in` 写入 `bt_ros_comm_debug`，不在本清单记录。
+> subscriber callback 实际收到的消息事件属于 business_in，由 `ainex_bt_edu/input_adapters/` 的 `write_snapshot()` 以 `ros_in` / `input_state` 写入 `bt_ros_comm_debug`，不在本清单记录。
 
 ---
 

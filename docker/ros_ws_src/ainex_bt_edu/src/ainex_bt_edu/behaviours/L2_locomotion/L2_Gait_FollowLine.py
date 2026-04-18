@@ -11,13 +11,14 @@ import rospy
 from py_trees.common import Access, Status
 from ainex_bt_edu.base_node import AinexBTNode
 from ainex_bt_edu.base_facade import AinexBTFacade
+from ainex_bt_edu.blackboard_keys import BB
 
 
 class L2_Gait_FollowLine(AinexBTNode):
     """Read line_data from BB and run one visual-patrol step via facade."""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = ['/latched/line_data']
+    BB_LOG_KEYS = [BB.LINE_DATA]
 
     HEAD_PAN_CENTER = 500  # servo units; centre position
 
@@ -31,8 +32,8 @@ class L2_Gait_FollowLine(AinexBTNode):
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace='/latched')
-        self._bb.register_key(key='line_data', access=Access.READ)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.LINE_DATA_KEY, access=Access.READ)
 
     def update(self) -> Status:
         line_data = self._bb.line_data
