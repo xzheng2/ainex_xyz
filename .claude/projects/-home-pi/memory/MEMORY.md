@@ -29,6 +29,7 @@
   - **BT exec controller** (`bt_exec_controller.py`, added Mar 25 2026): RUN/PAUSE/STEP mode gate inside `self.start`; services `~bt/run`, `~bt/pause`, `~bt/step` (all `std_srvs/Empty`); topic `~bt/mode` (String latched); launch param `~bt_mode` (default `'run'`); `~stop`/`~start` unchanged
 - `ainex_bt_edu` — educational BT framework (added Mar 16 2026), details in `ainex_bt_edu.md`
 - `rosa-agent` container added (Mar 12 2026): NASA JPL ROSA read-only diagnostic agent at `/home/pi/docker/rosa-agent/`; docker-compose at `/home/pi/docker/docker-compose.yml`; **host networking** (`network_mode: host`), `ROS_MASTER_URI=http://127.0.0.1:11311`; no bridge network needed; **11 tools** including `get_bt_status` (BT monitor, Mar 25), `read_last_run_summary` (log summarizer, Mar 14), `read_bt_obs` (BT observability JSONL, Apr 5; unified auto-routing); mounts ainex ros_log + `ainex_behavior/log/` (`/opt/ainex_bt_log`) read-only; full details: **`ainex_rosa_agent.md`**
+  - **ROSA Agent File Browser** (Apr 18 2026): `/home/pi/rosa_file_browser.py` + `/home/pi/Desktop/rosa_agent_file_browser.desktop`; runs on **host** (Python 3.11 + PyQt5); custom lazy-loading `QAbstractItemModel` backed by `docker exec rosa-agent ls -1aF`; browses container root `/`; double-click copies file via `docker cp rosa-agent:<path> /tmp/rosa_browser_<name>` then opens in gedit on host; skips `/proc`, `/sys`, `/dev`; fails fast if container not running; no container changes needed (rosa-agent has no PyQt5/gedit)
   - **`get_bt_status`** reads `tick_id` + `camera_lost_count` from BB bridge topics; `_BB_KEYS = ['tick_id', 'robot_state', 'line_data', 'last_line_x', 'camera_lost_count']`; no JSONL file read
   - **`read_bt_obs` is in PRIORITY 1** of `about_your_capabilities` prompt — auto-selects _recent pair (live) if BT node running, _lastrun pair (full session) if not; LLM routes tick_id / per-tick decision queries to this tool
   - **BB bridge** (`bb_ros_bridge.py`) publishes 5 keys: `robot_state`, `line_data`, `last_line_x`, `camera_lost_count`, `tick_id` → `/bt/marathon/bb/*` (10 Hz)
@@ -40,6 +41,7 @@
 ### Ainex Controller GUI
 - Source: `/home/ubuntu/software/ainex_controller/main.py`
 - **Manual button work in progress** — see `ainex_manual_button.md`
+- **Container File Browser**: `/home/ubuntu/software/file_browser.py` + `file_browser.sh`; desktop shortcut `/home/pi/Desktop/ainex_file_browser.desktop`; PyQt5 `QFileSystemModel`+`QTreeView` inside `ainex` container; starts at `/` (container root); double-click opens in gedit (ubuntu-owned=rw, root-owned=ro); harmless warnings: PiXflat icon theme, GVfs metadata, XDG_RUNTIME_DIR (self-fixed to /tmp/runtime-ubuntu)
 
 - rqt config: `/home/ubuntu/.config/ros.org/rqt_gui.ini` — perspectives set via Python QSettings, details in `ainex_rqt_perspectives.md`
 
