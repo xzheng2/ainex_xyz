@@ -6,8 +6,8 @@
 
 | 字段 | 值 |
 |------|---|
-| 文档版本 | 2.3.0 |
-| 日期 | 2026-04-17 |
+| 文档版本 | 2.3.1 |
+| 日期 | 2026-04-18 |
 | ROS 版本 | ROS Noetic (Ubuntu 20.04, aarch64) |
 | 包路径（宿主机） | `docker/ros_ws_src/ainex_bt_edu/` |
 | 包路径（容器内） | `/home/ubuntu/ros_ws/src/ainex_bt_edu/` |
@@ -61,27 +61,32 @@ ainex_bt_edu/
     ├── blackboard_keys.py        ← BB key 唯一真实来源 + ROSA topic 映射表
     ├── bb_ros_bridge.py          ← BlackboardROSBridge（BB→ROS topic 镜像）
     ├── bt_runner.py              ← AinexBTRunner（生命周期管理）
-    ├── behaviours/               ← 已上线标准节点（当前 8 个）
+    ├── behaviours/               ← 已上线标准节点（当前 13 个）
     │   ├── __init__.py
     │   ├── L1_perception/
     │   │   ├── __init__.py
+    │   │   ├── L1_Balance_IsFallen.py        ← v2.3.1 新增
     │   │   ├── L1_Balance_IsStanding.py
     │   │   ├── L1_Head_IsHeadCentered.py
-    │   │   └── L1_Vision_IsLineDetected.py
+    │   │   ├── L1_Motion_ListActions.py      ← v2.3.1 新增
+    │   │   ├── L1_Vision_IsLineDetected.py
+    │   │   ├── L1_Vision_IsObjectStill.py    ← v2.3.1 新增
+    │   │   └── L1_Vision_IsTargetOnLeft.py   ← v2.3.1 新增
     │   └── L2_locomotion/
     │       ├── __init__.py
     │       ├── L2_Balance_RecoverFromFall.py
     │       ├── L2_Gait_FindLine.py
     │       ├── L2_Gait_FollowLine.py
     │       ├── L2_Gait_Stop.py
-    │       └── L2_Head_FindLineSweep.py
+    │       ├── L2_Head_FindLineSweep.py
+    │       └── L2_Head_MoveTo.py             ← v2.3.1 新增
     ├── input_adapters/           ← 传感器输入适配层（rospy.Subscriber 唯一合法位置）
     │   ├── __init__.py
     │   ├── imu_balance_state_adapter.py   # /imu → /latched/robot_state
     │   └── line_detection_adapter.py      # /object/pixel_coords → /latched/*
     └── behaviours_tem/           ← 存档：待重构节点（不可 import，不参与构建）
-        ├── L1_perception/        ← 9 个旧 L1 节点（原 v1.2.1 版本）
-        ├── L2_locomotion/        ← 11 个旧 L2 节点
+        ├── L1_perception/        ← 5 个待迁移 L1 节点（Group B/C，需新 adapter 或 facade 方法）
+        ├── L2_locomotion/        ← 9 个待迁移 L2 节点（Group C，需新 facade 方法）
         └── L3_mission/           ← 11 个旧 L3 节点
 ```
 
@@ -89,11 +94,13 @@ ainex_bt_edu/
 > `setup.py` 中已声明 `ainex_bt_edu.input_adapters` 包，直接 import 即可，无需复制到项目。
 
 > **`behaviours_tem/` 是 legacy 存档，不属于 active API。**
-> 这些节点（v1.2.1 实现）依赖旧硬件耦合接口（直接持有 gait_manager/motion_manager），
-> 且部分使用废弃 key（`/locomotion/robot_state`、`/perception/line_data`）。
+> 这些节点（v1.2.1 实现）依赖旧硬件耦合接口（直接持有 gait_manager/motion_manager）。
 > **禁止直接 import 或以这些文件为模板编写新节点。**
-> 需要同类功能时，参考 `behaviours/` 下已完成 v2.1.0 重构的对应节点；
-> 如需迁移 `behaviours_tem/` 中的节点，须按 v2.1.0 规范（Facade 接口 + BB.* 常量）完整重构后再移入 `behaviours/`。
+> 迁移进度（v2.3.1）：
+> - 已删除：6 个（5 个 canonical 已存在 + L2_Gait_Disable 近重复于 L2_Gait_Stop）
+> - 已升入 behaviours/：5 个（Group A — 无架构阻塞，见 v2.3.1）
+> - 待迁移 Group B（需新 input adapter）：5 个 L1 节点
+> - 待迁移 Group C（需新 facade 方法）：9 个 L2 节点
 
 ---
 
@@ -305,9 +312,19 @@ class AinexBTNode(py_trees.behaviour.Behaviour):
 
 ---
 
-## 节点清单（当前 behaviours/，共 8 个）
+## 节点清单（当前 behaviours/，共 13 个）
 
-### L1 感知/条件节点（3 个）
+### L1 感知/条件节点（7 个）
+
+#### `L1_Balance_IsFallen`
+
+```
+文件    behaviours/L1_perception/L1_Balance_IsFallen.py
+签名    __init__(self, name='L1_Balance_IsFallen', logger=None, tick_id_getter=None)
+读取 BB /latched/robot_state
+逻辑    robot_state != 'stand' → SUCCESS（摔倒状态），'stand' → FAILURE
+        fall 检测由 ImuBalanceStateAdapter 负责；本节点只读 BB 结果
+```
 
 #### `L1_Balance_IsStanding`
 
@@ -316,6 +333,17 @@ class AinexBTNode(py_trees.behaviour.Behaviour):
 签名    __init__(self, name='L1_Balance_IsStanding', logger=None, tick_id_getter=None)
 读取 BB /latched/robot_state
 逻辑    robot_state == 'stand' → SUCCESS，其余 → FAILURE
+```
+
+#### `L1_Motion_ListActions`
+
+```
+文件    behaviours/L1_perception/L1_Motion_ListActions.py
+签名    __init__(self, action_path=None, name='L1_Motion_ListActions', logger=None, tick_id_getter=None)
+写入 BB /mission/available_actions（list[str]）
+逻辑    在 setup() 扫描 ACTION_PATH（默认 /home/ubuntu/software/ainex_controller/ActionGroups）
+        将所有 .d6a 文件名（去后缀）排序后写入 BB，始终返回 SUCCESS
+        纯文件系统操作；无 ROS 订阅
 ```
 
 #### `L1_Head_IsHeadCentered`
@@ -339,9 +367,32 @@ class AinexBTNode(py_trees.behaviour.Behaviour):
         logger 会记录 line_x、line_width（有线时）
 ```
 
+#### `L1_Vision_IsObjectStill`
+
+```
+文件    behaviours/L1_perception/L1_Vision_IsObjectStill.py
+签名    __init__(self, threshold=2.0, frames=5, name='L1_Vision_IsObjectStill',
+                 logger=None, tick_id_getter=None)
+读取 BB /perception/detected_objects（ObjectsInfo | None）
+逻辑    追踪 objects.data[0] 的质心；当连续 `frames` 帧内位移 < `threshold` 像素 → SUCCESS
+        样本不足或检测为空 → FAILURE；对象仍在移动 → FAILURE
+        需要 ObjectDetectionAdapter（Group B）提供实时数据
+```
+
+#### `L1_Vision_IsTargetOnLeft`
+
+```
+文件    behaviours/L1_perception/L1_Vision_IsTargetOnLeft.py
+签名    __init__(self, image_width=160, name='L1_Vision_IsTargetOnLeft',
+                 logger=None, tick_id_getter=None)
+读取 BB /perception/target_pixel_x（float | None）
+逻辑    target_pixel_x < image_width / 2 → SUCCESS（目标在画面左侧）
+        target_pixel_x >= 中心或无目标 → FAILURE
+```
+
 ---
 
-### L2 动作节点（5 个）
+### L2 动作节点（6 个）
 
 #### `L2_Gait_Stop`
 
@@ -411,6 +462,17 @@ memory=False Selector 适配（_fresh_start 标志）：
   mid-sweep reinit 保留 _sweep_dir（防止每 tick 重置方向导致振荡）
   stop_walking() 只在 line_data is None 时调用（SWEEP 阶段静止扫描）
   line_data 存在时（ALIGN 阶段步态运行），initialise() 跳过 stop_walking()
+```
+
+#### `L2_Head_MoveTo`
+
+```
+文件    behaviours/L2_locomotion/L2_Head_MoveTo.py
+签名    __init__(self, pan_pos=500, name='L2_Head_MoveTo', facade=None, tick_id_getter=None)
+BB      无读写
+逻辑    facade.move_head(pan_pos=self._pan_pos) — 将头部水平舵机移至指定位置
+        500 = 中心；fire-and-forget，始终返回 SUCCESS
+注意    仅控制 pan（舵机 23）；tilt（舵机 24）不由此节点控制
 ```
 
 ---
@@ -565,4 +627,5 @@ print(\"OK\")
 | v2.0.0 | 2026-04-15 | **Facade 重构**：引入 `AinexBTFacade` 抽象接口；节点与 ROS I/O 完全解耦；BB 改用 `/latched/` 命名空间；新增 `L2_Gait_FindLine` + `L2_Head_FindLineSweep`；36 节点中仅 7 个完成重构（其余存入 `behaviours_tem/` 待后续迁移） |
 | v2.1.0 | 2026-04-17 | **BB key 标准化**：`blackboard_keys.py` 成为唯一 key source of truth；新增 `BB.*_KEY` 短 key 常量 + `BB.LATCHED_NS`；所有节点和 input_adapters 改用 `BB.*` 常量（禁止硬编码字符串）；`ROSA_TOPIC_MAP` 更新为 `/bt/bb/latched/*` |
 | v2.2.0 | 2026-04-17 | **L1_Head_IsHeadCentered 升级**：从 marathon 专属节点提升为标准库节点；继承 `AinexBTNode`；支持 `logger` + `tick_id_getter` 可观测性；marathon `conditions.py` 保留同名别名；`bb_ros_bridge.py` 新增 `/head_pan_pos` 镜像 |
+| **v2.3.1** | **2026-04-18** | **behaviours_tem Group A 迁移**：`behaviours_tem/` 中 6 个重复/近重复节点删除（5 个已有 canonical + `L2_Gait_Disable` 近重复于 `L2_Gait_Stop`）；5 个 Group A 节点重构后升入 `behaviours/`：`L1_Balance_IsFallen`（纯 BB 读取，移除 rospy.Subscriber）、`L1_Motion_ListActions`（文件系统扫描，改用 BB client）、`L1_Vision_IsObjectStill`（BB client + 状态稳定检测）、`L1_Vision_IsTargetOnLeft`（BB client + 位置判断）、`L2_Head_MoveTo`（facade.move_head()）；`behaviours_tem/` 剩余 14 个节点分 Group B（需新 adapter）/ Group C（需新 facade 方法） |
 | **v2.3.0** | **2026-04-17** | **`input_adapters/` 层正式化**：`ImuBalanceStateAdapter` + `LineDetectionAdapter` 迁移至 `ainex_bt_edu/input_adapters/`（`setup.py` 声明包）；两阶段 latch 协议（`snapshot_and_reset` under lock / `write_snapshot` after lock）正式成为框架规范；`rospy.Subscriber` 唯一合法位置约束写入设计原则；项目专属节点分工规范化：条件节点 → `behaviours/conditions.py`，动作节点 → `behaviours/actions.py`；debug log 归因链约束（`ros_out` 仅由 `comm_facade._emit()` 负责）和 `algorithms/` 纯函数约束写入文档 |

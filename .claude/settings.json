@@ -10,6 +10,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/ainex_bt_edu_pre_guard.py",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -19,6 +29,16 @@
           {
             "type": "command",
             "command": "python3 /home/pi/.claude/hooks/bt_node_guard.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/ainex_bt_edu_guard.py",
             "timeout": 5
           }
         ]
