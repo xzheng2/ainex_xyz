@@ -24,11 +24,23 @@ def get_robot_health(_input: str = "") -> str:
     Get the current health status of the Ainex robot.
 
     Returns battery voltage (mV), all 24 servo temperatures (°C), voltages,
-    torque enable state, and the current IMU roll/pitch angles.
+    torque enable state (ON / off), and the current IMU roll/pitch angles.
     All operations are read-only.
 
-    Use this tool when asked about robot health, battery level, servo temperatures,
-    servo torque state, or whether the robot is in a normal operating state.
+    torque='off' means the servo has gone limp and cannot hold joint position —
+    the robot will collapse into whatever posture gravity imposes, even if the BT
+    believes the robot is standing. This is the most common cause of physical
+    posture not matching the expected state.
+
+    Use this tool when:
+      - Asked about robot health, battery level, servo temperatures, or posture.
+      - The robot's physical posture does not match what the BT or blackboard reports
+        (e.g., BT says "stand" but robot is on knees / slumped / listing).
+      - diagnose_tick returns Layer 4 (physical/hardware) as the most likely fault —
+        ALWAYS call this tool next to check for torque=off or overheated servos.
+      - The robot is failing to execute motion commands (ros_out is present but no
+        physical movement occurred) — check if servo torque is enabled.
+      - Verifying posture after a fall or recovery sequence.
     """
     sections = []
 

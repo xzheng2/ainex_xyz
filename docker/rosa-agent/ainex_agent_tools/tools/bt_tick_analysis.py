@@ -11,6 +11,60 @@ from langchain.agents import tool
 from ainex_agent_tools.bt_analysis.raw_tick import get_raw_tick_bundle
 
 # ---------------------------------------------------------------------------
+# JSONL Schema Legend — embedded in tool output to help the LLM interpret raw events
+# ---------------------------------------------------------------------------
+
+_JSONL_SCHEMA_LEGEND = """\
+[BT DECISION LAYER — bt_debug_*.jsonl]
+  tree_tick_start : tick begins.
+      tick_id=iteration counter, ts=timestamp
+
+  tree_tick_end   : tick ends — overall tree result.
+      tick_id, status=root node outcome (SUCCESS|FAILURE|RUNNING), ts
+
+  tick_end        : one BT node was evaluated.
+      node=instance name (e.g. "IsRobotStanding"),
+      type=Python class (e.g. "L1_Balance_IsStanding" — prefix shows layer/category),
+      status=that node's result (SUCCESS|FAILURE|RUNNING), ts
+
+  decision        : a condition node logged its explicit reasoning.
+      node=condition name,
+      inputs=dict of blackboard keys the condition READ and their values (the evidence),
+      status=its result,
+      reason=plain-English explanation of WHY it returned SUCCESS or FAILURE, ts
+
+  bb_write        : a blackboard key was written.
+      writer=node or infra component that wrote it,
+      key=full BB key path (e.g. "/latched/robot_state"),
+      value=new value, ts
+
+[ROS COMM LAYER — bt_ros_comm_debug_*.jsonl]
+  ros_in          : sensor data received by an InputAdapter — emitted BEFORE tree_tick_start.
+      source=ROS topic the adapter subscribes to,
+      adapter=adapter class name,
+      received_count=number of messages buffered since last snapshot (shows data rate)
+
+  input_state     : what the InputAdapter wrote to the blackboard this tick — emitted BEFORE tree_tick_start.
+      adapter=adapter class name,
+      bb_writes=dict of BB keys written and their values (sensor data converted to robot semantics)
+
+  ros_out         : outgoing ROS command emitted by comm_facade during tree execution.
+      bt_node=which BT action node triggered this command (e.g. "FollowLine"),
+      semantic_source=method/intent name describing what the command represents (e.g. "set_walking_speed"),
+      target=ROS topic or service that received the command,
+      comm_type=how it was sent: topic_publish or service_call,
+      payload=full message/request content sent,
+      summary=one-line human-readable description of what was sent,
+      attribution_confidence=how certain the tracer is that bt_node actually caused this:
+          high=directly traced, medium=inferred from context, low=uncertain
+
+[INTRA-TICK ORDER BY TIMESTAMP]
+  ros_in → input_state → tree_tick_start → tick_end/decision/bb_write → tree_tick_end → ros_out
+  NOTE: ros_in + input_state always appear BEFORE tree_tick_start because InputAdapters
+  snapshot and write sensor data in a two-phase latch BEFORE tree.tick() is called.\
+"""
+
+# ---------------------------------------------------------------------------
 # Default project context (high-level only — no per-node implementation detail)
 # ---------------------------------------------------------------------------
 
@@ -106,6 +160,8 @@ def get_bt_tick_raw(tick_id: str = "latest", include_neighbors: int = 1) -> str:
     sections = [
         f"=== SELECTED TICK {bundle['selected_tick_id']} (source: recent) ===",
         header,
+        "",
+        _JSONL_SCHEMA_LEGEND,
         "",
         "--- BT Decision Layer ---",
         bt_raw,
@@ -286,6 +342,8 @@ def analyze_bt_tick(
         rqt_observation.strip() if rqt_observation.strip() else "(none provided)",
         "",
         "--- SELECTED TICK RAW (primary evidence) ---",
+        _JSONL_SCHEMA_LEGEND,
+        "",
         "BT DECISION LAYER:",
         bt_raw,
         "",
