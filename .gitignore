@@ -35,6 +35,10 @@
 !.claude/hooks/
 !.claude/hooks/**
 
+# Exclude macOS metadata
+docker/ros_ws_src/**/.DS_Store
+.DS_Store
+
 # Exclude generated/binary files within allowed paths
 docker/ros_ws_src/**/__pycache__/
 docker/ros_ws_src/**/*.pyc

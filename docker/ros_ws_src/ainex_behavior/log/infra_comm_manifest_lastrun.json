@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "generated_ts": 1776312304.9982152,
-  "description": "Static fall_recovery BT infrastructure communication manifest. All items are excluded from the Generic ROS Facade business log.",
+  "generated_ts": 1776546284.7104526,
+  "description": "Static marathon BT infrastructure communication manifest. All items are excluded from the Generic ROS Facade business log.",
   "interfaces": [
     {
       "component": "TreeROSPublisher",
       "kind": "topic_pub",
       "name": "~log/tree",
-      "resolved_name": "/fall_recovery_bt/log/tree",
+      "resolved_name": "/marathon_bt/log/tree",
       "msg_or_srv_type": "py_trees_msgs/BehaviourTree",
       "purpose": "publish BT tree snapshot for rqt_py_trees visualization",
       "bt_decision_related": false,
@@ -17,7 +17,7 @@
       "component": "TreeROSPublisher",
       "kind": "topic_pub",
       "name": "~ascii/snapshot",
-      "resolved_name": "/fall_recovery_bt/ascii/snapshot",
+      "resolved_name": "/marathon_bt/ascii/snapshot",
       "msg_or_srv_type": "std_msgs/String",
       "purpose": "publish unicode tree display string",
       "bt_decision_related": false,
@@ -27,25 +27,52 @@
       "component": "TreeROSPublisher",
       "kind": "topic_pub",
       "name": "~tip",
-      "resolved_name": "/fall_recovery_bt/tip",
+      "resolved_name": "/marathon_bt/tip",
       "msg_or_srv_type": "py_trees_msgs/Behaviour",
       "purpose": "publish currently executing tip node",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBBBridge",
+      "component": "MarathonBBBridge",
       "kind": "topic_pub",
-      "name": "/bt/fall_recovery/bb/robot_state",
+      "name": "/bt/marathon/bb/robot_state",
       "msg_or_srv_type": "std_msgs/String",
       "purpose": "mirror latched BB key for ROSA diagnostics",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBBBridge",
+      "component": "MarathonBBBridge",
       "kind": "topic_pub",
-      "name": "/bt/fall_recovery/bb/tick_id",
+      "name": "/bt/marathon/bb/line_data",
+      "msg_or_srv_type": "std_msgs/String",
+      "purpose": "mirror latched BB key for ROSA diagnostics",
+      "bt_decision_related": false,
+      "excluded_from_generic_ros_facade": true
+    },
+    {
+      "component": "MarathonBBBridge",
+      "kind": "topic_pub",
+      "name": "/bt/marathon/bb/last_line_x",
+      "msg_or_srv_type": "std_msgs/String",
+      "purpose": "mirror latched BB key for ROSA diagnostics",
+      "bt_decision_related": false,
+      "excluded_from_generic_ros_facade": true
+    },
+    {
+      "component": "MarathonBBBridge",
+      "kind": "topic_pub",
+      "name": "/bt/marathon/bb/camera_lost_count",
+      "msg_or_srv_type": "std_msgs/String",
+      "purpose": "mirror latched BB key for ROSA diagnostics",
+      "bt_decision_related": false,
+      "excluded_from_generic_ros_facade": true
+    },
+    {
+      "component": "MarathonBBBridge",
+      "kind": "topic_pub",
+      "name": "/bt/marathon/bb/tick_id",
       "msg_or_srv_type": "std_msgs/String",
       "purpose": "mirror BT tick counter for ROSA diagnostics",
       "bt_decision_related": false,
@@ -55,7 +82,7 @@
       "component": "BTExecController",
       "kind": "topic_pub",
       "name": "~bt/mode",
-      "resolved_name": "/fall_recovery_bt/bt/mode",
+      "resolved_name": "/marathon_bt/bt/mode",
       "msg_or_srv_type": "std_msgs/String",
       "purpose": "publish current BT exec mode (RUN/PAUSE/STEP), latched",
       "bt_decision_related": false,
@@ -65,7 +92,7 @@
       "component": "BTExecController",
       "kind": "service_server",
       "name": "~bt/run",
-      "resolved_name": "/fall_recovery_bt/bt/run",
+      "resolved_name": "/marathon_bt/bt/run",
       "msg_or_srv_type": "std_srvs/Empty",
       "purpose": "set BT exec mode to RUN",
       "bt_decision_related": false,
@@ -75,7 +102,7 @@
       "component": "BTExecController",
       "kind": "service_server",
       "name": "~bt/pause",
-      "resolved_name": "/fall_recovery_bt/bt/pause",
+      "resolved_name": "/marathon_bt/bt/pause",
       "msg_or_srv_type": "std_srvs/Empty",
       "purpose": "pause BT ticking",
       "bt_decision_related": false,
@@ -85,23 +112,32 @@
       "component": "BTExecController",
       "kind": "service_server",
       "name": "~bt/step",
-      "resolved_name": "/fall_recovery_bt/bt/step",
+      "resolved_name": "/marathon_bt/bt/step",
       "msg_or_srv_type": "std_srvs/Empty",
       "purpose": "queue one BT tick then revert to PAUSE",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "ImuBalanceStateAdapter",
       "kind": "topic_sub",
       "name": "/imu",
       "msg_or_srv_type": "sensor_msgs/Imu",
-      "purpose": "fall detection \u2014 updates robot_state in live store",
+      "purpose": "fall detection \u2014 updates robot_state in live store; owned by ainex_bt_edu/input_adapters/imu_balance_state_adapter.py",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "LineDetectionAdapter",
+      "kind": "topic_sub",
+      "name": "/object/pixel_coords",
+      "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
+      "purpose": "line detection \u2014 updates line_data, last_line_x, camera_lost_count; owned by ainex_bt_edu/input_adapters/line_detection_adapter.py",
+      "bt_decision_related": false,
+      "excluded_from_generic_ros_facade": true
+    },
+    {
+      "component": "MarathonBTNode",
       "kind": "topic_pub",
       "name": "/ros_robot_controller/set_buzzer",
       "msg_or_srv_type": "ros_robot_controller/BuzzerState",
@@ -111,17 +147,17 @@
       "notes": "publisher object owned here; actual business emit_comm logging in comm_facade.publish_buzzer"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "topic_pub",
       "name": "/color_detection/update_detect",
       "msg_or_srv_type": "ainex_interfaces/ColorsDetect",
-      "purpose": "detect_pub created by color_common.Common.__init__()",
+      "purpose": "configure color_detection_node: sets target color, detect_type, ROI at startup",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true,
       "notes": "self.detect_pub \u2014 created in color_common.Common.__init__(); see ainex_example/src/ainex_example/color_common.py"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "lifecycle_action",
       "name": "walk_ready",
       "msg_or_srv_type": "action",
@@ -130,7 +166,7 @@
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "lifecycle_action",
       "name": "stand",
       "msg_or_srv_type": "action",
@@ -139,10 +175,10 @@
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_server",
       "name": "~start",
-      "resolved_name": "/fall_recovery_bt/start",
+      "resolved_name": "/marathon_bt/start",
       "msg_or_srv_type": "std_srvs/Empty",
       "purpose": "enable BT ticking (via Common base class)",
       "bt_decision_related": false,
@@ -150,10 +186,10 @@
       "notes": "created by color_common.Common.__init__()"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_server",
       "name": "~stop",
-      "resolved_name": "/fall_recovery_bt/stop",
+      "resolved_name": "/marathon_bt/stop",
       "msg_or_srv_type": "std_srvs/Empty",
       "purpose": "disable BT ticking (via Common base class)",
       "bt_decision_related": false,
@@ -161,60 +197,60 @@
       "notes": "created by color_common.Common.__init__()"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_server",
       "name": "~enter",
-      "resolved_name": "/fall_recovery_bt/enter",
+      "resolved_name": "/marathon_bt/enter",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "run init_action (via Common base class)",
+      "purpose": "run init_action + call /color_detection/enter (via Common base class)",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true,
       "notes": "created by color_common.Common.__init__()"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_server",
       "name": "~exit",
-      "resolved_name": "/fall_recovery_bt/exit",
+      "resolved_name": "/marathon_bt/exit",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "stop (via Common base class)",
+      "purpose": "stop + call /color_detection/exit (via Common base class)",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true,
       "notes": "created by color_common.Common.__init__()"
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_client",
       "name": "/color_detection/enter",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "activate color_detection_node (via Common)",
+      "purpose": "activate color_detection_node processing pipeline",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_client",
       "name": "/color_detection/exit",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "deactivate color_detection_node (via Common)",
+      "purpose": "deactivate color_detection_node processing pipeline",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_client",
       "name": "/color_detection/start",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "start color detection result publishing (via Common)",
+      "purpose": "start color detection result publishing",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },
     {
-      "component": "FallRecoveryBTNode",
+      "component": "MarathonBTNode",
       "kind": "service_client",
       "name": "/color_detection/stop",
       "msg_or_srv_type": "std_srvs/Empty",
-      "purpose": "stop color detection result publishing (via Common)",
+      "purpose": "stop color detection result publishing",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     }
