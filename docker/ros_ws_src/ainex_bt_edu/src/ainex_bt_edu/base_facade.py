@@ -35,26 +35,39 @@ class AinexBTFacade(ABC):
     def follow_line(self, line_data, bt_node: str, tick_id: int = None) -> None:
         """Compute and send gait command to follow the detected line.
 
+        Deprecated — algorithm moved to L2_Gait_FollowLine.update() which calls
+        go_step() / turn_step() directly.  Kept only for abstract-contract
+        compatibility; not called by any BT node in the current code path.
+
         Args:
             line_data: Line detection result (must have .x and .width fields).
         """
         ...
 
     @abstractmethod
-    def search_line(self, last_line_x, lost_count: int,
-                    bt_node: str, tick_id: int = None) -> int:
-        """Turn in-place to recover a lost line.
-
-        Direction is biased toward where the line was last seen.
-        Magnitude may scale with lost_count.
+    def gait_step(self, profile: str, x: float, y: float, yaw: int,
+                  step_num: int = 0, bt_node: str = None, tick_id: int = None,
+                  semantic_source: str = 'gait_step') -> None:
+        """Send one gait step using the named motion profile.
 
         Args:
-            last_line_x: x-position of line when last seen, or None.
-            lost_count:  number of consecutive ticks the line has been absent.
-
-        Returns:
-            gait_yaw (int): the yaw command actually sent (for logging).
+            profile: 'go' (straight walking) or 'turn' (rotation-biased).
+                     Any other value must raise ValueError.
         """
+        ...
+
+    @abstractmethod
+    def go_step(self, x: float, y: float, yaw: int,
+                step_num: int = 0, bt_node: str = None, tick_id: int = None,
+                semantic_source: str = 'gait_step') -> None:
+        """Thin wrapper: gait_step('go', ...)."""
+        ...
+
+    @abstractmethod
+    def turn_step(self, x: float, y: float, yaw: int,
+                  step_num: int = 0, bt_node: str = None, tick_id: int = None,
+                  semantic_source: str = 'gait_step') -> None:
+        """Thin wrapper: gait_step('turn', ...)."""
         ...
 
     # ── Recovery ──────────────────────────────────────────────────────────
@@ -81,15 +94,3 @@ class AinexBTFacade(ABC):
         """
         ...
 
-    @abstractmethod
-    def head_sweep_align(self, head_offset: int,
-                         bt_node: str, tick_id: int = None) -> int:
-        """Command body-turn proportional to head_offset during line-sweep alignment.
-
-        Args:
-            head_offset: current head_pan - HEAD_PAN_CENTER (signed).
-
-        Returns:
-            gait_yaw (int): the yaw command actually sent (for logging).
-        """
-        ...

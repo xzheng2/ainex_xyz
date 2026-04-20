@@ -71,11 +71,14 @@ class CommFacade:
         self._gait.enable()
 
     def set_step(self, bt_node=None, semantic_source=None, tick_id=None, *,
-                 dsp, x, y, yaw, gait_param=None, arm_swap=None, step_num=0):
+                 dsp, x, y, yaw, gait_param=None, arm_swap=None, step_num=0,
+                 motion_profile=None):
+        payload = {'dsp': dsp, 'x': x, 'y': y, 'yaw': yaw}
+        if motion_profile is not None:
+            payload['motion_profile'] = motion_profile
         self._emit(bt_node, semantic_source or 'set_step',
                    'walking/set_param', 'topic_publish', 'out',
-                   'ainex_controller',
-                   {'dsp': dsp, 'x': x, 'y': y, 'yaw': yaw},
+                   'ainex_controller', payload,
                    tick_id=tick_id)
         self._gait.set_step(dsp, x, y, yaw, gait_param,
                             arm_swap=arm_swap, step_num=step_num)

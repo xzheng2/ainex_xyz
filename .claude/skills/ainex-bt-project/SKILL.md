@@ -54,13 +54,16 @@ ainex_bt_edu/input_adapters/     single source of truth         behaviours/
 | `register_key` on root-ns client | `BB.*` (absolute) | `key=BB.HEAD_PAN_POS` |
 | `BB_LOG_KEYS` / `bb_writes` dict | `BB.*` (absolute) | `[BB.LINE_DATA]` |
 
-**Active adapter-written keys** (as of v2.1.0):
+**Active adapter-written keys** (as of v2.3.2):
 
 | BB key (absolute) | Constant | Written by |
 |---|---|---|
 | `/latched/robot_state` | `BB.ROBOT_STATE` | `ImuBalanceStateAdapter` |
 | `/latched/line_data` | `BB.LINE_DATA` | `LineDetectionAdapter` |
-| `/latched/last_line_x` | `BB.LAST_LINE_X` | `LineDetectionAdapter` |
+| `/latched/last_line_x` | `BB.LAST_LINE_X` | `LineDetectionAdapter` (raw pixel x) |
+| `/latched/line_error_x` | `BB.LINE_ERROR_X` | `LineDetectionAdapter` (x − center, None when lost) |
+| `/latched/line_center_x` | `BB.LINE_CENTER_X` | `LineDetectionAdapter` (width/2 + offset) |
+| `/latched/last_line_error_x` | `BB.LAST_LINE_ERROR_X` | `LineDetectionAdapter` (sticky signed error) |
 | `/latched/camera_lost_count` | `BB.CAMERA_LOST_COUNT` | `LineDetectionAdapter` |
 | `/head_pan_pos` | `BB.HEAD_PAN_POS` | `L2_Head_FindLineSweep` (BB write, not adapter) |
 
@@ -199,8 +202,10 @@ Verify BB constant usage across all generated behaviour nodes:
 
 Verify the generated `semantics/semantic_facade.py`:
 - [ ] Class inherits `AinexBTFacade` (from `ainex_bt_edu.base_facade`)
-- [ ] All 6 abstract methods implemented: `stop_walking`, `follow_line`, `search_line`,
-     `recover_from_fall`, `move_head`, `head_sweep_align`
+- [ ] All 7 abstract methods implemented: `stop_walking`,
+      `follow_line` (deprecated — no-op stub is acceptable), `gait_step`, `go_step`,
+      `turn_step`, `recover_from_fall`, `move_head`
+      (`search_line` and `head_sweep_align` removed from interface in v2.3.2)
 
 ### Step 6 — Update package.xml
 

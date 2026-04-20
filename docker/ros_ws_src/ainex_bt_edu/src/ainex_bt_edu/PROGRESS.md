@@ -1,7 +1,7 @@
 # ainex_bt_edu — Migration Progress
 
-> **Last updated**: 2026-04-18
-> **Spec version**: 2.3.1
+> **Last updated**: 2026-04-20
+> **Spec version**: 2.3.2
 > **Canonical nodes**: 13 (7 L1 + 6 L2)
 
 ---
@@ -208,16 +208,58 @@ L1/L2 nodes and may require additional adapters and facade methods).
 
 | File | Facade method | BB reads |
 |---|---|---|
-| `L2_Balance_RecoverFromFall.py` | `play_action_group()` | `/latched/robot_state` |
-| `L2_Gait_FindLine.py` | `set_step()` | `/latched/line_data` |
-| `L2_Gait_FollowLine.py` | `set_step()` | `/latched/line_data` |
+| `L2_Balance_RecoverFromFall.py` | `recover_from_fall()` | `/latched/robot_state` |
+| `L2_Gait_FindLine.py` | `turn_step(semantic_source='search_line')` | `/latched/last_line_error_x`, `/latched/camera_lost_count` |
+| `L2_Gait_FollowLine.py` | `go_step`/`turn_step(semantic_source='follow_line')` | `/latched/line_data`, `/latched/line_error_x` |
 | `L2_Gait_Stop.py` | `stop_walking()` | — |
-| `L2_Head_FindLineSweep.py` | `move_head()` | `/latched/line_data`, `/head_pan_pos` |
+| `L2_Head_FindLineSweep.py` | `go_step`/`turn_step`/`move_head()` | `/latched/line_data`, `/latched/last_line_error_x`, `/head_pan_pos` |
 | `L2_Head_MoveTo.py` | `move_head()` | — |
 
 ---
 
-## Key Architecture Rules (v2.3.0+)
+## Phase 2 — Gait Responsibility Refactor (Apr 20 2026, v2.3.2)
+
+Completed refactor: algorithm logic moved from `MarathonSemanticFacade` into the BT
+nodes that own the decision, and `AinexBTFacade` updated accordingly.
+
+### What changed
+
+| Component | Before | After |
+|---|---|---|
+| `L2_Gait_FollowLine` | called `facade.follow_line(line_data)` | inlines visual-patrol yaw algorithm; reads `line_error_x` from BB; calls `facade.go_step/turn_step` |
+| `L2_Gait_FindLine` | called `facade.search_line(last_line_x, lost_count)` | inlines direction+magnitude calc; reads `last_line_error_x`; calls `facade.turn_step` |
+| `L2_Head_FindLineSweep` | called `facade.head_sweep_align(head_offset)` | inlines proportional yaw calc (class constants); calls `facade.go_step/turn_step` |
+| `MarathonSemanticFacade` | owned all gait algorithms | exposes `gait_step(profile)`, `go_step`, `turn_step`; `search_line`/`head_sweep_align` removed |
+| `LineDetectionAdapter` | wrote `line_data`, `last_line_x`, `camera_lost_count` | additionally writes `line_error_x`, `line_center_x`, `last_line_error_x` (reads `center_x_offset=66` from `ainex_bt_edu/config/line_perception.yaml`) |
+| `AinexBTFacade` | abstract: `follow_line`, `search_line`, `head_sweep_align` | removed `search_line`; added `gait_step`, `go_step`, `turn_step`; `follow_line` + `head_sweep_align` deprecated |
+| `CommFacade.set_step` | no profile in log | `motion_profile='go'|'turn'` written to JSONL payload |
+
+### New BB keys (all `/latched/`)
+
+| Key | Type | Written by | Meaning |
+|---|---|---|---|
+| `line_error_x` | float \| None | `LineDetectionAdapter` | `line_data.x − line_center_x` (None when lost) |
+| `line_center_x` | float \| None | `LineDetectionAdapter` | `width/2 + center_x_offset` (None when lost) |
+| `last_line_error_x` | float \| None | `LineDetectionAdapter` | Sticky signed error (last detection) |
+
+### New config file
+
+`ainex_bt_edu/config/line_perception.yaml` — `center_x_offset: 66`
+
+Read at startup by `LineDetectionAdapter` via `rospkg.RosPack().get_path('ainex_bt_edu')`.
+Set to 66 to preserve prior robot behaviour (matches former `calib.yaml` value).
+
+### Canonical behaviours/ — Updated state (13 nodes, v2.3.2)
+
+| File | Facade method | BB reads |
+|---|---|---|
+| `L2_Gait_FindLine.py` | `turn_step(semantic_source='search_line')` | `/latched/last_line_error_x`, `/latched/camera_lost_count` |
+| `L2_Gait_FollowLine.py` | `go_step` / `turn_step(semantic_source='follow_line')` | `/latched/line_data`, `/latched/line_error_x` |
+| `L2_Head_FindLineSweep.py` | `go_step`/`turn_step(semantic_source='head_sweep_align')` | `/latched/line_data`, `/latched/last_line_error_x`, `/head_pan_pos` |
+
+---
+
+## Key Architecture Rules (v2.3.2)
 
 1. **No `rospy.*` in BT nodes** — all ROS subscriptions live in `input_adapters/`
 2. **Two-phase latch** — `snapshot_and_reset()` under lock, `write_snapshot()` after
@@ -225,6 +267,8 @@ L1/L2 nodes and may require additional adapters and facade methods).
 4. **Facade isolation** — L2 nodes call `self._facade.<method>()`, never managers directly
 5. **Logger injection** — `logger=None` is zero-cost; always `if self._logger: ...`
 6. **One subscriber per topic** — each ROS topic has exactly one adapter
+7. **Algorithm ownership** — decision logic (yaw calc, direction, profile selection) lives in the BT node, not in the semantic facade; facade provides only `go_step/turn_step/gait_step` dispatch
+8. **No project dependencies in `ainex_bt_edu` nodes** — no `ainex_sdk.common`, no project config paths; calibration config lives in `ainex_bt_edu/config/`
 
 ---
 

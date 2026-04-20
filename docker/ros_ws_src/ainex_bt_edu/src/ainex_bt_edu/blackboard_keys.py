@@ -15,16 +15,22 @@ class BB:
     LATCHED_NS            = '/latched'
 
     # Short keys (relative) — used with register_key() on /latched/ clients
-    ROBOT_STATE_KEY       = 'robot_state'
-    LINE_DATA_KEY         = 'line_data'
-    LAST_LINE_X_KEY       = 'last_line_x'
-    CAMERA_LOST_COUNT_KEY = 'camera_lost_count'
+    ROBOT_STATE_KEY        = 'robot_state'
+    LINE_DATA_KEY          = 'line_data'
+    LAST_LINE_X_KEY        = 'last_line_x'
+    CAMERA_LOST_COUNT_KEY  = 'camera_lost_count'
+    LINE_ERROR_X_KEY       = 'line_error_x'
+    LINE_CENTER_X_KEY      = 'line_center_x'
+    LAST_LINE_ERROR_X_KEY  = 'last_line_error_x'
 
     # Absolute paths — used in BB_LOG_KEYS, bb_writes, ROSA_TOPIC_MAP
     ROBOT_STATE       = LATCHED_NS + '/' + ROBOT_STATE_KEY        # '/latched/robot_state'
     LINE_DATA         = LATCHED_NS + '/' + LINE_DATA_KEY          # '/latched/line_data'
     LAST_LINE_X       = LATCHED_NS + '/' + LAST_LINE_X_KEY        # '/latched/last_line_x'
     CAMERA_LOST_COUNT = LATCHED_NS + '/' + CAMERA_LOST_COUNT_KEY  # '/latched/camera_lost_count'
+    LINE_ERROR_X      = LATCHED_NS + '/' + LINE_ERROR_X_KEY       # '/latched/line_error_x'
+    LINE_CENTER_X     = LATCHED_NS + '/' + LINE_CENTER_X_KEY      # '/latched/line_center_x'
+    LAST_LINE_ERROR_X = LATCHED_NS + '/' + LAST_LINE_ERROR_X_KEY  # '/latched/last_line_error_x'
     HEAD_PAN_POS      = '/head_pan_pos'  # root-ns; used in register_key() directly
 
     # /perception/ — future L3 use
@@ -63,4 +69,7 @@ class BB:
         LINE_DATA:         '/bt/bb/latched/line_data',
         LAST_LINE_X:       '/bt/bb/latched/last_line_x',
         CAMERA_LOST_COUNT: '/bt/bb/latched/camera_lost_count',
+        LINE_ERROR_X:      '/bt/bb/latched/line_error_x',
+        LINE_CENTER_X:     '/bt/bb/latched/line_center_x',
+        LAST_LINE_ERROR_X: '/bt/bb/latched/last_line_error_x',
     }

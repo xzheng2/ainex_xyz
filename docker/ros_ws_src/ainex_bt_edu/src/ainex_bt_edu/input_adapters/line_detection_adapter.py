@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 # encoding: utf-8
-"""LineDetectionAdapter — /object/pixel_coords → /latched/{line_data,last_line_x,camera_lost_count}
+"""LineDetectionAdapter — /object/pixel_coords → /latched/{line_data,last_line_x,
+camera_lost_count,line_error_x,line_center_x,last_line_error_x}
 
 Subscribes to /object/pixel_coords, extracts the first 'line' object from each
-message, and maintains three live state values under a shared lock:
-  - line_data:         the latest line ObjectInfo, or None if lost
-  - last_line_x:       x-coordinate when line was last detected (sticky)
-  - camera_lost_count: consecutive camera frames without line detection (30 Hz)
+message, and maintains live state under a shared lock:
+  - line_data:          the latest line ObjectInfo, or None if lost
+  - last_line_x:        x-coordinate when line was last detected (sticky)
+  - camera_lost_count:  consecutive camera frames without line detection (30 Hz)
+  - line_error_x:       line_data.x - line_center_x  (None when lost)
+  - line_center_x:      width/2 + center_x_offset    (None when lost)
+  - last_line_error_x:  sticky signed error (last seen); used by FindLine nodes
+                        for direction decisions instead of raw last_line_x
+
+center_x_offset is read from ainex_bt_edu/config/line_perception.yaml at startup.
 
 Exposes a two-phase latch protocol for consistent per-tick snapshots:
 
@@ -20,13 +27,28 @@ Observability events emitted per tick:
   ros_in      — one per tick when ≥1 message arrived since last latch
   input_state — one per tick (always), records the values written to BB
 """
+import os
 import time
 import threading
 
 import rospy
+import rospkg
+import yaml
 import py_trees
 from ainex_interfaces.msg import ObjectsInfo
 from ainex_bt_edu.blackboard_keys import BB
+
+
+def _load_line_perception_config():
+    try:
+        pkg_path = rospkg.RosPack().get_path('ainex_bt_edu')
+        cfg_path = os.path.join(pkg_path, 'config', 'line_perception.yaml')
+        with open(cfg_path) as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        rospy.logwarn('[LineDetectionAdapter] failed to load line_perception.yaml: %s'
+                      ' — using center_x_offset=0', e)
+        return {}
 
 
 class LineDetectionAdapter:
@@ -43,22 +65,36 @@ class LineDetectionAdapter:
         self._logger = logger
         self._tick_id_getter = tick_id_getter or (lambda: -1)
 
+        # ── Calibration (loaded once at startup) ──────────────────────────────
+        _cfg = _load_line_perception_config()
+        self._center_x_offset = float(_cfg.get('center_x_offset', 0))
+        rospy.loginfo('[LineDetectionAdapter] center_x_offset=%.1f', self._center_x_offset)
+
         # ── Live (async) state — written only by _callback under self._lock ──
-        self._live_line_data = None
-        self._live_last_line_x = None
-        self._live_camera_lost_count = 0
-        self._received_count = 0        # messages since last snapshot_and_reset()
+        self._live_line_data          = None
+        self._live_last_line_x        = None
+        self._live_camera_lost_count  = 0
+        self._live_line_error_x       = None   # per-frame (None when lost)
+        self._live_line_center_x      = None   # per-frame (None when lost)
+        self._live_last_line_error_x  = None   # sticky signed error (last seen)
+        self._received_count          = 0      # messages since last snapshot_and_reset()
 
         # ── Latched BB client — written only by write_snapshot() (main thread) ──
         self._bb = py_trees.blackboard.Client(
             name="LineDetectionAdapter", namespace=BB.LATCHED_NS)
-        self._bb.register_key(key=BB.LINE_DATA_KEY,         access=py_trees.common.Access.WRITE)
-        self._bb.register_key(key=BB.LAST_LINE_X_KEY,       access=py_trees.common.Access.WRITE)
-        self._bb.register_key(key=BB.CAMERA_LOST_COUNT_KEY, access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LINE_DATA_KEY,          access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LAST_LINE_X_KEY,        access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.CAMERA_LOST_COUNT_KEY,  access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LINE_ERROR_X_KEY,       access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LINE_CENTER_X_KEY,      access=py_trees.common.Access.WRITE)
+        self._bb.register_key(key=BB.LAST_LINE_ERROR_X_KEY,  access=py_trees.common.Access.WRITE)
         # Initialise BB before first tick so BT nodes never hit KeyError.
-        self._bb.line_data         = self._live_line_data
-        self._bb.last_line_x       = self._live_last_line_x
-        self._bb.camera_lost_count = self._live_camera_lost_count
+        self._bb.line_data          = None
+        self._bb.last_line_x        = None
+        self._bb.camera_lost_count  = 0
+        self._bb.line_error_x       = None
+        self._bb.line_center_x      = None
+        self._bb.last_line_error_x  = None
 
         rospy.Subscriber('/object/pixel_coords', ObjectsInfo, self._callback)
 
@@ -80,10 +116,19 @@ class LineDetectionAdapter:
             if line_data is not None:
                 self._live_last_line_x = line_data.x
                 self._live_camera_lost_count = 0
+                # Compute calibrated error
+                line_center_x = line_data.width / 2.0 + self._center_x_offset
+                line_error_x  = line_data.x - line_center_x
+                self._live_line_center_x     = line_center_x
+                self._live_line_error_x      = line_error_x
+                self._live_last_line_error_x = line_error_x  # sticky
             else:
                 # camera_lost_count accumulates per camera frame (≈30 Hz),
                 # not per BT tick — intentional, matches original behaviour.
                 self._live_camera_lost_count += 1
+                self._live_line_center_x = None
+                self._live_line_error_x  = None
+                # _live_last_line_error_x stays (sticky)
 
     # ------------------------------------------------------------------
     # Public API
@@ -101,13 +146,17 @@ class LineDetectionAdapter:
 
         Returns:
             dict with keys 'line_data', 'last_line_x', 'camera_lost_count',
+            'line_error_x', 'line_center_x', 'last_line_error_x',
             'received_count'.
         """
         snap = {
-            'line_data':         self._live_line_data,
-            'last_line_x':       self._live_last_line_x,
-            'camera_lost_count': self._live_camera_lost_count,
-            'received_count':    self._received_count,
+            'line_data':          self._live_line_data,
+            'last_line_x':        self._live_last_line_x,
+            'camera_lost_count':  self._live_camera_lost_count,
+            'line_error_x':       self._live_line_error_x,
+            'line_center_x':      self._live_line_center_x,
+            'last_line_error_x':  self._live_last_line_error_x,
+            'received_count':     self._received_count,
         }
         self._received_count = 0
         return snap
@@ -133,11 +182,14 @@ class LineDetectionAdapter:
                 "received_count": snap['received_count'],
             })
 
-        # Write all three BB keys
+        # Write all BB keys
         line_data = snap['line_data']
-        self._bb.line_data         = line_data
-        self._bb.last_line_x       = snap['last_line_x']
-        self._bb.camera_lost_count = snap['camera_lost_count']
+        self._bb.line_data          = line_data
+        self._bb.last_line_x        = snap['last_line_x']
+        self._bb.camera_lost_count  = snap['camera_lost_count']
+        self._bb.line_error_x       = snap['line_error_x']
+        self._bb.line_center_x      = snap['line_center_x']
+        self._bb.last_line_error_x  = snap['last_line_error_x']
 
         # input_state: always once per tick — records what the BT tree will see
         if self._logger is not None:
@@ -151,8 +203,11 @@ class LineDetectionAdapter:
                 "ts":      time.time(),
                 "adapter": "LineDetectionAdapter",
                 "bb_writes": {
-                    BB.LINE_DATA:         line_data_log,
-                    BB.LAST_LINE_X:       snap['last_line_x'],
-                    BB.CAMERA_LOST_COUNT: snap['camera_lost_count'],
+                    BB.LINE_DATA:          line_data_log,
+                    BB.LAST_LINE_X:        snap['last_line_x'],
+                    BB.CAMERA_LOST_COUNT:  snap['camera_lost_count'],
+                    BB.LINE_ERROR_X:       snap['line_error_x'],
+                    BB.LINE_CENTER_X:      snap['line_center_x'],
+                    BB.LAST_LINE_ERROR_X:  snap['last_line_error_x'],
                 },
             })

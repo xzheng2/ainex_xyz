@@ -28,7 +28,6 @@ from ros_robot_controller.msg import BuzzerState
 from marathon.tree.marathon_bt import bootstrap
 from marathon.comm.comm_facade import CommFacade
 from marathon.semantics.semantic_facade import MarathonSemanticFacade
-from marathon.algorithms.visual_patrol import VisualPatrol
 from ainex_bt_edu.behaviours.L2_locomotion.L2_Head_FindLineSweep import L2_Head_FindLineSweep as FindLineHeadSweep
 from ainex_bt_edu.input_adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
 from ainex_bt_edu.input_adapters.line_detection_adapter import LineDetectionAdapter
@@ -110,8 +109,8 @@ class MarathonBTNode(Common):
         )
 
         # ── Build algorithm + facade layers ─────────────────────────────
-        # Gait parameters: loaded at app layer and passed as pure data to
-        # VisualPatrol so the algorithm layer has zero runtime dependency.
+        # ── Build gait parameter dicts ───────────────────────────────────
+        # Loaded at app layer and passed as pure data to MarathonSemanticFacade.
         _go_param = self.gait_manager.get_gait_param()
         _go_param['body_height']      = 0.025
         _go_param['step_height']      = 0.015
@@ -125,10 +124,11 @@ class MarathonBTNode(Common):
         _turn_param['z_swap_amplitude'] = 0.006
         _turn_param['pelvis_offset']    = 8
 
-        self.visual_patrol = VisualPatrol(
-            go_gait_param=_go_param,
-            turn_gait_param=_turn_param,
-        )
+        # Gait configs: DSP timings and arm_swap moved here from VisualPatrol.__init__.
+        # center_x_offset is now read by LineDetectionAdapter from
+        # ainex_bt_edu/config/line_perception.yaml (no longer app-layer concern).
+        _go_cfg   = {'dsp': [300, 0.2, 0.02], 'gait_param': _go_param,   'arm_swap': 30}
+        _turn_cfg = {'dsp': [400, 0.2, 0.02], 'gait_param': _turn_param, 'arm_swap': 30}
 
         # Generic ROS Facade — sole business ROS exit and log outlet.
         # Receives real manager objects (not proxies).
@@ -143,7 +143,8 @@ class MarathonBTNode(Common):
         # Project Semantic Facade — translates leaf-node business intent into
         # project-semantic commands and delegates ROS I/O to CommFacade.
         self._semantic_facade = MarathonSemanticFacade(
-            visual_patrol=self.visual_patrol,
+            go_cfg=_go_cfg,
+            turn_cfg=_turn_cfg,
             comm_facade=self._comm_facade,
             tick_id_getter=lambda: self._tick_id,
         )

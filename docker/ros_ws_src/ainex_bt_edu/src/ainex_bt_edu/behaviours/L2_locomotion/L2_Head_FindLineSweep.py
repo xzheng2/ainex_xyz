@@ -7,30 +7,29 @@ Phase 1 — SWEEP
     Transitions to ALIGN as soon as the camera sees the line.
 
 Phase 2 — ALIGN
-    Head stays at the angle where the line was spotted; body turns
-    proportionally while the head moves back toward centre.
+    Head steps back toward centre (ALIGN_STEP units/tick).  Each tick the body
+    turns via turn_step with yaw derived from head servo direction — NOT from
+    camera pixels.  Yaw magnitude is linearly scaled from ALIGN_TURN_MIN_DEG
+    (head near centre) to ALIGN_TURN_MAX_DEG (head at full sweep range), so the
+    body always turns at a meaningful rate throughout ALIGN.
     Returns SUCCESS when head_pan is within CENTER_THRESHOLD of HEAD_PAN_CENTER
     so the Selector re-evaluates: IsLineDetected + IsHeadCentered both pass →
     FollowLine takes over.
 
 Blackboard I/O
-    Reads  /latched/line_data, /latched/last_line_x
+    Reads  /latched/line_data, /latched/last_line_error_x
     Writes /head_pan_pos  (read by the companion IsHeadCentered condition)
 
-Business-logic constants (ALIGN_TURN_MAX_DEG, ALIGN_TURN_SCALE, HEAD_PAN_SERVO,
-HEAD_MOVE_DELAY_MS) live in the project SemanticFacade.  This node retains only
-the state-machine constants needed to run the sweep/align loop.
-
 ── Configurable constants (edit here to tune behaviour) ───────────────────────
-SWEEP_LEFT_POS     leftmost  servo position (500 = centre, 875 = hard left)
-SWEEP_RIGHT_POS    rightmost servo position (500 = centre, 125 = hard right)
-SWEEP_STEP         servo units per 30 Hz tick while sweeping
-SWEEP_PAUSE_TICKS  ticks to hold at each endpoint before reversing
-CENTER_THRESHOLD   ±units around 500 that counts as 'centred'
-ALIGN_STEP         servo units per tick the head moves toward centre
+SWEEP_LEFT_POS      leftmost  servo position (500 = centre, 875 = hard left)
+SWEEP_RIGHT_POS     rightmost servo position (500 = centre, 125 = hard right)
+SWEEP_STEP          servo units per 30 Hz tick while sweeping
+SWEEP_PAUSE_TICKS   ticks to hold at each endpoint before reversing
+CENTER_THRESHOLD    ±units around 500 that counts as 'centred'
+ALIGN_STEP          servo units per tick the head moves toward centre
+ALIGN_TURN_MIN_DEG  minimum body-turn yaw (°) applied during ALIGN
+ALIGN_TURN_MAX_DEG  maximum body-turn yaw (°) at full sweep deflection
 ───────────────────────────────────────────────────────────────────────────────
-
-Reference implementation: marathon/behaviours/actions.py :: FindLineHeadSweep
 """
 import rospy
 from py_trees.common import Access, Status
@@ -43,7 +42,7 @@ class L2_Head_FindLineSweep(AinexBTNode):
     """Sweep-then-align head search. RUNNING during search; SUCCESS when aligned."""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = [BB.LINE_DATA, BB.LAST_LINE_X, BB.HEAD_PAN_POS]
+    BB_LOG_KEYS = [BB.LINE_DATA, BB.LAST_LINE_ERROR_X, BB.HEAD_PAN_POS]
 
     # ── Servo ──────────────────────────────────────────────────────────────
     HEAD_PAN_CENTER   = 500
@@ -53,7 +52,6 @@ class L2_Head_FindLineSweep(AinexBTNode):
     SWEEP_RIGHT_POS   = 300   # rightmost (hw min 125)
     SWEEP_STEP        = 10    # servo units per step
     SWEEP_PAUSE_TICKS = 0     # ticks at each end
-    IMAGE_CENTER_X    = 80    # half of 160-px detection frame
 
     # ── Direction convention ───────────────────────────────────────────────
     # +1 → increasing servo value = head pans LEFT (confirmed hardware)
@@ -62,6 +60,10 @@ class L2_Head_FindLineSweep(AinexBTNode):
     # ── Alignment config ───────────────────────────────────────────────────
     CENTER_THRESHOLD  = 30    # ±units; head within 500±30 → aligned
     ALIGN_STEP        = 7     # units/tick → ~960 ms for full range ≈ 2.4 gait cycles
+
+    # ── Align body-turn config (inlined from former MarathonSemanticFacade) ──
+    ALIGN_TURN_MIN_DEG = 3    # yaw magnitude when head is at CENTER_THRESHOLD
+    ALIGN_TURN_MAX_DEG = 8    # yaw magnitude when head is at full sweep range
 
     # ── States ─────────────────────────────────────────────────────────────
     _ST_SWEEP = 'sweep'
@@ -84,8 +86,8 @@ class L2_Head_FindLineSweep(AinexBTNode):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
             name=f'{self.name}_latched', namespace=BB.LATCHED_NS)
-        self._bb.register_key(key=BB.LINE_DATA_KEY,   access=Access.READ)
-        self._bb.register_key(key=BB.LAST_LINE_X_KEY, access=Access.READ)
+        self._bb.register_key(key=BB.LINE_DATA_KEY,          access=Access.READ)
+        self._bb.register_key(key=BB.LAST_LINE_ERROR_X_KEY,  access=Access.READ)
 
         self._bb_pan = self.attach_blackboard_client(name=self.name)
         self._bb_pan.register_key(key=BB.HEAD_PAN_POS, access=Access.WRITE)
@@ -112,10 +114,12 @@ class L2_Head_FindLineSweep(AinexBTNode):
         self._pause_ticks = 0
 
         if self._fresh_start:
-            # Genuine fresh start: pick direction from last known line position
+            # Genuine fresh start: pick sweep direction from last known error sign.
+            # last_line_error_x < 0 → line was to the LEFT  → look left first.
+            # last_line_error_x >= 0 or None → look right (or unknown).
             self._fresh_start = False
-            last_x = self._bb.last_line_x
-            if last_x is not None and last_x < self.IMAGE_CENTER_X:
+            last_err = self._bb.last_line_error_x
+            if last_err is not None and last_err < 0:
                 self._sweep_dir = +self.PAN_INVERT   # line was left  → look left first
             else:
                 self._sweep_dir = -self.PAN_INVERT   # line was right or unknown → look right
@@ -189,11 +193,18 @@ class L2_Head_FindLineSweep(AinexBTNode):
         self._command_head(self._head_pan)
         self._write_head_pan()
 
-        # Turn body proportionally toward where head is pointing
-        gait_yaw = self._facade.head_sweep_align(
-            head_offset=head_offset,
-            bt_node=self.name,
-            tick_id=self._tick_id_getter(),
+        # Turn body based on head direction (servo position, not camera pixels).
+        # Yaw = lerp(ALIGN_TURN_MIN_DEG, ALIGN_TURN_MAX_DEG, norm), where norm
+        # is head_offset normalised over the half sweep range [0, SWEEP_LEFT_POS−500].
+        # Always calls turn_step regardless of magnitude.
+        tid = self._tick_id_getter()
+        norm = min(1.0, abs(head_offset) / float(self.SWEEP_LEFT_POS - self.HEAD_PAN_CENTER))
+        magnitude = self.ALIGN_TURN_MIN_DEG + (self.ALIGN_TURN_MAX_DEG - self.ALIGN_TURN_MIN_DEG) * norm
+        gait_yaw = int(magnitude) * (1 if head_offset * self.PAN_INVERT > 0 else -1)
+        self._facade.turn_step(
+            x=0, y=0, yaw=gait_yaw,
+            bt_node=self.name, tick_id=tid,
+            semantic_source='head_sweep_align',
         )
         rospy.loginfo('[L2_Head_FindLineSweep] ALIGN  head=%d  offset=%+d  yaw=%+d',
                       self._head_pan, head_offset, gait_yaw)

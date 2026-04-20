@@ -34,7 +34,9 @@ If ambiguous: "你是要给 ainex_bt_edu 加标准 BT 节点，还是加 input a
 
 Reference implementations:
 - L1: `L1_Balance_IsStanding.py` (simplest, clean pattern)
-- L2: `L2_Gait_FindLine.py` (pure RUNNING) + `L2_Balance_RecoverFromFall.py` (BB write + setter hook)
+- L2: `L2_Gait_FindLine.py` (turn_step dispatch, always RUNNING) +
+      `L2_Gait_FollowLine.py` (inline algorithm + go_step/turn_step, SUCCESS each tick) +
+      `L2_Balance_RecoverFromFall.py` (BB write + setter hook)
 - Adapter: `imu_balance_state_adapter.py` (single key) + `line_detection_adapter.py` (multi-key)
 
 Templates: `assets/templates/l1_node.py.tpl`, `l2_node.py.tpl`, `input_adapter.py.tpl`
@@ -85,6 +87,18 @@ Read `base_facade.py` and verify the required method exists.
   > **Rule**: New L2 nodes must only use existing facade methods.
   > Adding an abstract method is a breaking change — plan it explicitly.
 
+  Currently available facade methods (v2.3.2):
+  - `move_head(pan_pos, bt_node, tick_id)` — head servo position
+  - `stop_walking(bt_node, tick_id)` — stop gait
+  - `recover_from_fall(robot_state, bt_node, tick_id)` — fall recovery; `robot_state`
+    is the current state string read from BB (the `robot_state_setter` callback is a
+    **constructor** hook on `L2_Balance_RecoverFromFall`, not a facade parameter)
+  - `follow_line(line_data, bt_node, tick_id)` — **DEPRECATED** (algorithm in L2_Gait_FollowLine)
+  - `go_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — forward/strafe step
+  - `turn_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — turning step
+  - `gait_step(profile, x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` —
+    select by profile `'go'` or `'turn'`; raises `ValueError` for any other value
+
 ### Step 3 — Generate node file
 
 Render `l1_node.py.tpl` or `l2_node.py.tpl`.
@@ -97,8 +111,9 @@ Key substitution variables:
 - `{{BB_LOG_KEYS}}` — e.g. `[BB.ROBOT_STATE]`
 - `{{FACADE_METHOD}}` — L2 only
 
-**No `import rospy`** in node files. `L2_Gait_FindLine.py` has a legacy `rospy.logdebug` —
-do NOT copy it. Use `self._logger.emit_bt()` for all debug output.
+**No `rospy.Subscriber`** in node files — subscriptions must live in `input_adapters/`.
+`rospy.loginfo` / `rospy.logdebug` are acceptable for human-readable state logs (see
+canonical nodes). Prefer `self._logger.emit_bt()` for structured observability events.
 
 Output paths:
 - L1: `ainex_bt_edu/src/ainex_bt_edu/behaviours/L1_perception/{{CLASS_NAME}}.py`
@@ -216,6 +231,23 @@ To use this adapter in a BT project:
    Add: BB.SOME_VALUE: '/bt/<project>/bb/some_value'
 
 4. Sync infra_manifest.py — add topic_sub record for <ROS_TOPIC>
+
+4b. If the adapter needs calibration constants (e.g. pixel offsets, thresholds),
+    store them in `ainex_bt_edu/config/<name>.yaml` and load at adapter `__init__`:
+      import os, yaml, rospkg
+      _pkg = rospkg.RosPack().get_path('ainex_bt_edu')
+      _cfg = yaml.safe_load(open(os.path.join(_pkg, 'config', '<name>.yaml')))
+      self._some_offset = _cfg.get('some_offset', 0)
+    See `line_detection_adapter.py` for the complete pattern.
+    Do NOT hard-code project paths or import `ainex_sdk.common` for config.
+
+    If adding a `config/` directory for the first time, add to `CMakeLists.txt`:
+      install(DIRECTORY config/
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config)
+    (rospkg.get_path() works in-source during dev; install() needed for deployment.)
+    `yaml` is `pyyaml` (python3-yaml, v5.3.1, already in container — not stdlib).
+    `rospkg` is ROS core. No new package.xml entries needed. Verify:
+      docker exec ainex python3 -c "import yaml, rospkg; print('ok')"
 
 5. Rebuild: catkin build ainex_bt_edu ainex_behavior
 ```

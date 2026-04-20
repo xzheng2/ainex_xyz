@@ -26,10 +26,12 @@ class {{CLASS_NAME}}(AinexBTNode):
 
     def __init__(self, name: str = {{DEFAULT_NAME}},
                  facade: AinexBTFacade = None,
-                 tick_id_getter=None):
+                 tick_id_getter=None,
+                 logger=None):
         super().__init__(name)
         self._facade = facade
         self._tick_id_getter = tick_id_getter or (lambda: -1)
+        self._logger = logger
         self._bb = None
 
     def setup(self, **kwargs):
@@ -54,12 +56,16 @@ class {{CLASS_NAME}}(AinexBTNode):
     def update(self) -> Status:
         # Read required BB keys, e.g.:
         # value = self._bb.some_key
-        # Call the facade method (must already exist in base_facade.py):
-        # result = self._facade.some_method(
-        #     param=value,
-        #     bt_node=self.name,
-        #     tick_id=self._tick_id_getter(),
-        # )
+        # Call the facade method (must already exist in base_facade.py).
+        # Common locomotion methods (see SKILL.md Step 2b for full list):
+        #   self._facade.go_step(x=0.015, y=0, yaw=yaw,
+        #                        bt_node=self.name, tick_id=self._tick_id_getter(),
+        #                        semantic_source='...')
+        #   self._facade.turn_step(x=0, y=0, yaw=yaw,
+        #                          bt_node=self.name, tick_id=self._tick_id_getter(),
+        #                          semantic_source='...')
+        #   # Use gait_step('go'/'turn', ...) to select profile dynamically;
+        #   # raises ValueError for any other profile string.
         raise NotImplementedError("Fill in update() logic and remove this line")
 
         # Optional: write back to BB

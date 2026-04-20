@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_ts": 1776546284.7104526,
+  "generated_ts": 1776719023.6607327,
   "description": "Static marathon BT infrastructure communication manifest. All items are excluded from the Generic ROS Facade business log.",
   "interfaces": [
     {
