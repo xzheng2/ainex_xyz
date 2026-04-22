@@ -31,6 +31,7 @@ from marathon.semantics.semantic_facade import MarathonSemanticFacade
 from ainex_bt_edu.behaviours.L2_locomotion.L2_Head_FindLineSweep import L2_Head_FindLineSweep as FindLineHeadSweep
 from ainex_bt_edu.input_adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
 from ainex_bt_edu.input_adapters.line_detection_adapter import LineDetectionAdapter
+from ainex_bt_edu.input_adapters.object_detection_adapter import ObjectDetectionAdapter
 from marathon.infra.tree_publisher import TreeROSPublisher
 from marathon.infra.bb_ros_bridge import MarathonBBBridge
 from marathon.infra.bt_exec_controller import BTExecController
@@ -103,6 +104,11 @@ class MarathonBTNode(Common):
             tick_id_getter=lambda: self._tick_id,
         )
         self._line_adapter = LineDetectionAdapter(
+            lock=self.lock,
+            logger=self._obs_logger,
+            tick_id_getter=lambda: self._tick_id,
+        )
+        self._obj_adapter = ObjectDetectionAdapter(
             lock=self.lock,
             logger=self._obs_logger,
             tick_id_getter=lambda: self._tick_id,
@@ -264,11 +270,13 @@ class MarathonBTNode(Common):
                 with self.lock:
                     imu_snap  = self._imu_adapter.snapshot_and_reset()
                     line_snap = self._line_adapter.snapshot_and_reset()
+                    obj_snap  = self._obj_adapter.snapshot_and_reset()
 
                 # ── Phase 2: write BB + emit observability events ────────
                 # No lock needed — main thread only, no async mutation.
                 self._imu_adapter.write_snapshot(imu_snap,   self._tick_id)
                 self._line_adapter.write_snapshot(line_snap,  self._tick_id)
+                self._obj_adapter.write_snapshot(obj_snap,   self._tick_id)
 
                 self.tree.tick()
 

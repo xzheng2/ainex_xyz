@@ -1,55 +1,84 @@
 #!/usr/bin/env python3
 # encoding: utf-8
-"""{{CLASS_NAME}} — {{ROS_TOPIC}} → {{DESCRIPTION}}
+"""{{CLASS_NAME}} - {{ROS_TOPIC}} -> {{DESCRIPTION}}
 
-BB keys written (all under /latched/):
+Input adapter.
+
+ROS topic subscribed:
+  {{ROS_TOPIC}}
+
+ROS message type:
+  {{MSG_TYPE}}
+
+BB keys written:
   {{BB_KEY_LIST}}
 
-Two-phase latch protocol (per BT tick):
+Per-BB-value traceability:
+  TODO: for every BB write, document:
+    - source ROS message field(s)
+    - extraction/classification helper
+    - rule/threshold
+    - snapshot field
+    - final BB.* key
 
-  Phase 1 — call while holding the shared lock:
-      snap = adapter.snapshot_and_reset()
+Threshold/calibration source:
+  TODO: constructor defaults or ainex_bt_edu/config/*.yaml.
 
-  Phase 2 — call after releasing the lock (main thread only):
-      adapter.write_snapshot(snap, tick_id)
+Two-phase latch protocol:
+  Phase 1: snapshot_and_reset() while caller holds the shared lock.
+  Phase 2: write_snapshot(snap, tick_id) after lock release, on the main thread.
 
-Phase 1 of ALL adapters must be called inside the same `with lock:` block so
-the BT tree sees a frozen, consistent view of all sensor inputs per tick.
-
-Observability events emitted:
-  ros_in      — once per tick when ≥1 message arrived since last latch
-  input_state — once per tick (always), records the value written to BB
+Observability:
+  write_snapshot() may emit only, via AinexInputAdapter helpers:
+    - ros_in when received_count > 0
+    - input_state every tick
+  This adapter never emits ros_out/ros_result.
 """
-import time
 import threading
 
 import rospy
-import py_trees
 {{MSG_TYPE_IMPORT}}
 from ainex_bt_edu.blackboard_keys import BB
+from ainex_bt_edu.base_adapter import AinexInputAdapter
 
 
-class {{CLASS_NAME}}:
-    """Adapter: {{ROS_TOPIC}} → {{DESCRIPTION}}"""
+class {{CLASS_NAME}}(AinexInputAdapter):
+    """Adapter: {{ROS_TOPIC}} -> {{DESCRIPTION}}"""
+
+    ROS_TOPIC = '{{ROS_TOPIC}}'
+    ADAPTER_NAME = '{{CLASS_NAME}}'
+    BB_READS = []
+    BB_WRITES = [
+        # TODO: BB.SOME_VALUE,
+    ]
+    FACADE_CALLS = []
+    CONFIG_DEFAULTS = {
+        # TODO: replace with explicit documented defaults, e.g.
+        # 'threshold': 0,
+        # 'center_x_offset': 0,
+    }
 
     def __init__(self, lock: threading.Lock, logger=None, tick_id_getter=None):
         """
         Args:
-            lock:           Shared threading.Lock (same as bt_node.lock).
-            logger:         DebugEventLogger instance, or None for zero-cost no-op.
-            tick_id_getter: Callable returning the current tick_id int.
+            lock: Shared threading.Lock (same object as bt_node.lock).
+            logger: DebugEventLogger-compatible object, or None.
+            tick_id_getter: Callable returning current tick_id.
+
+        TODO: add explicit constructor default args for every threshold,
+        calibration value, label, ROI, etc.
         """
-        self._lock = lock
-        self._logger = logger
-        self._tick_id_getter = tick_id_getter or (lambda: -1)
+        super().__init__(
+            lock=lock,
+            logger=logger,
+            tick_id_getter=tick_id_getter,
+        )
 
-        # ── Live (async) state — written only by _callback under self._lock ──
+        # Live async state, written only by _callback under self._lock.
         {{BB_KEY_INITS}}
-        self._received_count = 0    # messages since last snapshot_and_reset()
 
-        # ── Latched BB client — written only by write_snapshot() (main thread) ──
-        self._bb = py_trees.blackboard.Client(
-            name="{{CLASS_NAME}}", namespace=BB.LATCHED_NS)
+        # Latched BB client, written only by write_snapshot() on the main thread.
+        self._bb = self.make_latched_bb_client(name="{{CLASS_NAME}}")
         {{BB_REGISTER_KEYS}}
         # Initialise BB before first tick so BT nodes never hit KeyError.
         {{BB_INIT_WRITES}}
@@ -57,27 +86,72 @@ class {{CLASS_NAME}}:
         rospy.Subscriber('{{ROS_TOPIC}}', {{MSG_TYPE}}, self._callback)
 
     # ------------------------------------------------------------------
+    # Side-effect-free conversion helpers
+    # ------------------------------------------------------------------
+
+    def _extract_xxx(self, msg: {{MSG_TYPE}}):
+        """Extract relevant raw data from the ROS message.
+
+        No BB writes, ROS calls, logger calls, or live-state mutation here.
+        """
+        raise NotImplementedError("Fill in ROS message extraction")
+
+    def _classify_xxx(self, extracted):
+        """Apply documented sensor-level rules/thresholds.
+
+        No BT decisions or action strategy here.
+        """
+        raise NotImplementedError("Fill in sensor-level classification")
+
+    def _make_bb_writes(self, classified) -> dict:
+        """Return {BB.KEY: value} for every BB key this adapter writes."""
+        raise NotImplementedError("Fill in BB write mapping")
+
+    def _apply_live_writes(self, bb_writes: dict) -> None:
+        """Copy bb_writes into self._live_* fields.
+
+        Called by _callback() while holding self._lock. This is the only helper
+        in the conversion path that mutates live state.
+        """
+        {{CALLBACK_LOGIC}}
+
+    # ------------------------------------------------------------------
     # Async callback (ROS callback thread)
     # ------------------------------------------------------------------
 
     def _callback(self, msg: {{MSG_TYPE}}) -> None:
-        """Extract data from message and update live state under lock."""
-        # TODO: extract relevant data from msg
-        # Example:
-        #   value = msg.data
+        """Receive ROS message, compute snapshot fields, update live state.
+
+        This is the only place that may:
+        - update callback-thread-only accumulators (no lock needed)
+        - call rospy.loginfo/logwarn on detected state changes
+
+        Side-effect-free helpers (_extract_xxx, _classify_xxx, _make_bb_writes)
+        must not mutate self state or call rospy logging.
+        If _classify_xxx manages counters, it should accept and return them:
+          new_count, result = self._classify_xxx(extracted, self._count)
+        """
+        extracted = self._extract_xxx(msg)
+        classified = self._classify_xxx(extracted)
+        # TODO: if _classify_xxx returns counters, apply them here (before lock):
+        #   self._count_xxx = new_count
+        # TODO: if state change warrants logging:
+        #   if classified is not None:
+        #       rospy.loginfo('[{{CLASS_NAME}}] state: %s', classified)
+        bb_writes = self._make_bb_writes(classified)
+
         with self._lock:
-            # TODO: assign to self._live_<field> variables
-            {{CALLBACK_LOGIC}}
+            self._apply_live_writes(bb_writes)
             self._received_count += 1
 
     # ------------------------------------------------------------------
-    # Public API
+    # Public two-phase latch API
     # ------------------------------------------------------------------
 
     def snapshot_and_reset(self) -> dict:
-        """Return a snapshot of current live state and reset received_count.
+        """Return current live-state snapshot and reset received_count.
 
-        MUST be called while the caller holds self._lock (the shared lock).
+        Must be called while the caller holds self._lock.
         """
         snap = {
             {{SNAP_FIELDS}}
@@ -87,37 +161,22 @@ class {{CLASS_NAME}}:
         return snap
 
     def write_snapshot(self, snap: dict, tick_id: int) -> None:
-        """Write pre-captured snapshot to BB and emit observability events.
+        """Write pre-captured snapshot to BB and emit business-in events.
 
-        No lock needed — called only from the main thread after the shared
-        lock has been released.
-
-        Args:
-            snap:    dict returned by snapshot_and_reset().
-            tick_id: current BT tick counter.
+        No lock is needed; this is called only from the main thread after the
+        shared lock has been released.
         """
-        # ros_in: only when messages arrived since the last latch
-        if snap['received_count'] > 0 and self._logger is not None:
-            self._logger.emit_comm({
-                "event":          "ros_in",
-                "tick_id":        tick_id,
-                "ts":             time.time(),
-                "source":         "{{ROS_TOPIC}}",
-                "adapter":        "{{CLASS_NAME}}",
-                "received_count": snap['received_count'],
-            })
+        self.emit_ros_in(
+            tick_id=tick_id,
+            received_count=snap['received_count'],
+        )
 
-        # Write to BB (must happen after ros_in emit, before input_state emit)
+        # Write to BB before input_state so logs reflect what BT will read.
         {{BB_WRITES}}
 
-        # input_state: always once per tick — records what the BT tree will see
-        if self._logger is not None:
-            self._logger.emit_comm({
-                "event":   "input_state",
-                "tick_id": tick_id,
-                "ts":      time.time(),
-                "adapter": "{{CLASS_NAME}}",
-                "bb_writes": {
-                    {{INPUT_STATE_BB_WRITES}}
-                },
-            })
+        self.emit_input_state(
+            tick_id=tick_id,
+            bb_writes={
+                {{INPUT_STATE_BB_WRITES}}
+            },
+        )

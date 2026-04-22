@@ -22,14 +22,14 @@ Generic nodes available in ainex_bt_edu:
   L2_locomotion/L2_Balance_RecoverFromFall
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.base_node import AinexL1ConditionNode
 from ainex_bt_edu.blackboard_keys import BB
 
 
 # ── Example project-specific condition ───────────────────────────────────────
 # Remove or replace with your actual project-specific node.
 
-# class IsAtStartingPosition(AinexBTNode):
+# class IsAtStartingPosition(AinexL1ConditionNode):
 #     """SUCCESS when the robot is detected at the starting position.
 #
 #     Project-specific: no generic equivalent in ainex_bt_edu.
@@ -43,12 +43,13 @@ from ainex_bt_edu.blackboard_keys import BB
 #       3. Wire the adapter into app/<project>_bt_node.py __init__() + run().
 #     """
 #     LEVEL = 'L1'
-#     BB_LOG_KEYS = [BB.START_MARKER]       # absolute path constant — never '/latched/...'
+#     BB_READS = [BB.START_MARKER]          # absolute path constant — never '/latched/...'
+#     BB_WRITES = []
+#     FACADE_CALLS = []
+#     BB_LOG_KEYS = BB_READS                # compatibility alias during migration
 #
 #     def __init__(self, name: str, logger=None, tick_id_getter=None):
-#         super().__init__(name)
-#         self._logger = logger
-#         self._tick_id_getter = tick_id_getter or (lambda: -1)
+#         super().__init__(name, logger=logger, tick_id_getter=tick_id_getter)
 #         self._bb = None
 #
 #     def setup(self, **kwargs):
@@ -60,12 +61,9 @@ from ainex_bt_edu.blackboard_keys import BB
 #         marker = self._bb.start_marker
 #         result = marker is not None and marker.detected
 #         status = Status.SUCCESS if result else Status.FAILURE
-#         if self._logger:
-#             self._logger.emit_bt({
-#                 "event":  "decision",
-#                 "node":   self.name,
-#                 "inputs": {"start_marker": str(marker)},
-#                 "status": str(status),
-#                 "reason": "start marker detected" if result else "no start marker",
-#             })
+#         self.emit_decision(
+#             inputs={"start_marker": str(marker)},
+#             status=status,
+#             reason="start marker detected" if result else "no start marker",
+#         )
 #         return status

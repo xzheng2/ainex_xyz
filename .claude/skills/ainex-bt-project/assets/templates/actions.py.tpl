@@ -17,19 +17,19 @@ Generic nodes available in ainex_bt_edu:
 
 Rules for project-specific action nodes (enforce strictly):
 
-  1. Must inherit AinexBTNode — NEVER py_trees.behaviour.Behaviour directly.
+  1. Must inherit AinexL2ActionNode — NEVER py_trees.behaviour.Behaviour directly.
   2. No direct rospy, gait_manager, motion_manager, publisher, or service calls.
      All ROS output via: self._facade.<method>() → semantic_facade → comm_facade.
-  3. logger=None must be zero-cost no-op (check before every emit_bt() call).
+  3. logger=None must be zero-cost no-op (base helpers handle this).
   4. Debug log chain:
-       - BT node: emit_bt("decision") and/or emit_bt("action_intent") only.
+       - BT node: self.emit_decision() and/or self.emit_action_intent() only.
        - ros_out is emitted ONLY by comm_facade._emit() — never here.
        - Full attribution: BT intent → semantic_facade → comm_facade → ros_out.
   5. algorithms/ results surface via semantic_facade payload/summary into
      comm_facade's _emit() call — not directly in the BT node.
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.base_node import AinexL2ActionNode
 from ainex_bt_edu.base_facade import AinexBTFacade
 from ainex_bt_edu.blackboard_keys import BB
 
@@ -37,7 +37,7 @@ from ainex_bt_edu.blackboard_keys import BB
 # ── Example project-specific action ──────────────────────────────────────────
 # Remove or replace with your actual project-specific node.
 
-# class DoSomethingAction(AinexBTNode):
+# class DoSomethingAction(AinexL2ActionNode):
 #     """RUNNING while executing; SUCCESS on completion; FAILURE on error.
 #
 #     Project-specific: no generic equivalent in ainex_bt_edu.
@@ -49,14 +49,14 @@ from ainex_bt_edu.blackboard_keys import BB
 #       4. Add the comm_facade method if needed (with _emit() call for ros_out).
 #     """
 #     LEVEL = 'L2'
-#     BB_LOG_KEYS = [BB.ROBOT_STATE]   # absolute path constants — never '/latched/...'
+#     BB_READS = [BB.ROBOT_STATE]      # absolute path constants — never '/latched/...'
+#     BB_WRITES = []
+#     FACADE_CALLS = ['do_something']
+#     BB_LOG_KEYS = BB_READS           # compatibility alias during migration
 #
 #     def __init__(self, name: str, facade: AinexBTFacade, logger=None, tick_id_getter=None):
-#         super().__init__(name)
-#         self._facade         = facade
-#         self._logger         = logger
-#         self._tick_id_getter = tick_id_getter or (lambda: -1)
-#         self._bb             = None
+#         super().__init__(name, facade=facade, logger=logger, tick_id_getter=tick_id_getter)
+#         self._bb = None
 #
 #     def setup(self, **kwargs):
 #         super().setup(**kwargs)
@@ -65,28 +65,21 @@ from ainex_bt_edu.blackboard_keys import BB
 #
 #     def initialise(self):
 #         """Called once when node transitions from INVALID → RUNNING."""
-#         if self._logger:
-#             self._logger.emit_bt({
-#                 "event":    "action_intent",
-#                 "node":     self.name,
-#                 "tick_id":  self._tick_id_getter(),
-#                 "intent":   "start do_something",
-#             })
+#         self.emit_action_intent(
+#             action="start do_something",
+#             inputs={},
+#         )
 #
 #     def update(self) -> Status:
 #         robot_state = self._bb.robot_state
 #         # Decision log (optional — only for significant branch choices)
-#         if self._logger:
-#             self._logger.emit_bt({
-#                 "event":      "decision",
-#                 "node":       self.name,
-#                 "tick_id":    self._tick_id_getter(),
-#                 "inputs":     {"robot_state": str(robot_state)},
-#                 "status":     "RUNNING",
-#                 "reason":     "executing do_something",
-#             })
+#         self.emit_decision(
+#             inputs={"robot_state": str(robot_state)},
+#             status=Status.RUNNING,
+#             reason="executing do_something",
+#         )
 #         # All ROS output goes via facade — comm_facade will emit ros_out
-#         self._facade.do_something()
+#         self.call_facade('do_something')
 #         return Status.RUNNING
 #
 #     def terminate(self, new_status):

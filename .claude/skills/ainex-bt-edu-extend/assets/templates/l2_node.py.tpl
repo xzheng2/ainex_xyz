@@ -1,89 +1,146 @@
 #!/usr/bin/env python3
-"""{{CLASS_NAME}} — {{DESCRIPTION}}
+"""{{CLASS_NAME}} - {{DESCRIPTION}}
 
-BB reads:  <list /latched/ keys read>
-BB writes: <list /latched/ keys written, or 'none'>
+L2 action/strategy node.
+
+BB reads:
+  TODO: list BB.* constants read by this node.
+
+BB writes:
+  TODO: list BB.* constants written by this node, or 'none'.
+
+Facade calls:
+  TODO: list existing AinexBTFacade methods called by this node.
+
+Action strategy:
+  {{DESCRIPTION}}
+
+Strategy helper:
+  _select_action(...)
+
+Constructor defaults:
+  TODO: list every threshold, speed, yaw limit, servo center, state label,
+  frame count, etc. Project trees may override these constructor defaults.
 
 Returns:
-    RUNNING  → action dispatched; waiting for next tick (or SUCCESS/FAILURE below)
-    SUCCESS  → <fill in success condition>
-    FAILURE  → <fill in failure condition, or remove if always RUNNING>
+  RUNNING: TODO
+  SUCCESS: TODO
+  FAILURE: TODO
 
-Debug log: this node emits 'action_intent' in initialise() and 'decision' in
-update().  ros_out is emitted exclusively by comm_facade._emit() — never here.
+Observability:
+  May emit 'action_intent' and 'decision' via base-node helpers.
+  Never emits ros_out/ros_result or any comm event; those belong to comm_facade.py.
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.base_node import AinexL2ActionNode
 from ainex_bt_edu.base_facade import AinexBTFacade
 from ainex_bt_edu.blackboard_keys import BB
 
 
-class {{CLASS_NAME}}(AinexBTNode):
+class {{CLASS_NAME}}(AinexL2ActionNode):
     """{{DESCRIPTION}}"""
 
     LEVEL = 'L2'
-    BB_LOG_KEYS = {{BB_LOG_KEYS}}
+    BB_READS = {{BB_READS}}
+    BB_WRITES = [
+        # TODO: BB.SOME_OUTPUT, or leave empty
+    ]
+    FACADE_CALLS = [
+        # TODO: 'go_step', 'turn_step', 'move_head', ...
+    ]
+    CONFIG_DEFAULTS = {
+        # TODO: replace with explicit documented defaults, e.g.
+        # 'yaw_limit': 8,
+        # 'speed': 0.015,
+    }
+    BB_LOG_KEYS = BB_READS
 
     def __init__(self, name: str = {{DEFAULT_NAME}},
                  facade: AinexBTFacade = None,
                  tick_id_getter=None,
                  logger=None):
-        super().__init__(name)
-        self._facade = facade
-        self._tick_id_getter = tick_id_getter or (lambda: -1)
-        self._logger = logger
+        """
+        Args:
+            name: BT node name.
+            facade: Project semantic facade implementing AinexBTFacade.
+            tick_id_getter: Callable returning current tick_id.
+            logger: DebugEventLogger-compatible object, or None.
+
+        TODO: add explicit constructor default args for every strategy setting
+        instead of hard-coding constants in update().
+        """
+        super().__init__(
+            name,
+            facade=facade,
+            logger=logger,
+            tick_id_getter=tick_id_getter,
+        )
         self._bb = None
+
+        # TODO: store constructor defaults on self, e.g.
+        # self._yaw_limit = yaw_limit
+        # self._speed = speed
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
             name=self.name, namespace=BB.LATCHED_NS)
-        # Register each BB key this node reads or writes:
-        # self._bb.register_key(key=BB.SOME_KEY, access=Access.READ)
-        # self._bb.register_key(key=BB.OTHER_KEY, access=Access.WRITE)
-        raise NotImplementedError("Fill in register_key() calls and remove this line")
+        # Register every BB key this node reads/writes.
+        # Use BB.*_KEY for /latched keys and BB.* for root namespace keys.
+        # Examples:
+        # self._bb.register_key(key=BB.SOME_INPUT_KEY, access=Access.READ)
+        # self._bb.register_key(key=BB.SOME_OUTPUT_KEY, access=Access.WRITE)
+        raise NotImplementedError("Fill in register_key() calls")
 
     def initialise(self):
-        """Called once when this node transitions from IDLE → RUNNING."""
-        if self._logger:
-            self._logger.emit_bt({
-                'event':  'action_intent',
-                'node':   self.name,
-                'action': '{{CLASS_NAME}}',    # fill in action description
-                'inputs': {},                  # fill in: {'key': value, ...}
-            })
+        """Optionally emit action_intent when this action starts.
+
+        This method must not emit ros_out. ros_out belongs to comm_facade.py.
+        """
+        self.emit_action_intent(
+            action='{{CLASS_NAME}}',
+            inputs={},  # TODO: fill with relevant current inputs if safe.
+        )
+
+    def _select_action(self, *values) -> tuple:
+        """Return (facade_method_name, kwargs, reason).
+
+        facade_method_name must name an existing AinexBTFacade method unless the
+        user approved a breaking facade migration.
+
+        Use this helper for both simple selection and parameter computation.
+        If the computation grows large, split out a separate side-effect-free
+        _compute_command(...) helper and call it from here.
+
+        kwargs should contain only facade method parameters owned by the action.
+        update() appends bt_node and tick_id.
+
+        This helper must be side-effect-free:
+        - no BB reads/writes
+        - no facade calls
+        - no ROS calls
+        - no logger calls
+        """
+        raise NotImplementedError("Fill in side-effect-free action selection")
 
     def update(self) -> Status:
-        # Read required BB keys, e.g.:
+        # Read BB values, select facade call, then dispatch.
+        # Example:
         # value = self._bb.some_key
-        # Call the facade method (must already exist in base_facade.py).
-        # Common locomotion methods (see SKILL.md Step 2b for full list):
-        #   self._facade.go_step(x=0.015, y=0, yaw=yaw,
-        #                        bt_node=self.name, tick_id=self._tick_id_getter(),
-        #                        semantic_source='...')
-        #   self._facade.turn_step(x=0, y=0, yaw=yaw,
-        #                          bt_node=self.name, tick_id=self._tick_id_getter(),
-        #                          semantic_source='...')
-        #   # Use gait_step('go'/'turn', ...) to select profile dynamically;
-        #   # raises ValueError for any other profile string.
-        raise NotImplementedError("Fill in update() logic and remove this line")
+        # method_name, kwargs, reason = self._select_action(value)
+        # self.call_facade(method_name, **kwargs)
+        # status = Status.RUNNING
+        # inputs = {'some_key': value}
+        raise NotImplementedError("Fill in update() orchestration")
 
-        # Optional: write back to BB
-        # self._bb.some_key = new_value
-
-        status = Status.RUNNING   # or SUCCESS / FAILURE based on result
-
-        if self._logger:
-            self._logger.emit_bt({
-                'event':  'decision',
-                'node':   self.name,
-                'inputs': {},        # fill in
-                'status': str(status),
-                'reason': '',        # fill in
-            })
+        self.emit_decision(
+            inputs=inputs,
+            status=status,
+            reason=reason,
+        )
 
         return status
 
     def terminate(self, new_status: Status):
-        """Called when the node stops ticking (SUCCESS, FAILURE, or tree interrupt)."""
-        pass   # Add cleanup here if needed (e.g. stop gait)
+        """Optional cleanup when this node stops ticking."""
+        pass

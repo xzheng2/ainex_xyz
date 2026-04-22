@@ -22,6 +22,8 @@ class BB:
     LINE_ERROR_X_KEY       = 'line_error_x'
     LINE_CENTER_X_KEY      = 'line_center_x'
     LAST_LINE_ERROR_X_KEY  = 'last_line_error_x'
+    DETECTED_OBJECTS_KEY   = 'detected_objects'
+    DETECTED_COUNT_KEY     = 'detected_count'
 
     # Absolute paths — used in BB_LOG_KEYS, bb_writes, ROSA_TOPIC_MAP
     ROBOT_STATE       = LATCHED_NS + '/' + ROBOT_STATE_KEY        # '/latched/robot_state'
@@ -31,10 +33,14 @@ class BB:
     LINE_ERROR_X      = LATCHED_NS + '/' + LINE_ERROR_X_KEY       # '/latched/line_error_x'
     LINE_CENTER_X     = LATCHED_NS + '/' + LINE_CENTER_X_KEY      # '/latched/line_center_x'
     LAST_LINE_ERROR_X = LATCHED_NS + '/' + LAST_LINE_ERROR_X_KEY  # '/latched/last_line_error_x'
+    DETECTED_OBJECTS  = LATCHED_NS + '/' + DETECTED_OBJECTS_KEY   # '/latched/detected_objects'
+    DETECTED_COUNT    = LATCHED_NS + '/' + DETECTED_COUNT_KEY     # '/latched/detected_count'
     HEAD_PAN_POS      = '/head_pan_pos'  # root-ns; used in register_key() directly
 
-    # /perception/ — future L3 use
-    DETECTED_OBJECTS  = '/perception/detected_objects'
+    # /perception/ — future L3 use (DETECTED_OBJECTS is /latched/ — see above)
+    PERCEPTION_NS     = '/perception'
+    TARGET_PIXEL_X_KEY = 'target_pixel_x'   # short key for /perception/ client
+    PERCEPTION_DETECTED_OBJECTS = '/perception/detected_objects'
     TARGET_PIXEL_X    = '/perception/target_pixel_x'
     TARGET_PIXEL_Y    = '/perception/target_pixel_y'
     FACE_DETECTED     = '/perception/face_detected'
@@ -72,4 +78,6 @@ class BB:
         LINE_ERROR_X:      '/bt/bb/latched/line_error_x',
         LINE_CENTER_X:     '/bt/bb/latched/line_center_x',
         LAST_LINE_ERROR_X: '/bt/bb/latched/last_line_error_x',
+        DETECTED_OBJECTS:  '/bt/bb/latched/detected_objects',
+        DETECTED_COUNT:    '/bt/bb/latched/detected_count',
     }

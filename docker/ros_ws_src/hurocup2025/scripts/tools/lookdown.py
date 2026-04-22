@@ -8,6 +8,6 @@ servo_control = Board()
 
 
 servo_id = 24  # 舵机id(0-253)(servo ID (0-253))
-position = 340  # 位置(0-1000)(position (0-1000))
+position = 350  # 位置(0-1000)(position (0-1000))
 duration = 0.5  # 时间(0.02-30s)(time (0.02-30))
 servo_control.bus_servo_set_position(duration, [[servo_id, position]])

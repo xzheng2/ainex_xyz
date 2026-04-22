@@ -34,7 +34,7 @@
   - **ROSA Agent File Browser** (Apr 18 2026): `/home/pi/rosa_file_browser.py` + `/home/pi/Desktop/rosa_agent_file_browser.desktop`; runs on **host** (Python 3.11 + PyQt5); custom lazy-loading `QAbstractItemModel` backed by `docker exec rosa-agent ls -1aF`; browses container root `/`; double-click copies file via `docker cp rosa-agent:<path> /tmp/rosa_browser_<name>` then opens in gedit on host; skips `/proc`, `/sys`, `/dev`; fails fast if container not running; no container changes needed (rosa-agent has no PyQt5/gedit)
   - **`get_bt_status`** reads `tick_id` + `camera_lost_count` from BB bridge topics; `_BB_KEYS = ['tick_id', 'robot_state', 'line_data', 'last_line_x', 'camera_lost_count']`; no JSONL file read
   - **`read_bt_obs` is in PRIORITY 1** of `about_your_capabilities` prompt — auto-selects _recent pair (live) if BT node running, _lastrun pair (full session) if not; LLM routes tick_id / per-tick decision queries to this tool
-  - **BB bridge** (`bb_ros_bridge.py`) publishes 9 keys: `robot_state`, `line_data`, `last_line_x`, `camera_lost_count`, `line_error_x`, `line_center_x`, `last_line_error_x`, `tick_id`, `head_pan_pos` → `/bt/marathon/bb/*` (10 Hz)
+  - **BB bridge** (`bb_ros_bridge.py`) publishes 10 keys: `robot_state`, `line_data`, `last_line_x`, `camera_lost_count`, `line_error_x`, `line_center_x`, `last_line_error_x`, `tick_id`, `head_pan_pos`, `detected_count` → `/bt/marathon/bb/*` (10 Hz)
   - **`line_lost_count` renamed → `camera_lost_count`** everywhere (ROS1 + ROS2): counts consecutive camera frames (30 Hz) without line detection — distinct from BT `tick_id` (15 Hz iteration counter); `tick_id` written to BB inside `if should_tick():` block
 - **ROS2 migration complete (Stage 2, Apr 2 2026)**: `ainex2` service (ROS Humble, host network, privileged, `group_add: ["1001"]` for GPIO); bringup: `ros2 launch ainex_bringup bringup.launch.py [use_imu:=true] [use_camera:=true]`; **always source `setup.zsh` not `setup.bash` in zsh**; full details in **`ainex_ros2.md`**
 - Competition code: `hurocup2025/` (marathon, penalty kick, sprint, triple jump, weight lift)
@@ -62,8 +62,11 @@
 - Full details + example cmds + bug fixes: **`ainex_servo_feedback.md`**
 
 ## YOLO Vision
-- YOLOv8n runs on **host** (not container): ultralytics 8.4.22, NCNN backend, **6.7 FPS @ 320x320**
+- **YOLO26n** runs on **host** (not container): ultralytics 8.4.40, NCNN backend, **6.7 FPS @ 320x320** — replaced YOLOv8n Apr 20 2026 (NMS-free, ~43% faster)
+- Model: `/home/pi/yolo26n_ncnn_model/` (exported at imgsz=320); script: `/home/pi/yolo_camera.py`
+- Publishes to `/yolo/detections` (ainex_interfaces/ObjectsInfo) — **NOT `/object/pixel_coords`** (that's line detection only; mixing caused `camera_lost_count` corruption)
 - Host↔ROS bridge: `roslibpy` (host) → `rosbridge_server` (container, port 9090)
+- **BT integration (v2.4.0)**: `ObjectDetectionAdapter` (`/yolo/detections` → `/latched/detected_objects` + `/latched/detected_count`); `L1_Vision_IsObjectDetected` reads `detected_count`
 - Full details: **`ainex_yolo.md`**
 
 ## Topic Files

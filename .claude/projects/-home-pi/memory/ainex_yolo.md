@@ -5,9 +5,10 @@
 
 ## Installation (Host, NOT container)
 - **Runs on host** (Debian 12, Python 3.11) — NOT inside ainex container
-- Ultralytics **8.4.22**, PyTorch 2.1.2, OpenCV 4.9.0, NCNN 1.0.20260316
-- Model: `yolov8n.pt` (6.2 MB) at `/home/pi/yolov8n.pt`
-- NCNN export: `/home/pi/yolov8n_ncnn_model/` (12.1 MB, exported at imgsz=320)
+- Ultralytics **8.4.40**, PyTorch 2.1.2, OpenCV 4.9.0, NCNN 1.0.20260316
+- Model: `yolo26n.pt` (5.3 MB) at `/home/pi/yolo26n.pt` (YOLO26n, Jan 2026, 2.4M params, mAP 40.9)
+- NCNN export: `/home/pi/yolo26n_ncnn_model/` (9.3 MB, exported at imgsz=320)
+- **Replaced yolov8n (Apr 20 2026)**: YOLO26n is NMS-free, ~43% faster, higher accuracy
 
 ## Performance (320x320)
 
@@ -33,9 +34,24 @@
 - `CONF_THRESHOLD = 0.4` — minimum confidence
 - `DETECT_CLASSES` list filters which objects to detect (subset of 80 COCO classes, passed as `classes=DETECT_INDICES` to model)
 - `ALL_COCO_CLASSES` has full 80-class reference
+- **Topic**: `DETECTIONS_TOPIC = "/yolo/detections"` (NOT `/object/pixel_coords` — that's exclusively for LineDetectionAdapter; using it caused camera_lost_count corruption)
+- `ANNOTATED_TOPIC = "/yolo/image_annotated/compressed"` (unchanged)
 - Check rosbridge running: `docker exec ainex bash -c "source /opt/ros/noetic/setup.bash && rosnode list | grep rosbridge"`
 - Start rosbridge: `docker exec ainex bash -c "kill \$(lsof -ti:9090) 2>/dev/null; sleep 1; source /opt/ros/noetic/setup.bash && nohup roslaunch rosbridge_server rosbridge_websocket.launch > /tmp/rosbridge.log 2>&1 &"`
 - Run: `python3 ~/yolo_camera.py` (press `q` or Ctrl+C to stop)
+
+## BT Integration (Phase 2, Apr 20 2026)
+- **`ObjectDetectionAdapter`**: `ainex_bt_edu/input_adapters/object_detection_adapter.py`
+  - Subscribes to `/yolo/detections`, filters out `type == 'line'` objects
+  - Two-phase latch: `snapshot_and_reset()` under lock, `write_snapshot()` after
+  - Writes: `BB.DETECTED_OBJECTS` (`/latched/detected_objects`, list), `BB.DETECTED_COUNT` (`/latched/detected_count`, int)
+- **`L1_Vision_IsObjectDetected`**: `ainex_bt_edu/behaviours/L1_perception/L1_Vision_IsObjectDetected.py`
+  - Pure BB read, no rospy.Subscriber
+  - `detected_count > 0` → SUCCESS
+- **BB keys** in `blackboard_keys.py`: `DETECTED_OBJECTS_KEY='detected_objects'`, `DETECTED_COUNT_KEY='detected_count'`, `DETECTED_OBJECTS='/latched/detected_objects'`, `DETECTED_COUNT='/latched/detected_count'`
+- **marathon_bt_node.py**: wired with 3rd adapter (import + `__init__` + both `run()` phases)
+- **bb_ros_bridge.py**: `/latched/detected_count` → `/bt/marathon/bb/detected_count` (count only; list too large)
+- **infra_manifest.py**: `/yolo/detections` topic_sub record added
 
 ## Key Lessons
 - **ultralytics 8.1.2 NCNN export was broken** — produced garbage detections (hundreds of false positives, all conf=1.00). Upgrading to 8.4.22 fixed it

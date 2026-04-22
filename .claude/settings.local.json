@@ -99,7 +99,10 @@
       "Bash(docker exec ainex ls /home/ubuntu/.zsh* 2>/dev/null)",
       "Bash(docker exec ainex du -sh /home/ubuntu/.oh-my-zsh 2>/dev/null)",
       "Bash(chmod +x /home/pi/runtime_debug_page/start_all.sh)",
-      "Bash(git -C /home/pi show HEAD:docker/ros_ws_src/ainex_bt_edu/src/ainex_bt_edu/behaviours_tem/L1_perception/L1_Balance_IsStanding.py 2>&1 | head -70)"
+      "Bash(git -C /home/pi show HEAD:docker/ros_ws_src/ainex_bt_edu/src/ainex_bt_edu/behaviours_tem/L1_perception/L1_Balance_IsStanding.py 2>&1 | head -70)",
+      "WebFetch(domain:docs.ultralytics.com)",
+      "WebSearch",
+      "WebFetch(domain:blog.roboflow.com)"
     ]
   }
 }

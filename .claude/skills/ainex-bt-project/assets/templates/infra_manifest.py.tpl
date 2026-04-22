@@ -7,7 +7,8 @@ These interfaces are excluded from the Generic ROS Facade business log.
 
 Node composition constraints (confirm before modifying):
   - tree/{{PROJECT}}_bt.py uses ainex_bt_edu.behaviours standard nodes first
-  - behaviours/ nodes inherit ainex_bt_edu.base_node.AinexBTNode
+  - behaviours/conditions.py nodes inherit ainex_bt_edu.base_node.AinexL1ConditionNode
+  - behaviours/actions.py nodes inherit ainex_bt_edu.base_node.AinexL2ActionNode
   - semantic_facade.py inherits ainex_bt_edu.base_facade.AinexBTFacade
 
 Output: {{PROJECT}}/log/infra_comm_manifest_lastrun.json

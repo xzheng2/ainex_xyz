@@ -40,7 +40,7 @@ ainex_bt_edu/input_adapters/     single source of truth         behaviours/
 
 | Question to answer | Where to look |
 |---|---|
-| What BB key does the behaviour need? | node's `BB_LOG_KEYS` / `register_key` |
+| What BB key does the behaviour need? | node's `BB_READS` / `BB_WRITES` / `register_key` |
 | Is that key defined in `blackboard_keys.py`? | look for `BB.*_KEY` + `BB.*` |
 | Which adapter writes that key? | `ainex_bt_edu/input_adapters/` |
 | No adapter yet? → **add adapter first**, then BB key, then node |
@@ -52,7 +52,7 @@ ainex_bt_edu/input_adapters/     single source of truth         behaviours/
 | `attach_blackboard_client` namespace | `BB.LATCHED_NS` | `namespace=BB.LATCHED_NS` |
 | `register_key` on `/latched/` client | `BB.*_KEY` (short) | `key=BB.ROBOT_STATE_KEY` |
 | `register_key` on root-ns client | `BB.*` (absolute) | `key=BB.HEAD_PAN_POS` |
-| `BB_LOG_KEYS` / `bb_writes` dict | `BB.*` (absolute) | `[BB.LINE_DATA]` |
+| `BB_READS` / `BB_WRITES` / `bb_writes` dict | `BB.*` (absolute) | `[BB.LINE_DATA]` |
 
 **Active adapter-written keys** (as of v2.3.2):
 
@@ -102,7 +102,10 @@ before generating any file. The rules govern every structural and naming decisio
 
 Key constraints to enforce (summary — full rules in references/):
 - `tree/` imports ainex_bt_edu standard nodes first; project-specific nodes second
-- All project nodes inherit `AinexBTNode` (not `py_trees.behaviour.Behaviour`)
+- Project condition nodes inherit `AinexL1ConditionNode`; project action nodes inherit
+  `AinexL2ActionNode`. Both indirectly inherit `AinexBTNode`; no node may inherit
+  `py_trees.behaviour.Behaviour` directly.
+- Input adapters inherit `AinexInputAdapter` and never inherit `AinexBTNode`
 - `semantic_facade.py` inherits `AinexBTFacade`
 - `comm/comm_facade.py` is the **sole** `emit_comm` exit for business_out
 - `ainex_bt_edu/input_adapters/` is the **sole** `emit_comm` exit for business_in (`ros_in` + `input_state`);
@@ -194,7 +197,8 @@ Verify the generated `tree/{{PROJECT}}_bt.py`:
 - [ ] No node inherits `py_trees.behaviour.Behaviour` directly
 
 Verify BB constant usage across all generated behaviour nodes:
-- [ ] All `BB_LOG_KEYS` use `BB.*` constants (never `'/latched/...'` strings)
+- [ ] All `BB_READS` / `BB_WRITES` / compatibility `BB_LOG_KEYS` use `BB.*` constants
+      (never `'/latched/...'` strings)
 - [ ] All `attach_blackboard_client` calls use `namespace=BB.LATCHED_NS`
 - [ ] All `register_key` calls use `BB.*_KEY` for `/latched/` keys; `BB.HEAD_PAN_POS` for root-ns
 
@@ -219,7 +223,8 @@ marking which are auto-satisfied by the scaffold and which need manual completio
 
 ```
 ✅ auto  [node composition] tree/ imports ainex_bt_edu standard nodes
-✅ auto  [node composition] project behaviours/ nodes inherit AinexBTNode
+✅ auto  [node composition] project condition nodes inherit AinexL1ConditionNode
+✅ auto  [node composition] project action nodes inherit AinexL2ActionNode
 ✅ auto  [node composition] semantic_facade.py inherits AinexBTFacade
 ✅ auto  Step 1: DebugEventLogger created in __init__(), paths to log/
 ✅ auto  Step 2: BTDebugVisitor mounted to tree
@@ -371,11 +376,12 @@ already exists.
 - **If no, and it is an action** (L2+ actuator command, may return RUNNING)
   → add to `behaviours/actions.py`. Rules for new action nodes:
   - Only allowed when NO generic equivalent exists in `ainex_bt_edu`.
-  - Must inherit `AinexBTNode` — never `py_trees.behaviour.Behaviour` directly.
+  - Must inherit `AinexL2ActionNode` — never `py_trees.behaviour.Behaviour` directly.
   - No direct `rospy`, `gait_manager`, `motion_manager`, publisher, or service calls.
   - All ROS output via `self._facade.*` → `semantic_facade` → `comm_facade`.
   - `logger=None` must be zero-cost no-op.
-  - Emit `decision` and/or `action_intent` via `self._logger.emit_bt()`;
+  - Emit `decision` and/or `action_intent` via `self.emit_decision()` /
+    `self.emit_action_intent()`;
     `ros_out` is emitted ONLY by `comm_facade._emit()` — never in the BT node.
   Proceed to Step 3.
 
@@ -391,12 +397,13 @@ For each BB key:
    - No → add to `blackboard_keys.py` **before** writing the node:
      ```python
      SOME_KEY_KEY = 'short_name'                            # register_key() argument
-     SOME_KEY     = LATCHED_NS + '/' + SOME_KEY_KEY         # BB_LOG_KEYS / bb_writes
+     SOME_KEY     = LATCHED_NS + '/' + SOME_KEY_KEY         # BB_READS / BB_WRITES / bb_writes
      ```
 
 2. **Check input_adapters** — which adapter writes that key?
    - Key in active adapter table (see System Thinking section) → adapter exists; no change.
    - New key → create a new adapter in `ainex_bt_edu/input_adapters/` following the
+     `AinexInputAdapter` base-class contract and
      two-phase latch protocol (`snapshot_and_reset` under lock, `write_snapshot` after),
      emitting `ros_in` + `input_state`.  Wire it into `app/<project>_bt_node.py`
      `__init__()` + `run()`.
@@ -411,14 +418,16 @@ For each BB key:
 Create file in `<project>/behaviours/` following this checklist:
 
 - [ ] Add `from ainex_bt_edu.blackboard_keys import BB` import
-- [ ] Inherits `AinexBTNode` (not `py_trees.behaviour.Behaviour`)
+- [ ] L1 condition inherits `AinexL1ConditionNode`; L2 action inherits `AinexL2ActionNode`
+      (not `py_trees.behaviour.Behaviour`)
 - [ ] Declares `LEVEL = 'L1' | 'L2' | 'L3'`
-- [ ] Declares `BB_LOG_KEYS = [BB.SOME_KEY]` (absolute path constant — never `'/latched/...'`)
+- [ ] Declares `BB_READS` / `BB_WRITES` and optional compatibility `BB_LOG_KEYS`
+      with absolute `BB.*` constants — never `'/latched/...'`
 - [ ] Constructor accepts `facade: AinexBTFacade` (if it calls any ROS action)
 - [ ] All ROS actions delegated through `facade.*`, no direct rospy calls
 - [ ] `attach_blackboard_client(namespace=BB.LATCHED_NS)` — never hardcode `'/latched/'`
 - [ ] `register_key(key=BB.SOME_KEY_KEY)` for `/latched/` keys; `key=BB.HEAD_PAN_POS` for root-ns
-- [ ] If condition node: optionally emits `"decision"` event via `self._logger.emit_bt()`
+- [ ] If condition node: optionally emits `"decision"` event via `self.emit_decision()`
 
 Use `assets/templates/conditions.py.tpl` as the starting skeleton for condition nodes.
 Use `assets/templates/actions.py.tpl` as the starting skeleton for action nodes.

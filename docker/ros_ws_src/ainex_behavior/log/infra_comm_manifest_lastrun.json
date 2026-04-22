@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_ts": 1776719023.6607327,
+  "generated_ts": 1776792071.0185742,
   "description": "Static marathon BT infrastructure communication manifest. All items are excluded from the Generic ROS Facade business log.",
   "interfaces": [
     {
@@ -133,6 +133,15 @@
       "name": "/object/pixel_coords",
       "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
       "purpose": "line detection \u2014 updates line_data, last_line_x, camera_lost_count; owned by ainex_bt_edu/input_adapters/line_detection_adapter.py",
+      "bt_decision_related": false,
+      "excluded_from_generic_ros_facade": true
+    },
+    {
+      "component": "ObjectDetectionAdapter",
+      "kind": "topic_sub",
+      "name": "/yolo/detections",
+      "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
+      "purpose": "YOLO object detection \u2014 updates detected_objects, detected_count; owned by ainex_bt_edu/input_adapters/object_detection_adapter.py",
       "bt_decision_related": false,
       "excluded_from_generic_ros_facade": true
     },

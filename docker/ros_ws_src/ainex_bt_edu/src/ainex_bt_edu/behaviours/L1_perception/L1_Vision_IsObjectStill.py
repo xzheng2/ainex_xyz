@@ -1,83 +1,116 @@
 #!/usr/bin/env python3
-"""L1 Condition: check whether the first detected object has stopped moving.
+"""L1_Vision_IsObjectStill — condition: first detected object is stationary.
 
-Reads BB.DETECTED_OBJECTS (ObjectsInfo) from the blackboard.
-Tracks the centroid of objects.data[0] across N consecutive ticks.
+BB reads:
+  BB.DETECTED_OBJECTS  (/latched/detected_objects)
+    Written by ObjectDetectionAdapter as a plain list[ObjectInfo].
 
-SUCCESS  → object has been within `threshold` pixels of its previous position
-           for at least `frames` consecutive ticks
-FAILURE  → no object detected, fewer than `frames` samples, or object still moving
+BB writes:
+  none
 
-Requires BB.DETECTED_OBJECTS to be populated by an ObjectDetectionAdapter.
+Question judged:
+  Has the first detected object remained within `threshold` pixels of its
+  previous position for at least `frames` consecutive ticks?
+
+Judgement helper:
+  _evaluate_stillness(positions, threshold, frames)
+
+SUCCESS:
+  object centroid has moved < threshold pixels for all consecutive pairs
+  across the last `frames` ticks (i.e. frames+1 positions accumulated)
+
+FAILURE:
+  no object detected, fewer than frames+1 samples accumulated,
+  or any consecutive pair exceeds the threshold
+
+Constructor defaults:
+  threshold: 2.0  — max Euclidean pixel distance to classify as 'still'.
+  frames:    5    — consecutive tick count required for SUCCESS.
+
+Observability:
+  Emits optional 'decision' via self.emit_decision(). Never emits comm events.
 """
 import math
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.base_node import AinexL1ConditionNode
 from ainex_bt_edu.blackboard_keys import BB
 
-_PERCEPTION_NS = '/perception'
-_DETECTED_OBJECTS_KEY = 'detected_objects'
 
-
-class L1_Vision_IsObjectStill(AinexBTNode):
+class L1_Vision_IsObjectStill(AinexL1ConditionNode):
     """SUCCESS if the first detected object's position is stable across N ticks."""
 
     LEVEL = 'L1'
-    BB_LOG_KEYS = [BB.DETECTED_OBJECTS]
+    BB_READS = [BB.DETECTED_OBJECTS]
+    BB_WRITES = []
+    FACADE_CALLS = []
+    CONFIG_DEFAULTS = {
+        'threshold': 2.0,
+        'frames':    5,
+    }
 
     def __init__(self, threshold: float = 2.0, frames: int = 5,
                  name: str = 'L1_Vision_IsObjectStill',
                  logger=None, tick_id_getter=None):
-        super().__init__(name)
+        """
+        Args:
+            threshold:      Max Euclidean pixel distance to classify as 'still'.
+            frames:         Consecutive tick count required for SUCCESS.
+            name:           BT node name.
+            logger:         DebugEventLogger-compatible object, or None.
+            tick_id_getter: Callable returning current tick_id.
+        """
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter)
         self._threshold = threshold
         self._frames = frames
-        self._logger = logger
-        self._tick_id_getter = tick_id_getter or (lambda: -1)
+        self._positions = []  # list of (x, y) tuples, one per tick
         self._bb = None
-        self._positions = []
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(
-            name=self.name, namespace=_PERCEPTION_NS)
-        self._bb.register_key(key=_DETECTED_OBJECTS_KEY, access=Access.READ)
+            name=self.name, namespace=BB.LATCHED_NS)
+        self._bb.register_key(key=BB.DETECTED_OBJECTS_KEY, access=Access.READ)
+
+    def _evaluate_stillness(self, positions: list) -> tuple:
+        """Return (passed, reason) for the stillness condition.
+
+        positions: list of (x, y) tuples, length == frames+1.
+        Checks all consecutive pairs across the last `frames` steps.
+        No BB reads/writes, ROS calls, or logger calls here.
+        """
+        for i in range(len(positions) - self._frames, len(positions) - 1):
+            dx = positions[i + 1][0] - positions[i][0]
+            dy = positions[i + 1][1] - positions[i][1]
+            if math.sqrt(dx * dx + dy * dy) >= self._threshold:
+                return False, 'object moving'
+        return True, 'object still'
 
     def update(self) -> Status:
-        objects = self._bb.detected_objects
-        if objects is None or len(objects.data) == 0:
+        objects = self._bb.detected_objects  # list[ObjectInfo] or []
+        if not objects:
             self._positions.clear()
             status = Status.FAILURE
             reason = 'no objects detected'
         else:
-            obj = objects.data[0]
+            obj = objects[0]
             self._positions.append((obj.x, obj.y))
-            # Keep only the last (frames + 1) positions
             if len(self._positions) > self._frames + 1:
                 self._positions = self._positions[-(self._frames + 1):]
 
             if len(self._positions) < self._frames + 1:
                 status = Status.FAILURE
-                reason = f'accumulating samples ({len(self._positions)}/{self._frames + 1})'
+                reason = (f'accumulating samples '
+                          f'({len(self._positions)}/{self._frames + 1})')
             else:
-                moving = any(
-                    math.sqrt(
-                        (self._positions[i + 1][0] - self._positions[i][0]) ** 2 +
-                        (self._positions[i + 1][1] - self._positions[i][1]) ** 2
-                    ) >= self._threshold
-                    for i in range(len(self._positions) - self._frames,
-                                   len(self._positions) - 1)
-                )
-                status = Status.FAILURE if moving else Status.SUCCESS
-                reason = 'object moving' if moving else 'object still'
+                passed, reason = self._evaluate_stillness(self._positions)
+                status = self.status_from_bool(passed)
 
-        if self._logger:
-            self._logger.emit_bt({
-                'event':  'decision',
-                'node':   self.name,
-                'inputs': {'samples': len(self._positions),
-                           'threshold': self._threshold},
-                'status': str(status),
-                'reason': reason,
-            })
+        self.emit_decision(
+            inputs={'samples': len(self._positions),
+                    'threshold': self._threshold,
+                    'frames': self._frames},
+            status=status,
+            reason=reason,
+        )
 
         return status

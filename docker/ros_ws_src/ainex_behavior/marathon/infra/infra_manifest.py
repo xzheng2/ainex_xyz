@@ -177,6 +177,16 @@ def build_infra_manifest(node_name: str) -> list:
             "excluded_from_generic_ros_facade": True,
         },
         {
+            "component": "ObjectDetectionAdapter",
+            "kind": "topic_sub",
+            "name": "/yolo/detections",
+            "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
+            "purpose": "YOLO object detection — updates detected_objects, detected_count; "
+                       "owned by ainex_bt_edu/input_adapters/object_detection_adapter.py",
+            "bt_decision_related": False,
+            "excluded_from_generic_ros_facade": True,
+        },
+        {
             "component": "MarathonBTNode",
             "kind": "topic_pub",
             "name": "/ros_robot_controller/set_buzzer",

@@ -39,6 +39,7 @@ ainex_behavior/
 ainex_bt_edu/src/ainex_bt_edu/
 └── input_adapters/
     ├── __init__.py
+    ├── base_adapter.py               # AinexInputAdapter（business_in 基类）
     ├── imu_balance_state_adapter.py    # /imu → /latched/robot_state
     └── line_detection_adapter.py       # /object/pixel_coords → /latched/*
 ```
@@ -64,10 +65,12 @@ from bt_observability.bt_debug_visitor import BTDebugVisitor
 
 ```
 ainex_bt_edu/                        # 标准节点库 + 输入适配层（所有项目共用，只读 import，不修改）
+├── base_node.py                     # AinexBTNode + AinexL1ConditionNode + AinexL2ActionNode
 ├── behaviours/
-│   ├── L1_perception/               # 通用感知条件节点（继承 AinexBTNode）
-│   └── L2_locomotion/               # 通用运动动作节点（继承 AinexBTNode）
+│   ├── L1_perception/               # 通用感知条件节点（继承 AinexL1ConditionNode）
+│   └── L2_locomotion/               # 通用运动动作节点（继承 AinexL2ActionNode）
 └── input_adapters/                  # 传感器输入适配（rospy.Subscriber 唯一合法位置）
+    ├── base_adapter.py              # AinexInputAdapter；不是 BT node
     ├── imu_balance_state_adapter.py # /imu → /latched/robot_state
     └── line_detection_adapter.py    # /object/pixel_coords → /latched/*
 
@@ -84,13 +87,13 @@ ainex_behavior/
     ├── behaviours/
     │   ├── conditions.py           # ⚠️ 项目专属 L1 条件节点（perception 判断）
     │   │                            #   - 仅放 ainex_bt_edu 里无对应的节点
-    │   │                            #   - 所有节点必须继承 AinexBTNode
+    │   │                            #   - 所有节点必须继承 AinexL1ConditionNode
     │   │                            #   - 禁止重新实现 ainex_bt_edu 已有节点
-    │   │                            #   - 可主动 emit_bt decision 事件
+    │   │                            #   - 可通过 self.emit_decision() 主动上报 decision
     │   └── actions.py              # ⚠️ 项目专属 L2+ 动作节点（执行器指令）
-    │                                #   - 继承 AinexBTNode；接受 facade 参数
+    │                                #   - 继承 AinexL2ActionNode；接受 facade 参数
     │                                #   - 只调用 facade.*；禁止 rospy/manager 直接调用
-    │                                #   - 可 emit_bt decision + action_intent
+    │                                #   - 可通过 helper emit decision + action_intent
     │                                #   - ros_out 由 comm_facade 负责；节点禁止直接 emit ros_out
     ├── semantics/
     │   └── semantic_facade.py      # 业务语义层；继承 AinexBTFacade；只调用 comm_facade
@@ -126,7 +129,7 @@ ainex_behavior/
 ## 4. 架构分层与日志责任
 
 ```
-ainex_bt_edu/input_adapters/     ← rospy.Subscriber 唯一合法位置
+ainex_bt_edu/input_adapters/     ← rospy.Subscriber 唯一合法位置；adapter 继承 AinexInputAdapter
     ImuBalanceStateAdapter            每 tick：snapshot_and_reset()（under lock）
     LineDetectionAdapter                       + write_snapshot()（after lock）
     │  emits: ros_in（received_count>0 时）+ input_state（每 tick 必有）
@@ -134,17 +137,17 @@ ainex_bt_edu/input_adapters/     ← rospy.Subscriber 唯一合法位置
 app/<project>_bt_node.py         ← 装配层；禁止 rospy.Subscriber 和 emit_comm
     │  创建 adapters，装配 tree/facade/infra；调用 adapter.snapshot_and_reset/write_snapshot
     ▼
-ainex_bt_edu/behaviours/         ← 标准节点库（L1/L2；继承 AinexBTNode；实现 AinexBTFacade 接口）
+ainex_bt_edu/behaviours/         ← 标准节点库（L1/L2；继承 L1/L2 基类；实现 AinexBTFacade 接口）
     ▼ import（tree/ 直接引用）
 tree/<project>_bt.py             ← 只做组装：import ainex_bt_edu 节点 + 项目专属节点
     ▼
 behaviours/conditions.py         ← 项目专属 L1 条件节点（仅放无通用等价物的节点）
-    │  继承 AinexBTNode；不调用 facade
-    │  可选 emit_bt("decision", ...)
+    │  继承 AinexL1ConditionNode；不调用 facade
+    │  可选 self.emit_decision(...)
 behaviours/actions.py            ← 项目专属 L2+ 动作节点（仅放无通用等价物的节点）
-    │  继承 AinexBTNode；接受 AinexBTFacade 类型的 facade
+    │  继承 AinexL2ActionNode；接受 AinexBTFacade 类型的 facade
     │  只调用 semantic_facade.*
-    │  可选 emit_bt("decision", ...) 和 emit_bt("action_intent", ...)
+    │  可选 self.emit_decision(...) 和 self.emit_action_intent(...)
     │  ⚠️  禁止直接 emit ros_out — ros_out 由 comm_facade 负责
     ▼
 semantics/semantic_facade.py     ← 实现 AinexBTFacade；只调用 comm_facade.*
@@ -155,7 +158,10 @@ runtime（GaitManager / Publisher / ServiceProxy）
 ```
 
 `bt_observability/` 横切所有层，由 `app` 层初始化后注入，**不在各层直接 import**。
-`ainex_bt_edu.base_node.AinexBTNode` 提供统一的状态变化日志（`/bt_node_events`），**所有节点（库节点 + 项目专属节点）必须继承**。
+`ainex_bt_edu.base_node.AinexBTNode` 只提供节点侧 helper；节点级 `tick_end`
+由 `BTDebugVisitor` 自动记录。L1/L2 节点必须分别继承
+`AinexL1ConditionNode` / `AinexL2ActionNode`，二者间接继承 `AinexBTNode`。
+Input adapter 继承 `AinexInputAdapter`，不继承任何 BT node 基类。
 
 ### 通信边界三类分类
 
@@ -177,8 +183,8 @@ runtime（GaitManager / Publisher / ServiceProxy）
 | `input_state` | business_in | `input_adapters/` 的 `write_snapshot()` | 每 tick 必有一条；bb_writes 记录本 tick 实际写入 py_trees BB 的值 |
 | `ros_out` | business_out | `comm/comm_facade.py` 各公开方法 | 在 runtime 调用**前**写，表示通信意图 |
 | `ros_result` | business_out | `comm/comm_facade.py` 各公开方法 | 有返回值或异常时另写，与 ros_out 配对 |
-| `decision` | — | `behaviours/conditions.py` 或 `actions.py`（可选） | condition/action 节点主动上报判断输入/结果 |
-| `action_intent` | — | `behaviours/actions.py`（可选） | action 节点 `initialise()` 上报执行意图；ros_out 归属由 comm_facade 负责 |
+| `decision` | — | `behaviours/conditions.py` 或 `actions.py`（可选） | condition/action 节点通过 `self.emit_decision()` 主动上报判断输入/结果 |
+| `action_intent` | — | `behaviours/actions.py`（可选） | action 节点 `initialise()` 通过 `self.emit_action_intent()` 上报执行意图；ros_out 归属由 comm_facade 负责 |
 | `tree_tick_start/end` | — | `BTDebugVisitor`（自动） | 挂载后自动记录，无需手动 |
 | `tick_end`（节点级） | — | `BTDebugVisitor`（自动） | 同上 |
 | `bb_write` | — | `BTDebugVisitor`（自动） | flush 时自动记录 BB 写入去重结果 |
@@ -253,6 +259,8 @@ def run(self):
 
 `rospy.Subscriber` 和 `ros_in` / `input_state` emit 均由 `ainex_bt_edu/input_adapters/` 负责。
 `app/<project>_bt_node.py` **不得**直接创建 `rospy.Subscriber` 或调用 `emit_comm`。
+所有 input adapter 必须继承 `AinexInputAdapter`。它们是 business-in 组件，不是
+BT node，不继承 `AinexBTNode`，不返回 `Status`。
 
 在 `__init__()` 中创建 adapters（在 `self._obs_logger` 之后、`self._comm_facade` 之前）：
 
@@ -329,14 +337,11 @@ def some_business_method(self, bt_node, ...):
 def update(self):
     result = ...  # 判断逻辑
     status = py_trees.common.Status.SUCCESS if result else py_trees.common.Status.FAILURE
-    if self._logger:
-        self._logger.emit_bt({
-            "event":  "decision",
-            "node":   self.name,
-            "inputs": {"key": value, ...},
-            "status": str(status),
-            "reason": "描述为什么得出这个结论",
-        })
+    self.emit_decision(
+        inputs={"key": value, ...},
+        status=status,
+        reason="描述为什么得出这个结论",
+    )
     return status
 ```
 
@@ -345,23 +350,18 @@ def update(self):
 ```python
 def initialise(self):
     # 上报执行意图 — action_intent
-    if self._logger:
-        self._logger.emit_bt({
-            "event":   "action_intent",
-            "node":    self.name,
-            "tick_id": self._tick_id_getter(),
-            "intent":  "描述即将执行的动作",
-        })
+    self.emit_action_intent(
+        action="描述即将执行的动作",
+        inputs={},
+    )
 
 def update(self):
     # 关键分支决策可选 decision 事件
-    if self._logger:
-        self._logger.emit_bt({
-            "event":  "decision",
-            "node":   self.name,
-            "status": "RUNNING",
-            "reason": "...",
-        })
+    self.emit_decision(
+        inputs={},
+        status=Status.RUNNING,
+        reason="...",
+    )
     # ⚠️  通过 facade 调用，ros_out 由 comm_facade._emit() 负责
     self._facade.some_action(...)
     return Status.RUNNING
@@ -473,7 +473,7 @@ python3 <project>/check_imports.py
 | 优先使用 ainex_bt_edu 节点 | `tree/` 中优先 import `ainex_bt_edu.behaviours.*`，有标准节点时禁止在项目 `behaviours/` 中重新实现 |
 | condition 节点 → `conditions.py` | 项目专属感知判断节点（L1），无 facade 参数 |
 | action 节点 → `actions.py` | 项目专属执行器指令节点（L2+），接受 facade 参数；只在 ainex_bt_edu 无对应时才建 |
-| 项目节点必须继承 AinexBTNode | `behaviours/` 中所有节点继承 `ainex_bt_edu.base_node.AinexBTNode`，不得直接继承 `py_trees.behaviour.Behaviour` |
+| 项目节点必须继承 L1/L2 基类 | `conditions.py` 节点继承 `AinexL1ConditionNode`，`actions.py` 节点继承 `AinexL2ActionNode`；二者间接继承 `AinexBTNode`，不得直接继承 `py_trees.behaviour.Behaviour` |
 | SemanticFacade 必须实现接口 | `semantics/semantic_facade.py` 必须继承 `ainex_bt_edu.base_facade.AinexBTFacade` |
 | 节点不直接做 ROS 通信 | 节点内所有 ROS 动作（步态、舵机、动作播放）通过 `facade.*` 委托，禁止直接调用 manager / publisher |
 | action 节点不 emit ros_out | `ros_out` 仅由 `comm/comm_facade.py` 的 `_emit()` 负责；action 节点只 emit `decision` / `action_intent` |
@@ -513,7 +513,7 @@ python3 <project>/check_imports.py
 | 步骤 | 检查项 | 完成标志 |
 |---|---|---|
 | **节点组合** | `tree/` 中所有通用节点（感知条件、步态动作、跌倒恢复）从 `ainex_bt_edu.behaviours` import | grep 项目无自定义等价重写 |
-| **节点组合** | 项目 `behaviours/` 中每个节点类继承 `AinexBTNode`，声明 `LEVEL` 和 `BB_LOG_KEYS` | 类定义可见 `LEVEL = 'L1'|'L2'|'L3'` |
+| **节点组合** | 项目 `conditions.py` 节点继承 `AinexL1ConditionNode`，`actions.py` 节点继承 `AinexL2ActionNode`，声明 `LEVEL` 和 `BB_READS` / `BB_WRITES` | 类定义可见 `LEVEL = 'L1'|'L2'` |
 | **节点组合** | `semantic_facade.py` 继承 `AinexBTFacade`，实现所有抽象方法 | `isinstance(facade, AinexBTFacade)` 为 True |
 | Step 1 | `DebugEventLogger` 在 `__init__()` 中创建，路径指向项目 `log/` | logger 对象存在，文件路径正确 |
 | Step 2 | `BTDebugVisitor` 挂载到 tree（visitors + pre/post_tick_handlers） | 启动后 `/bt_debug` topic 有输出 |
@@ -551,7 +551,8 @@ python3 <project>/check_imports.py
 | `marathon/check_imports.py` | 分层约束 AST 检查参考 |
 | `bt_infra_manifest_rules.md` | 基础设施通信清单框架（Step 7 详情） |
 | `ainex_bt_edu/src/ainex_bt_edu/base_facade.py` | `AinexBTFacade` 抽象接口定义 |
-| `ainex_bt_edu/src/ainex_bt_edu/base_node.py` | `AinexBTNode` 基类（统一日志 + `/bt_node_events`） |
+| `ainex_bt_edu/src/ainex_bt_edu/base_node.py` | BT node 基类族：`AinexBTNode` / `AinexL1ConditionNode` / `AinexL2ActionNode` |
+| `ainex_bt_edu/src/ainex_bt_edu/input_adapters/base_adapter.py` | `AinexInputAdapter` business-in 基类 |
 | `ainex_bt_edu/src/ainex_bt_edu/behaviours/` | 标准节点库（L1/L2；以 marathon 节点为第一批参考实现） |
 | `marathon/tree/marathon_bt.py` | 节点组合模式参考实现（tree/ 只做组装） |
 | `marathon/semantics/semantic_facade.py` | `AinexBTFacade` 实现参考 |
