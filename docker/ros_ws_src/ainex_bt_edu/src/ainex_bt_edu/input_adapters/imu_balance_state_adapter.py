@@ -18,18 +18,19 @@ Per-BB-value traceability:
     → _extract_imu()      : angle = abs(degrees(atan2(ay, az)))
     → _classify_fall(angle, current_state, count_lie, count_recline)
                           : returns (new_count_lie, new_count_recline,
-                            new_state_or_none); side-effect-free; no self
+                            new_state_or_none); new_state is 'lie', 'recline',
+                            or None (no change); side-effect-free; no self
                             mutation, no ROS calls; skips accumulation when
                             current_state != 'stand' (recovery in progress)
     → _callback()         : applies returned counters to self._count_lie /
                             self._count_recline; calls rospy.loginfo on fall
-    → _make_bb_writes()   : {BB.ROBOT_STATE: new_state} or {}
+    → _make_bb_writes()   : {BB.ROBOT_STATE: 'lie'|'recline'} or {}
     → _apply_live_writes(): updates self._live_robot_state under self._lock
     → snapshot field      : 'robot_state'
-    → BB.ROBOT_STATE
+    → BB.ROBOT_STATE  ∈ {'stand', 'lie', 'recline'}
 
 Threshold/calibration source:
-  Constructor defaults:
+  CONFIG_DEFAULTS:
     fall_count_threshold = 100   (≈ 1 s at 100 Hz)
     lie_angle_max        = 30°   (tilt < 30° → face-down)
     recline_angle_min    = 150°  (tilt > 150° → back-down)
@@ -129,10 +130,12 @@ class ImuBalanceStateAdapter(AinexInputAdapter):
 
     def _classify_fall(self, angle: int, current_state: str,
                        count_lie: int, count_recline: int) -> tuple:
-        """Compute updated fall-count accumulators and optional new state.
+        """Compute updated fall-count accumulators and optional new posture state.
 
         Side-effect-free: reads only parameters and constructor thresholds;
         returns (new_count_lie, new_count_recline, new_state_or_none).
+        new_state is the confirmed posture: 'lie' (face-down) or 'recline'
+        (back-down), or None if no threshold was crossed.
         No self-state mutation, no ROS calls, no BB reads/writes.
         """
         if current_state != 'stand':
@@ -142,9 +145,9 @@ class ImuBalanceStateAdapter(AinexInputAdapter):
         new_recline = (count_recline + 1) if angle > self._recline_angle_min else 0
 
         if new_lie > self._fall_count_threshold:
-            return 0, 0, 'lie_to_stand'
+            return 0, 0, 'lie'
         if new_recline > self._fall_count_threshold:
-            return 0, 0, 'recline_to_stand'
+            return 0, 0, 'recline'
         return new_lie, new_recline, None
 
     def _make_bb_writes(self, new_state) -> dict:
@@ -192,7 +195,7 @@ class ImuBalanceStateAdapter(AinexInputAdapter):
         self._count_recline = new_count_recline
 
         if new_state is not None:
-            rospy.loginfo('[ImuAdapter] fall detected: %s', new_state)
+            rospy.loginfo('[ImuAdapter] posture: %s', new_state)
 
         bb_writes = self._make_bb_writes(new_state)
         with self._lock:

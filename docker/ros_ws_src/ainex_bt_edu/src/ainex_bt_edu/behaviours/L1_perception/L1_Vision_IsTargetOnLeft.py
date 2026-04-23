@@ -19,7 +19,7 @@ SUCCESS:
 FAILURE:
   target_pixel_x is None (no target present), or target_pixel_x >= image_center_x
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   image_width: 160  — frame width in pixels; center_x = image_width / 2.0.
 
 Observability:

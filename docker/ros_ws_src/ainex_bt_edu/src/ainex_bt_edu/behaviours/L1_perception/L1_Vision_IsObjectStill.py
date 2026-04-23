@@ -23,7 +23,7 @@ FAILURE:
   no object detected, fewer than frames+1 samples accumulated,
   or any consecutive pair exceeds the threshold
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   threshold: 2.0  — max Euclidean pixel distance to classify as 'still'.
   frames:    5    — consecutive tick count required for SUCCESS.
 

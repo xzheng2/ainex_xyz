@@ -39,8 +39,10 @@ Per-BB-value traceability:
       BB.LINE_ERROR_X, BB.LINE_CENTER_X, BB.LAST_LINE_ERROR_X
 
 Threshold/calibration source:
-  center_x_offset read from ainex_bt_edu/config/line_perception.yaml
-  at startup. Falls back to 0 if file is missing. Default in config: 66.
+  CONFIG_DEFAULTS:
+    center_x_offset: 66  (YAML-backed; ainex_bt_edu/config/line_perception.yaml
+                          is the single source of truth; falls back to 0 if
+                          file is missing)
 
 Notes:
   camera_lost_count counts consecutive camera frames (~30 Hz) without line

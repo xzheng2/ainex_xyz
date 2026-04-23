@@ -18,9 +18,9 @@ Action strategy:
 Strategy helper:
   _select_action(...)
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   TODO: list every threshold, speed, yaw limit, servo center, state label,
-  frame count, etc. Project trees may override these constructor defaults.
+  frame count, etc. Project trees may override these via constructor args.
 
 Returns:
   RUNNING: TODO
@@ -49,25 +49,33 @@ class {{CLASS_NAME}}(AinexL2ActionNode):
         # TODO: 'go_step', 'turn_step', 'move_head', ...
     ]
     CONFIG_DEFAULTS = {
-        # TODO: replace with explicit documented defaults, e.g.
-        # 'yaw_limit': 8,
-        # 'speed': 0.015,
+        'speed': 0.015,             # example: linear speed (m/step)
+        'yaw_limit': 8,             # example: maximum yaw angle (deg)
+        'head_pan_center': 500,     # example: head servo center position
+        # TODO: add all strategy/tuning constants here.
+        # These must match __init__ default args. No hard-coded literals in update().
     }
     BB_LOG_KEYS = BB_READS
 
     def __init__(self, name: str = {{DEFAULT_NAME}},
                  facade: AinexBTFacade = None,
+                 speed: float = 0.015,
+                 yaw_limit: int = 8,
+                 head_pan_center: int = 500,
                  tick_id_getter=None,
                  logger=None):
         """
         Args:
             name: BT node name.
             facade: Project semantic facade implementing AinexBTFacade.
+            speed: Linear speed (m/step). Project trees may override.
+            yaw_limit: Maximum yaw angle (deg). Project trees may override.
+            head_pan_center: Head servo center position.
             tick_id_getter: Callable returning current tick_id.
             logger: DebugEventLogger-compatible object, or None.
 
-        TODO: add explicit constructor default args for every strategy setting
-        instead of hard-coding constants in update().
+        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
+        Runtime logic must use self._ fields, not raw literals.
         """
         super().__init__(
             name,
@@ -76,10 +84,9 @@ class {{CLASS_NAME}}(AinexL2ActionNode):
             tick_id_getter=tick_id_getter,
         )
         self._bb = None
-
-        # TODO: store constructor defaults on self, e.g.
-        # self._yaw_limit = yaw_limit
-        # self._speed = speed
+        self._speed = speed
+        self._yaw_limit = yaw_limit
+        self._head_pan_center = head_pan_center
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
@@ -131,6 +138,11 @@ class {{CLASS_NAME}}(AinexL2ActionNode):
         # self.call_facade(method_name, **kwargs)
         # status = Status.RUNNING
         # inputs = {'some_key': value}
+        #
+        # BT-visible state sync: if the facade call changes state represented by a
+        # BB key, write that key in the same tick and document it in emit_decision:
+        # self.emit_decision(inputs=inputs, status=status, reason=reason,
+        #                    bb_writes={BB.SOME_KEY: value_written})
         raise NotImplementedError("Fill in update() orchestration")
 
         self.emit_decision(

@@ -19,7 +19,7 @@ SUCCESS:
 FAILURE:
   line_data is None  (line lost or detector not running)
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   none
 
 Observability:

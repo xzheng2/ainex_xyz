@@ -29,9 +29,9 @@ Per-BB-value traceability:
     → BB.DETECTED_OBJECTS, BB.DETECTED_COUNT
 
 Threshold/calibration source:
-  No thresholds. Object presence is determined purely by len(msg.data) > 0.
-  Filtering by object type/label is the responsibility of L1 nodes that
-  read BB.DETECTED_OBJECTS (e.g. L1_Vision_IsObjectDetected with object_type).
+  CONFIG_DEFAULTS: none — no tunable thresholds; object presence determined
+    purely by len(msg.data) > 0. Filtering by type/label is the
+    responsibility of L1 nodes reading BB.DETECTED_OBJECTS.
 
 YOLO ObjectInfo field mapping:
   label  — COCO class name (e.g. 'cat', 'stop sign', 'bottle')

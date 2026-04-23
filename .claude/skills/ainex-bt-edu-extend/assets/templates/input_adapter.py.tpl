@@ -22,7 +22,7 @@ Per-BB-value traceability:
     - final BB.* key
 
 Threshold/calibration source:
-  TODO: constructor defaults or ainex_bt_edu/config/*.yaml.
+  TODO: CONFIG_DEFAULTS or ainex_bt_edu/config/*.yaml.
 
 Two-phase latch protocol:
   Phase 1: snapshot_and_reset() while caller holds the shared lock.
@@ -53,26 +53,33 @@ class {{CLASS_NAME}}(AinexInputAdapter):
     ]
     FACADE_CALLS = []
     CONFIG_DEFAULTS = {
-        # TODO: replace with explicit documented defaults, e.g.
-        # 'threshold': 0,
-        # 'center_x_offset': 0,
+        'threshold': 0,             # example: sensor-level detection threshold
+        'center_x_offset': 0,      # example: camera center x offset (pixels)
+        # TODO: add all thresholds and calibration values here.
+        # These must match __init__ default args. No hard-coded constants in helpers.
     }
 
-    def __init__(self, lock: threading.Lock, logger=None, tick_id_getter=None):
+    def __init__(self, lock: threading.Lock, logger=None, tick_id_getter=None,
+                 threshold: int = 0,
+                 center_x_offset: int = 0):
         """
         Args:
             lock: Shared threading.Lock (same object as bt_node.lock).
             logger: DebugEventLogger-compatible object, or None.
             tick_id_getter: Callable returning current tick_id.
+            threshold: Sensor-level detection threshold.
+            center_x_offset: Camera center x offset (pixels).
 
-        TODO: add explicit constructor default args for every threshold,
-        calibration value, label, ROI, etc.
+        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
+        Classification helpers must use self._ fields, not raw literals.
         """
         super().__init__(
             lock=lock,
             logger=logger,
             tick_id_getter=tick_id_getter,
         )
+        self._threshold = threshold
+        self._center_x_offset = center_x_offset
 
         # Live async state, written only by _callback under self._lock.
         {{BB_KEY_INITS}}
@@ -100,6 +107,8 @@ class {{CLASS_NAME}}(AinexInputAdapter):
         """Apply documented sensor-level rules/thresholds.
 
         No BT decisions or action strategy here.
+        Use self._ instance fields (self._threshold, self._center_x_offset, etc.),
+        not raw literals. Hard-coded thresholds are a conformance violation.
         """
         raise NotImplementedError("Fill in sensor-level classification")
 

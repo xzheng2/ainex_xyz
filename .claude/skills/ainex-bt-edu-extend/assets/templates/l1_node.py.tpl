@@ -21,9 +21,9 @@ SUCCESS:
 FAILURE:
   TODO: document the exact condition that returns Status.FAILURE.
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   TODO: list every threshold, expected state/label, center value, tolerance,
-  frame count, etc. Project trees may override these constructor defaults.
+  frame count, etc. Project trees may override these via constructor args.
 
 Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.
@@ -41,29 +41,32 @@ class {{CLASS_NAME}}(AinexL1ConditionNode):
     BB_WRITES = []
     FACADE_CALLS = []
     CONFIG_DEFAULTS = {
-        # TODO: replace with explicit documented defaults, e.g.
-        # 'expected_state': 'stand',
-        # 'threshold': 0,
+        'expected_state': 'stand',      # example: expected robot state or label
+        'threshold': 0,                 # example: numeric threshold for condition
+        # TODO: add all judgement thresholds, expected states/labels, centres,
+        # tolerances, and frame counts here. These must match __init__ defaults.
     }
     BB_LOG_KEYS = BB_READS
 
     def __init__(self, name: str = {{DEFAULT_NAME}},
+                 expected_state: str = 'stand',
+                 threshold: int = 0,
                  logger=None, tick_id_getter=None):
         """
         Args:
             name: BT node name.
+            expected_state: Expected robot state or label for condition.
+            threshold: Numeric threshold for condition judgement.
             logger: DebugEventLogger-compatible object, or None.
             tick_id_getter: Callable returning current tick_id.
 
-        TODO: add explicit constructor default args for every judgement setting
-        instead of hard-coding constants in update().
+        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
+        Runtime logic must use self._ fields, not raw literals.
         """
         super().__init__(name, logger=logger, tick_id_getter=tick_id_getter)
         self._bb = None
-
-        # TODO: store constructor defaults on self, e.g.
-        # self._expected_state = expected_state
-        # self._threshold = threshold
+        self._expected_state = expected_state
+        self._threshold = threshold
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
@@ -82,6 +85,9 @@ class {{CLASS_NAME}}(AinexL1ConditionNode):
         - no facade calls
         - no ROS calls
         - no logger calls
+
+        Use self._ instance fields (self._threshold, self._expected_state, etc.),
+        not raw literals. Hard-coded literals are a conformance violation.
         """
         raise NotImplementedError("Fill in side-effect-free judgement logic")
 

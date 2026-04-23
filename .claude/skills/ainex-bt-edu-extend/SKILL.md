@@ -147,6 +147,34 @@ Use empty lists where not applicable.
 
 ---
 
+## Defaults / Tuning Rules
+
+Every adapter, L1 condition, and L2 action must follow the two-layer defaults contract:
+
+### 1. CONFIG_DEFAULTS (class-level declaration)
+- Must include every threshold, speed, servo center, expected label, tolerance, frame count,
+  profile name, ROI, deadband, and any other value that affects runtime classification or output.
+- Used for review, documentation, ROSA/LLM inspection, and consistency verification.
+- Must stay in sync with `__init__` default arguments.
+
+### 2. `__init__` default arguments (runtime override mechanism)
+- Every entry in CONFIG_DEFAULTS must have a matching `__init__` parameter (unless purely
+  descriptive and never used in runtime logic, e.g. a string label for documentation only).
+- Project trees override standard behavior by passing constructor arguments.
+- Constructor stores values on instance fields, e.g. `self._threshold = threshold`.
+
+### Rules
+- Runtime logic (`update()`, `_evaluate()`, `_is_xxx()`, `_compute_xxx()`, `_classify_xxx()`,
+  helper methods) must use `self._` instance fields, not raw literals or bare class constants.
+- Class constants are allowed only for non-tunable symbolic values: state labels like
+  `_ST_SWEEP = 'sweep'`, internal protocol names, etc.
+- YAML-loaded values: if a value is loaded from config YAML at runtime, CONFIG_DEFAULTS
+  must still document the fallback/default value, and the docstring must state that
+  config YAML is the single source of truth.
+- CONFIG_DEFAULTS and `__init__` defaults must stay in sync; mismatches are a conformance violation.
+
+---
+
 ## Input Adapter Rules
 
 Each input adapter converts one ROS input stream into one documented set of blackboard
@@ -181,7 +209,7 @@ Each adapter file must include a top-level docstring declaring:
    - extraction/classification helper used
    - decision standard or threshold
    - final BB key written
-5. Whether thresholds/calibration values come from constructor defaults or
+5. Whether thresholds/calibration values come from CONFIG_DEFAULTS or
    `ainex_bt_edu/config/*.yaml`.
 
 Each adapter must implement explicit side-effect-free helpers that show the full path
@@ -228,7 +256,7 @@ Every written BB value must be traceable in the same file:
 ROS msg input -> helper function -> rule/threshold -> snapshot field -> BB key
 ```
 
-Hard-coded thresholds are forbidden inside callback logic. Use constructor defaults
+Hard-coded thresholds are forbidden inside callback logic. Use CONFIG_DEFAULTS
 or `ainex_bt_edu/config/*.yaml`, and document default values.
 
 Adapters must keep the two-phase latch protocol:
@@ -250,11 +278,11 @@ L1 nodes must:
 - use condition-form class names, e.g. `L1_Balance_IsStanding`,
   `L1_Vision_HasTarget`, `L1_Motion_CanStart`
 - inherit `AinexL1ConditionNode`
-- read BB only
-- never write BB
+- read BB only for condition evaluation
+- never write BB keys
 - never call facade methods
 - never publish/subscribe ROS
-- never dispatch actions
+- never dispatch actions or cause external side effects
 - never call `logger.emit_comm()`
 - normally return only `Status.SUCCESS` or `Status.FAILURE`
 
@@ -264,7 +292,7 @@ Each L1 file must include a top-level docstring declaring:
 2. The question/condition being judged.
 3. The helper function used for judgement.
 4. The `SUCCESS` / `FAILURE` standard.
-5. Constructor defaults for thresholds, expected states, frame counts, labels,
+5. CONFIG_DEFAULTS entries: thresholds, expected states, frame counts, labels,
    center values, tolerances, etc.
 
 Each L1 node must implement one explicit judgement helper in the same file:
@@ -297,9 +325,9 @@ Any node that writes BB or performs an action is not a valid L1 node.
 
 ## L2 Node Rules
 
-L2 nodes are action/strategy nodes. They may read BB, compute a generic action
-strategy, optionally write documented action-state BB keys, and dispatch through
-`AinexBTFacade`.
+L2 nodes are action/strategy nodes. They may read BB as action context, compute
+strategy, optionally write documented action-state/correction keys, and dispatch
+external side effects only through `AinexBTFacade`.
 
 L2 nodes must:
 - inherit `AinexL2ActionNode`
@@ -308,7 +336,7 @@ L2 nodes must:
 - never call `logger.emit_comm()`
 - never import project-specific packages
 - keep generic strategy computation in the current node file or inside `ainex_bt_edu`
-- expose all tuning values as constructor defaults so project trees can override them
+- expose all tuning values in CONFIG_DEFAULTS so project trees can override them via constructor args
 - document every BB read/write and facade method call
 
 Each L2 file must include a top-level docstring declaring:
@@ -318,7 +346,7 @@ Each L2 file must include a top-level docstring declaring:
 3. Facade method(s) called.
 4. The action strategy being computed.
 5. Helper function(s) used for computation.
-6. Constructor defaults for thresholds, speeds, yaw limits, servo centers, state labels,
+6. CONFIG_DEFAULTS entries: thresholds, speeds, yaw limits, servo centers, state labels,
    frame counts, etc.
 7. Return semantics: when it returns `RUNNING`, `SUCCESS`, or `FAILURE`.
 
@@ -350,8 +378,7 @@ start observability. It must not emit `ros_out`; `ros_out` belongs to
 
 Hard-coded strategy constants are forbidden inside `update()`. Strategy constants must
 live in:
-- constructor defaults
-- class-level defaults passed into the constructor
+- CONFIG_DEFAULTS (and matching `__init__` args stored on self._)
 - `ainex_bt_edu/config/*.yaml`
 
 Allowed L2 BB writes:
@@ -364,6 +391,16 @@ L2 nodes must not hide project-specific policy in `SemanticFacade`.
 `SemanticFacade` translates generic action requests into project ROS communication.
 Generic computation such as yaw selection, deadband checks, profile selection, and
 sweep state machines belongs in the L2 node or a generic `ainex_bt_edu` helper.
+
+### L2 BT-visible State Synchronization
+
+If a L2 facade call changes robot state that is represented by a standard BB key
+and read by other BT nodes, the L2 must either:
+1. Write the documented BB key in the same tick as the facade call, or
+2. Explicitly document in the docstring why this action does not update BT-visible state.
+
+For command-only state without sensor feedback, the BB value should represent the
+commanded target and must be documented as "commanded state, not sensor feedback".
 
 ---
 
@@ -413,7 +450,7 @@ be completed as specified before making a partial facade migration.
 2. **question** — one sentence, e.g. "is the robot standing?"
 3. **BB keys it reads** — from `blackboard_keys.py`
 4. **judgement helper** — `_is_xxx()` or `_evaluate()`
-5. **constructor defaults** — thresholds, expected states, labels, frame counts, etc.
+5. **CONFIG_DEFAULTS** — thresholds, expected states, labels, frame counts, etc.
 6. **SUCCESS/FAILURE semantics**
 
 ### Workflow
@@ -435,7 +472,7 @@ be completed as specified before making a partial facade migration.
    - no ROS subscribe/publish
    - no `logger.emit_comm()`
    - has `_is_xxx()` or `_evaluate()`
-   - judgement constants are constructor defaults
+   - judgement constants are in CONFIG_DEFAULTS and stored on self._
    - no unresolved template `TODO` or `NotImplementedError`
 6. Update `L1_perception/__init__.py` only if that package uses explicit imports.
 7. Update `ainex_bt_edu_spec.md` with file path, signature, BB reads, judgement rules,
@@ -448,11 +485,13 @@ be completed as specified before making a partial facade migration.
 ✅ Top-level docstring declares reads, question, helper, SUCCESS/FAILURE, defaults
 ✅ Inherits AinexL1ConditionNode
 ✅ BB_READS / BB_WRITES / FACADE_CALLS / CONFIG_DEFAULTS declared
-✅ Reads BB only; no Access.WRITE
+✅ Reads BB only for condition evaluation; no Access.WRITE
 ✅ No facade, ROS publish/subscribe, emit_comm, or action dispatch
 ✅ _is_xxx() or _evaluate() exists in the same file
 ✅ update() reads BB -> helper -> Status -> self.emit_decision()
-✅ Constructor defaults expose all thresholds/labels/states/tolerances
+✅ CONFIG_DEFAULTS exposes all thresholds/labels/states/tolerances
+✅ All judgement thresholds, expected states/labels, centres, tolerances, and frame counts are listed in CONFIG_DEFAULTS and exposed as __init__ args stored on self
+✅ _is_xxx() / _evaluate_xxx() helpers use self._ fields, not hard-coded literals
 ✅ No unresolved template TODO or NotImplementedError remains
 ✅ ainex_bt_edu_spec.md updated
 ```
@@ -469,7 +508,7 @@ be completed as specified before making a partial facade migration.
 4. **BB keys it writes** — or `none`
 5. **facade method(s) it calls**
 6. **strategy helper** — `_compute_command()` or `_select_action()`
-7. **constructor defaults** — thresholds, speeds, yaw limits, servo centers, labels, etc.
+7. **CONFIG_DEFAULTS** — thresholds, speeds, yaw limits, servo centers, labels, etc.
 8. **return semantics** — `RUNNING`, `SUCCESS`, `FAILURE`
 
 ### Workflow
@@ -490,7 +529,7 @@ be completed as specified before making a partial facade migration.
    - no `logger.emit_comm()`
    - no project-specific imports
    - non-trivial strategy uses `_compute_command()` or `_select_action()`
-   - strategy constants are constructor defaults or config values
+   - strategy constants are in CONFIG_DEFAULTS (or config YAML) and stored on self._
    - facade calls are explicit and documented
    - no unresolved template `TODO` or `NotImplementedError`
 8. Update `L2_locomotion/__init__.py` only if that package uses explicit imports.
@@ -510,10 +549,19 @@ be completed as specified before making a partial facade migration.
 ✅ _compute_command() or _select_action() exists for non-trivial strategy
 ✅ update() reads BB -> helper -> facade/write BB -> self.emit_decision() -> Status
 ✅ action_intent, if used, is emitted via self.emit_action_intent() in initialise()
-✅ Constructor defaults expose all tuning values
+✅ CONFIG_DEFAULTS exposes all tuning values
 ✅ Facade contract checked; breaking changes synchronized if approved
 ✅ No unresolved template TODO or NotImplementedError remains
 ✅ ainex_bt_edu_spec.md updated
+✅ If a L2 reads and writes the same BB key, register with Access.WRITE only — py_trees 2.1.6 Access is enum.Enum (not IntFlag), so Access.READ | Access.WRITE raises TypeError; Access.WRITE implicitly grants read
+✅ All strategy/tuning constants are listed in CONFIG_DEFAULTS and exposed as __init__ args stored on self
+✅ update() and helper methods use self._ instance fields, not raw literals
+✅ CONFIG_DEFAULTS matches __init__ defaults (values and keys)
+✅ No hard-coded tuning literals in update(), helper, or _compute/_evaluate methods
+✅ Project tree can override every tuning/calibration value through constructor args or documented config YAML
+✅ Facade actions that change BT-visible state either update the documented BB key in the same tick, or explicitly document why no BB update is performed
+✅ Commanded-target BB writes are documented as commanded state, not sensor feedback
+✅ When L2 writes BB, emit_decision() includes bb_writes={BB.KEY: value} in extra fields or the write is explicitly noted in reason
 ```
 
 ---
@@ -528,7 +576,7 @@ be completed as specified before making a partial facade migration.
 4. **sensor-level judgement/classification standard**
 5. **BB keys to write**
 6. **adapter class name** — e.g. `DepthCameraAdapter`
-7. **constructor/config defaults** — thresholds, ROI, offsets, labels, etc.
+7. **CONFIG_DEFAULTS** — thresholds, ROI, offsets, labels, etc.
 
 ### Workflow
 
@@ -542,7 +590,7 @@ be completed as specified before making a partial facade migration.
 
 3. Check `package.xml` for the message package. If missing, add the required
    `<exec_depend>` and, when needed, `<build_depend>`.
-4. If calibration/config values are needed, use constructor defaults or add a YAML file
+4. If calibration/config values are needed, use CONFIG_DEFAULTS or add a YAML file
    under `ainex_bt_edu/config/`. If adding `config/` for install/deploy, update
    `CMakeLists.txt`:
 
@@ -606,7 +654,8 @@ be completed as specified before making a partial facade migration.
 ✅ _callback() has no hidden BB writes or action strategy
 ✅ write_snapshot() only writes snapshot and emits ros_in/input_state
 ✅ No ros_out/ros_result emitted by adapter
-✅ Thresholds are constructor defaults or ainex_bt_edu/config values
+✅ Thresholds are in CONFIG_DEFAULTS or ainex_bt_edu/config values
+✅ Thresholds and calibration values are in CONFIG_DEFAULTS and exposed as __init__ args (or documented as YAML-backed with CONFIG_DEFAULTS providing the fallback)
 ✅ package.xml updated if message dependency is new
 ✅ CMakeLists.txt installs config/ if deployment needs it
 ✅ No unresolved template TODO or NotImplementedError remains
@@ -680,7 +729,7 @@ Verification checklist:
 ✅ ros_out/ros_result are emitted only by comm_facade.py
 ✅ Adapter declared BB_WRITES matches actual snapshot writes
 ✅ Non-trivial L1/L2 helper functions are present and documented
-✅ Constructor defaults cover all thresholds/tuning constants
+✅ CONFIG_DEFAULTS covers all thresholds/tuning constants
 ✅ No unresolved template TODO / NotImplementedError / {{placeholder}} remains
 ✅ ainex_bt_edu_spec.md is updated
 ✅ Import/build checks completed or explicitly reported if environment blocks them

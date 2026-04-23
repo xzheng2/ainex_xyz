@@ -14,14 +14,14 @@ Judgement helper:
   _is_fallen(state)
 
 SUCCESS:
-  robot_state != expected_stand_label  (lie_to_stand, recline_to_stand, …)
+  robot_state != expected_stand_label  ('lie' or 'recline')
 
 FAILURE:
-  robot_state == expected_stand_label  (robot is upright)
+  robot_state == expected_stand_label  ('stand' — robot is upright)
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   expected_stand_label: 'stand'  — BB value that represents the upright state.
-  Project trees may override this default.
+  Project trees may override this via constructor args.
 
 Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.

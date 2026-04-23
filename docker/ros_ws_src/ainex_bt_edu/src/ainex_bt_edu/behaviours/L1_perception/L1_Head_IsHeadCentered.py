@@ -19,7 +19,7 @@ SUCCESS:
 FAILURE:
   abs(head_pan - head_pan_center) > center_threshold
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   head_pan_center:  500  — servo count for the head-forward position.
   center_threshold: 30   — max allowed offset from centre (servo counts).
                            Must match L2_Head_FindLineSweep center_threshold

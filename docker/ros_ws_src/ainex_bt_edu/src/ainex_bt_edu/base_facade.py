@@ -78,7 +78,10 @@ class AinexBTFacade(ABC):
         """Execute full fall-recovery sequence (buzzer → disable gait → stand-up action).
 
         Args:
-            robot_state: current posture string used to select correct stand-up action.
+            robot_state: recovery action name — 'lie_to_stand' or 'recline_to_stand'.
+                         L2_Balance_RecoverFromFall maps posture ('lie'|'recline') to
+                         this action name before calling; the facade receives the
+                         action name directly.
         Does NOT write to the blackboard — the calling BT node handles that.
         """
         ...

@@ -19,9 +19,9 @@ SUCCESS:
 FAILURE:
   any other state (lie_to_stand, recline_to_stand, …)
 
-Constructor defaults:
+CONFIG_DEFAULTS:
   expected_stand_label: 'stand'  — BB value that represents the upright state.
-  Project trees may override this default.
+  Project trees may override this via constructor args.
 
 Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.

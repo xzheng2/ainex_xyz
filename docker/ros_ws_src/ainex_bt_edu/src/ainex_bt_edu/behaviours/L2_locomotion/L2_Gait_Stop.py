@@ -1,30 +1,44 @@
 #!/usr/bin/env python3
 """L2 Action: disable gait controller. Always returns SUCCESS.
 
-Delegates to facade.stop_walking(); no blackboard access required.
+BB reads:  none
+BB writes: none
+Facade:    stop_walking()
+Strategy:  none (trivial: always dispatches stop and returns SUCCESS)
+
+Returns:
+    SUCCESS → gait stop command dispatched (fire-and-forget)
 
 Reference implementation: marathon/behaviours/actions.py :: StopWalking
 """
 from py_trees.common import Status
-from ainex_bt_edu.base_node import AinexBTNode
+from ainex_bt_edu.base_node import AinexL2ActionNode
 from ainex_bt_edu.base_facade import AinexBTFacade
 
 
-class L2_Gait_Stop(AinexBTNode):
+class L2_Gait_Stop(AinexL2ActionNode):
     """Disable gait; always returns SUCCESS. No blackboard access."""
 
-    LEVEL = 'L2'
-    BB_LOG_KEYS = []
+    LEVEL        = 'L2'
+    BB_READS     = []
+    BB_WRITES    = []
+    FACADE_CALLS = ['stop_walking']
+    CONFIG_DEFAULTS = {}
 
     def __init__(self, name: str = 'L2_Gait_Stop',
-                 facade: AinexBTFacade = None, tick_id_getter=None):
-        super().__init__(name)
-        self._facade = facade
-        self._tick_id_getter = tick_id_getter or (lambda: -1)
+                 facade: AinexBTFacade = None,
+                 logger=None,
+                 tick_id_getter=None):
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade)
+
+    def initialise(self):
+        self.emit_action_intent(action='stop_walking')
 
     def update(self) -> Status:
-        self._facade.stop_walking(
-            bt_node=self.name,
-            tick_id=self._tick_id_getter(),
+        self.call_facade('stop_walking')
+        self.emit_decision(
+            inputs={},
+            status=Status.SUCCESS,
+            reason='stop command dispatched',
         )
         return Status.SUCCESS
