@@ -100,4 +100,6 @@
 - Auth: credential helper `store` (`~/.git-credentials`, not tracked)
 - Allowlist `.gitignore`: only `docker/ros_ws_src/**` and `.claude/` memory/settings are tracked
 - Excludes: `__pycache__`, `.pyc`, `.zip`, `.7z`, `.bag`, `.so`, `build/`, `core` dumps, `*_this_session.md`, `*.egg-info/`, credentials, BT session logs
-- **All new files in `ros_ws_src/` should be committed** — new files show as `??` (untracked, not ignored); run `git add docker/ros_ws_src/` + commit + push when wrapping up sessions or adding new source files
+- **All new files in `ros_ws_src/` or `rosa_agent/` should be committed** — new files show as `??` (untracked, not ignored); stage with `git add` from inside `docker/ros_ws_src/` (or `docker/rosa_agent/`) then commit + push when wrapping up
+- **Commit checklist**: before any `git commit`, run `git status --short -- docker/ros_ws_src/ docker/rosa_agent/` and check for `??` entries — stage ALL untracked files in those dirs that belong to the repo
+- A `PostToolUse` hook (`git_untracked_check.py`) auto-warns after each commit if `??` files remain in those two dirs
