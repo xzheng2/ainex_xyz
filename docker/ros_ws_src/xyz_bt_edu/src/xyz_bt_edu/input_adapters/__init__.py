@@ -1,0 +1,1 @@
+from xyz_bt_edu.base_adapter import XyzInputAdapter

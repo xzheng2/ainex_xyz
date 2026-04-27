@@ -1,1 +1,0 @@
-from ainex_bt_edu.base_adapter import AinexInputAdapter
