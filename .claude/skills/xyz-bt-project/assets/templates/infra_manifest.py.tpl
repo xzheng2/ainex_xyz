@@ -6,10 +6,10 @@ ROS interfaces belonging to {{PROJECT_CLASS}} node infrastructure components.
 These interfaces are excluded from the Generic ROS Facade business log.
 
 Node composition constraints (confirm before modifying):
-  - tree/{{PROJECT}}_bt.py uses ainex_bt_edu.behaviours standard nodes first
-  - behaviours/conditions.py nodes inherit ainex_bt_edu.base_node.AinexL1ConditionNode
-  - behaviours/actions.py nodes inherit ainex_bt_edu.base_node.AinexL2ActionNode
-  - semantic_facade.py inherits ainex_bt_edu.base_facade.AinexBTFacade
+  - tree/{{PROJECT}}_bt.py uses xyz_bt_edu.behaviours standard nodes first
+  - behaviours/conditions.py nodes inherit xyz_bt_edu.base_node.XyzL1ConditionNode
+  - behaviours/actions.py nodes inherit xyz_bt_edu.base_node.XyzL2ActionNode
+  - semantic_facade.py inherits xyz_bt_edu.base_facade.XyzBTFacade
 
 Output: {{PROJECT}}/log/infra_comm_manifest_lastrun.json
 Written once at node startup, overwriting any previous file.
@@ -135,14 +135,14 @@ def build_infra_manifest(node_name: str) -> list:
         # Source: ainex_example/src/ainex_example/color_common.py
         #
         # Note: /imu and /object/pixel_coords subscribers are owned by
-        # ainex_bt_edu/input_adapters/ adapters (not by {{PROJECT_NODE_CLASS}} directly).
+        # xyz_bt_edu/input_adapters/ adapters (not by {{PROJECT_NODE_CLASS}} directly).
         {
             "component": "ImuBalanceStateAdapter",
             "kind": "topic_sub",
             "name": "/imu",
             "msg_or_srv_type": "sensor_msgs/Imu",
             "purpose": "fall detection — updates robot_state in live store; "
-                       "owned by ainex_bt_edu/input_adapters/imu_balance_state_adapter.py",
+                       "owned by xyz_bt_edu/input_adapters/imu_balance_state_adapter.py",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
         },
@@ -152,7 +152,7 @@ def build_infra_manifest(node_name: str) -> list:
             "name": "/object/pixel_coords",
             "msg_or_srv_type": "ainex_interfaces/ObjectsInfo",
             "purpose": "line detection — updates line_data, last_line_x, camera_lost_count; "
-                       "owned by ainex_bt_edu/input_adapters/line_detection_adapter.py",
+                       "owned by xyz_bt_edu/input_adapters/line_detection_adapter.py",
             "bt_decision_related": False,
             "excluded_from_generic_ros_facade": True,
         },

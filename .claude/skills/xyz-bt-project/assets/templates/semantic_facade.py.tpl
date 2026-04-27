@@ -10,10 +10,10 @@ Leaf nodes     → express WHAT they want ("follow line", "search line")
 SemanticFacade → translate to HOW in project terms (which gait config, params)
 CommFacade     → handle actual ROS communication + emit attributed logs
 """
-from ainex_bt_edu.base_facade import AinexBTFacade
+from xyz_bt_edu.base_facade import XyzBTFacade
 
 
-class {{PROJECT_CLASS}}SemanticFacade(AinexBTFacade):
+class {{PROJECT_CLASS}}SemanticFacade(XyzBTFacade):
     """Translates {{PROJECT_CLASS}} leaf-node intent to project-semantic ROS commands."""
 
     # ── Tuning constants ─────────────────────────────────────────────────
@@ -36,7 +36,7 @@ class {{PROJECT_CLASS}}SemanticFacade(AinexBTFacade):
     def _tid(self, tick_id):
         return tick_id if tick_id is not None else self._tick_id()
 
-    # ── AinexBTFacade interface ───────────────────────────────────────────
+    # ── XyzBTFacade interface ───────────────────────────────────────────
 
     def stop_walking(self, bt_node=None, tick_id=None):
         self._comm.disable_gait(

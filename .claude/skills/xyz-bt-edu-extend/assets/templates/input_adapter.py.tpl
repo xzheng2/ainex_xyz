@@ -22,14 +22,14 @@ Per-BB-value traceability:
     - final BB.* key
 
 Threshold/calibration source:
-  TODO: CONFIG_DEFAULTS or ainex_bt_edu/config/*.yaml.
+  TODO: CONFIG_DEFAULTS or xyz_bt_edu/config/*.yaml.
 
 Two-phase latch protocol:
   Phase 1: snapshot_and_reset() while caller holds the shared lock.
   Phase 2: write_snapshot(snap, tick_id) after lock release, on the main thread.
 
 Observability:
-  write_snapshot() may emit only, via AinexInputAdapter helpers:
+  write_snapshot() may emit only, via XyzInputAdapter helpers:
     - ros_in when received_count > 0
     - input_state every tick
   This adapter never emits ros_out/ros_result.
@@ -38,11 +38,11 @@ import threading
 
 import rospy
 {{MSG_TYPE_IMPORT}}
-from ainex_bt_edu.blackboard_keys import BB
-from ainex_bt_edu.base_adapter import AinexInputAdapter
+from xyz_bt_edu.blackboard_keys import BB
+from xyz_bt_edu.base_adapter import XyzInputAdapter
 
 
-class {{CLASS_NAME}}(AinexInputAdapter):
+class {{CLASS_NAME}}(XyzInputAdapter):
     """Adapter: {{ROS_TOPIC}} -> {{DESCRIPTION}}"""
 
     ROS_TOPIC = '{{ROS_TOPIC}}'

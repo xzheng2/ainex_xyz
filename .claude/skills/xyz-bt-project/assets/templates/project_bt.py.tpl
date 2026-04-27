@@ -16,19 +16,19 @@ Tree structure:
           --> L2_Gait_FindLine
           --> L2_Gait_Stop
 
-All leaf nodes receive only the Project Semantic Facade (AinexBTFacade).
+All leaf nodes receive only the Project Semantic Facade (XyzBTFacade).
 """
 import py_trees
 
-# ainex_bt_edu standard library nodes
-from ainex_bt_edu.behaviours.L1_perception.L1_Balance_IsStanding import L1_Balance_IsStanding
-from ainex_bt_edu.behaviours.L1_perception.L1_Vision_IsLineDetected import L1_Vision_IsLineDetected
-from ainex_bt_edu.behaviours.L2_locomotion.L2_Gait_Stop import L2_Gait_Stop
-from ainex_bt_edu.behaviours.L2_locomotion.L2_Gait_FollowLine import L2_Gait_FollowLine
-from ainex_bt_edu.behaviours.L2_locomotion.L2_Gait_FindLine import L2_Gait_FindLine
-from ainex_bt_edu.behaviours.L2_locomotion.L2_Balance_RecoverFromFall import L2_Balance_RecoverFromFall
+# xyz_bt_edu standard library nodes
+from xyz_bt_edu.behaviours.L1_perception.L1_Balance_IsStanding import L1_Balance_IsStanding
+from xyz_bt_edu.behaviours.L1_perception.L1_Vision_IsLineDetected import L1_Vision_IsLineDetected
+from xyz_bt_edu.behaviours.L2_locomotion.L2_Gait_Stop import L2_Gait_Stop
+from xyz_bt_edu.behaviours.L2_locomotion.L2_Gait_FollowLine import L2_Gait_FollowLine
+from xyz_bt_edu.behaviours.L2_locomotion.L2_Gait_FindLine import L2_Gait_FindLine
+from xyz_bt_edu.behaviours.L2_locomotion.L2_Balance_RecoverFromFall import L2_Balance_RecoverFromFall
 
-# {{PROJECT_CLASS}}-specific nodes (only those with no ainex_bt_edu equivalent)
+# {{PROJECT_CLASS}}-specific nodes (only those with no xyz_bt_edu equivalent)
 # from {{PROJECT}}.behaviours.conditions import SomeProjectSpecificCondition
 
 

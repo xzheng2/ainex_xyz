@@ -1,8 +1,8 @@
 ---
-name: ainex-bt-project
+name: xyz-bt-project
 description: >
   Use this skill when the user wants to:
-  CREATE a new BT project under ainex_behavior ("新建BT项目", "创建比赛行为树",
+  CREATE a new BT project under xyz_behavior ("新建BT项目", "创建比赛行为树",
   "scaffold bt project", "新建 <name> 项目", "create a new BT project",
   "set up a competition BT").
   MODIFY an existing BT project ("新加btnode", "添加节点", "add bt node",
@@ -11,9 +11,9 @@ version: 0.1.0
 argument-hint: <project_name> [task_description]
 ---
 
-# ainex-bt-project Skill
+# xyz-bt-project Skill
 
-Create or modify BT projects under `ainex_behavior/`, fully compliant with the
+Create or modify BT projects under `xyz_behavior/`, fully compliant with the
 observability framework and infra manifest framework. All rules are in `references/`.
 
 ## Mode detection
@@ -34,7 +34,7 @@ Before writing or modifying **any single component**, trace the full chain:
 
 ```
 Input Adapter                 →  blackboard_keys.py (BB.*)  →  Behaviour Node
-ainex_bt_edu/input_adapters/     single source of truth         behaviours/
+xyz_bt_edu/input_adapters/     single source of truth         behaviours/
   emits: ros_in + input_state    BB.*_KEY / BB.* / BB.LATCHED_NS  reads BB.LATCHED_NS
 ```
 
@@ -42,7 +42,7 @@ ainex_bt_edu/input_adapters/     single source of truth         behaviours/
 |---|---|
 | What BB key does the behaviour need? | node's `BB_READS` / `BB_WRITES` / `register_key` |
 | Is that key defined in `blackboard_keys.py`? | look for `BB.*_KEY` + `BB.*` |
-| Which adapter writes that key? | `ainex_bt_edu/input_adapters/` |
+| Which adapter writes that key? | `xyz_bt_edu/input_adapters/` |
 | No adapter yet? → **add adapter first**, then BB key, then node |
 
 **BB key naming convention** (`blackboard_keys.py` — never hardcode strings):
@@ -80,9 +80,9 @@ ainex_bt_edu/input_adapters/     single source of truth         behaviours/
 User says any of:
 - `新建BT项目 <name>` / `创建比赛行为树 <name>`
 - `scaffold bt project <name>`
-- `新建 <name> 项目` (where context is ainex_behavior)
+- `新建 <name> 项目` (where context is xyz_behavior)
 - `create a new BT project for <competition>`
-- `/ainex-bt-project <name> [description]`
+- `/xyz-bt-project <name> [description]`
 
 ### Information to collect (if not in args)
 
@@ -91,7 +91,7 @@ Ask the user for:
 2. **task_description** — one sentence describing the competition task
 3. **base_class** — does the node inherit `color_common.Common`? (default: yes, like marathon)
 
-If args were provided (`/ainex-bt-project ball_kick 足球踢球`), skip asking and proceed.
+If args were provided (`/xyz-bt-project ball_kick 足球踢球`), skip asking and proceed.
 
 ### 7-Step Workflow
 
@@ -101,24 +101,24 @@ Read `references/bt_observability_rules.md` and `references/bt_infra_manifest_ru
 before generating any file. The rules govern every structural and naming decision.
 
 Key constraints to enforce (summary — full rules in references/):
-- `tree/` imports ainex_bt_edu standard nodes first; project-specific nodes second
-- Project condition nodes inherit `AinexL1ConditionNode`; project action nodes inherit
-  `AinexL2ActionNode`. Both indirectly inherit `AinexBTNode`; no node may inherit
+- `tree/` imports xyz_bt_edu standard nodes first; project-specific nodes second
+- Project condition nodes inherit `XyzL1ConditionNode`; project action nodes inherit
+  `XyzL2ActionNode`. Both indirectly inherit `XyzBTNode`; no node may inherit
   `py_trees.behaviour.Behaviour` directly.
-- Input adapters inherit `AinexInputAdapter` and never inherit `AinexBTNode`
-- `semantic_facade.py` inherits `AinexBTFacade`
+- Input adapters inherit `XyzInputAdapter` and never inherit `XyzBTNode`
+- `semantic_facade.py` inherits `XyzBTFacade`
 - `comm/comm_facade.py` is the **sole** `emit_comm` exit for business_out
-- `ainex_bt_edu/input_adapters/` is the **sole** `emit_comm` exit for business_in (`ros_in` + `input_state`);
+- `xyz_bt_edu/input_adapters/` is the **sole** `emit_comm` exit for business_in (`ros_in` + `input_state`);
   `app/<project>_bt_node.py` must NOT contain `rospy.Subscriber` or direct `emit_comm` calls
 - `logger=None` must be zero-cost (all emit calls are no-ops when logger is None)
 - `tick_id` increments inside `should_tick()` gate, before `tree.tick()`
 
 ### Step 2 — Create directory structure
 
-Create all directories under `ainex_behavior/<project_name>/`:
+Create all directories under `xyz_behavior/<project_name>/`:
 
 ```
-ainex_behavior/<project_name>/
+xyz_behavior/<project_name>/
 ├── __init__.py
 ├── app/
 │   ├── __init__.py
@@ -189,10 +189,10 @@ Files to generate from templates:
 ### Step 4 — Node composition check
 
 Verify the generated `tree/{{PROJECT}}_bt.py`:
-- [ ] Imports `L1_Balance_IsStanding` from `ainex_bt_edu.behaviours.L1_perception`
-- [ ] Imports `L1_Vision_IsLineDetected` from `ainex_bt_edu.behaviours.L1_perception`
+- [ ] Imports `L1_Balance_IsStanding` from `xyz_bt_edu.behaviours.L1_perception`
+- [ ] Imports `L1_Vision_IsLineDetected` from `xyz_bt_edu.behaviours.L1_perception`
 - [ ] Imports `L2_Gait_Stop`, `L2_Gait_FindLine`, `L2_Gait_FollowLine`, `L2_Balance_RecoverFromFall`
-      from `ainex_bt_edu.behaviours.L2_locomotion`
+      from `xyz_bt_edu.behaviours.L2_locomotion`
 - [ ] Project-specific nodes come from `<project>.behaviours.*`
 - [ ] No node inherits `py_trees.behaviour.Behaviour` directly
 
@@ -205,7 +205,7 @@ Verify BB constant usage across all generated behaviour nodes:
 ### Step 5 — Interface check
 
 Verify the generated `semantics/semantic_facade.py`:
-- [ ] Class inherits `AinexBTFacade` (from `ainex_bt_edu.base_facade`)
+- [ ] Class inherits `XyzBTFacade` (from `xyz_bt_edu.base_facade`)
 - [ ] All 7 abstract methods implemented: `stop_walking`,
       `follow_line` (deprecated — no-op stub is acceptable), `gait_step`, `go_step`,
       `turn_step`, `recover_from_fall`, `move_head`
@@ -213,7 +213,7 @@ Verify the generated `semantics/semantic_facade.py`:
 
 ### Step 6 — Update package.xml
 
-Check `ainex_behavior/package.xml` for `<exec_depend>ainex_bt_edu</exec_depend>`.
+Check `xyz_behavior/package.xml` for `<exec_depend>xyz_bt_edu</exec_depend>`.
 If missing, add it before the closing `</package>` tag.
 
 ### Step 7 — Print checklist
@@ -222,14 +222,14 @@ Output the Section 10 checklist from `references/bt_observability_rules.md` (11 
 marking which are auto-satisfied by the scaffold and which need manual completion:
 
 ```
-✅ auto  [node composition] tree/ imports ainex_bt_edu standard nodes
-✅ auto  [node composition] project condition nodes inherit AinexL1ConditionNode
-✅ auto  [node composition] project action nodes inherit AinexL2ActionNode
-✅ auto  [node composition] semantic_facade.py inherits AinexBTFacade
+✅ auto  [node composition] tree/ imports xyz_bt_edu standard nodes
+✅ auto  [node composition] project condition nodes inherit XyzL1ConditionNode
+✅ auto  [node composition] project action nodes inherit XyzL2ActionNode
+✅ auto  [node composition] semantic_facade.py inherits XyzBTFacade
 ✅ auto  Step 1: DebugEventLogger created in __init__(), paths to log/
 ✅ auto  Step 2: BTDebugVisitor mounted to tree
 ✅ auto  Step 3: tick_id increments inside should_tick(), before tree.tick()
-✅ auto  Step 4: ImuBalanceStateAdapter + LineDetectionAdapter from ainex_bt_edu/input_adapters/;
+✅ auto  Step 4: ImuBalanceStateAdapter + LineDetectionAdapter from xyz_bt_edu/input_adapters/;
                  two-phase latch in run() (snapshot_and_reset under lock, write_snapshot after)
 ✅ auto  Step 5: comm_facade.py each public method calls _emit()
 ✅ auto  Step 6: logger.close() called in run() after loop
@@ -248,12 +248,12 @@ marking which are auto-satisfied by the scaffold and which need manual completio
 ### Step 8 — `chmod +x` the node script
 
 ```bash
-chmod +x /home/pi/docker/ros_ws_src/ainex_behavior/{{PROJECT}}/app/{{PROJECT}}_bt_node.py
+chmod +x /home/pi/docker/ros_ws_src/xyz_behavior/{{PROJECT}}/app/{{PROJECT}}_bt_node.py
 ```
 
 ### Step 9 — Update `CMakeLists.txt`
 
-Edit `docker/ros_ws_src/ainex_behavior/CMakeLists.txt`:
+Edit `docker/ros_ws_src/xyz_behavior/CMakeLists.txt`:
 
 1. Add `{{PROJECT}}/app/{{PROJECT}}_bt_node.py` inside the existing `catkin_install_python(PROGRAMS ...)` block.
 2. Append a new `install(DIRECTORY ...)` block after the last existing one:
@@ -275,7 +275,7 @@ install(DIRECTORY {{PROJECT}}/
 
 ```xml
 <launch>
-  <node pkg="ainex_behavior" type="{{PROJECT}}_bt_node.py" name="{{PROJECT}}_bt"
+  <node pkg="xyz_behavior" type="{{PROJECT}}_bt_node.py" name="{{PROJECT}}_bt"
         output="screen" required="true">
     <param name="start" value="true"/>
     <!-- <param name="bt_mode" value="run"/> -->
@@ -291,12 +291,12 @@ vision pipeline, etc.).
 
 Launch with BT-only (no hardware):
 ```bash
-roslaunch ainex_behavior {{PROJECT}}_bt_node.launch
+roslaunch xyz_behavior {{PROJECT}}_bt_node.launch
 ```
 
 Launch with full hardware:
 ```bash
-roslaunch ainex_behavior {{PROJECT}}_bringup.launch [use_camera:=true]
+roslaunch xyz_behavior {{PROJECT}}_bringup.launch [use_camera:=true]
 ```
 
 ### Step 11 — Build and verify
@@ -306,18 +306,18 @@ roslaunch ainex_behavior {{PROJECT}}_bringup.launch [use_camera:=true]
 docker exec ainex bash -c "
   source /opt/ros/noetic/setup.bash &&
   cd /home/ubuntu/ros_ws &&
-  catkin build ainex_behavior
+  catkin build xyz_behavior
 "
 
 # Verify wrapper installed
 docker exec ainex bash -c "
-  ls /home/ubuntu/ros_ws/devel/lib/ainex_behavior/{{PROJECT}}_bt_node.py
+  ls /home/ubuntu/ros_ws/devel/lib/xyz_behavior/{{PROJECT}}_bt_node.py
 "
 ```
 
 Launch with:
 ```bash
-roslaunch ainex_behavior {{PROJECT}}_bt_node.launch
+roslaunch xyz_behavior {{PROJECT}}_bt_node.launch
 ```
 
 ---
@@ -329,8 +329,8 @@ roslaunch ainex_behavior {{PROJECT}}_bt_node.launch
 cd /home/pi/docker/ros_ws_src
 python3 -c "
 import sys
-sys.path.insert(0, 'ainex_behavior')
-sys.path.insert(0, 'ainex_bt_edu/src')
+sys.path.insert(0, 'xyz_behavior')
+sys.path.insert(0, 'xyz_bt_edu/src')
 from {{PROJECT}}.tree.{{PROJECT}}_bt import bootstrap
 print('tree import OK')
 "
@@ -338,8 +338,8 @@ print('tree import OK')
 # 2. Interface check (host)
 python3 -c "
 import sys
-sys.path.insert(0, 'ainex_behavior')
-sys.path.insert(0, 'ainex_bt_edu/src')
+sys.path.insert(0, 'xyz_behavior')
+sys.path.insert(0, 'xyz_bt_edu/src')
 from {{PROJECT}}.infra.infra_manifest import build_infra_manifest
 items = build_infra_manifest('{{PROJECT}}_bt')
 print('infra manifest OK —', len(items), 'interfaces')
@@ -361,13 +361,13 @@ Triggered when user mentions an existing project name + adding or changing nodes
 ### Step 1 — Identify target
 
 Ask if not clear:
-- Which project? (check `ainex_behavior/` for existing dirs)
+- Which project? (check `xyz_behavior/` for existing dirs)
 - What kind of node? `L1` condition / `L2` action / project-specific
 - What does the node do? (one sentence)
 
-### Step 2 — Check ainex_bt_edu first
+### Step 2 — Check xyz_bt_edu first
 
-Read `ainex_bt_edu/src/ainex_bt_edu/behaviours/` to check if an equivalent node
+Read `xyz_bt_edu/src/xyz_bt_edu/behaviours/` to check if an equivalent node
 already exists.
 
 - **If yes** → import it directly in `tree/<project>_bt.py`. Stop here.
@@ -375,8 +375,8 @@ already exists.
   → add to `behaviours/conditions.py`. Proceed to Step 3.
 - **If no, and it is an action** (L2+ actuator command, may return RUNNING)
   → add to `behaviours/actions.py`. Rules for new action nodes:
-  - Only allowed when NO generic equivalent exists in `ainex_bt_edu`.
-  - Must inherit `AinexL2ActionNode` — never `py_trees.behaviour.Behaviour` directly.
+  - Only allowed when NO generic equivalent exists in `xyz_bt_edu`.
+  - Must inherit `XyzL2ActionNode` — never `py_trees.behaviour.Behaviour` directly.
   - No direct `rospy`, `gait_manager`, `motion_manager`, publisher, or service calls.
   - All ROS output via `self._facade.*` → `semantic_facade` → `comm_facade`.
   - `logger=None` must be zero-cost no-op.
@@ -402,8 +402,8 @@ For each BB key:
 
 2. **Check input_adapters** — which adapter writes that key?
    - Key in active adapter table (see System Thinking section) → adapter exists; no change.
-   - New key → create a new adapter in `ainex_bt_edu/input_adapters/` following the
-     `AinexInputAdapter` base-class contract and
+   - New key → create a new adapter in `xyz_bt_edu/input_adapters/` following the
+     `XyzInputAdapter` base-class contract and
      two-phase latch protocol (`snapshot_and_reset` under lock, `write_snapshot` after),
      emitting `ros_in` + `input_state`.  Wire it into `app/<project>_bt_node.py`
      `__init__()` + `run()`.
@@ -417,13 +417,13 @@ For each BB key:
 
 Create file in `<project>/behaviours/` following this checklist:
 
-- [ ] Add `from ainex_bt_edu.blackboard_keys import BB` import
-- [ ] L1 condition inherits `AinexL1ConditionNode`; L2 action inherits `AinexL2ActionNode`
+- [ ] Add `from xyz_bt_edu.blackboard_keys import BB` import
+- [ ] L1 condition inherits `XyzL1ConditionNode`; L2 action inherits `XyzL2ActionNode`
       (not `py_trees.behaviour.Behaviour`)
 - [ ] Declares `LEVEL = 'L1' | 'L2' | 'L3'`
 - [ ] Declares `BB_READS` / `BB_WRITES` and optional compatibility `BB_LOG_KEYS`
       with absolute `BB.*` constants — never `'/latched/...'`
-- [ ] Constructor accepts `facade: AinexBTFacade` (if it calls any ROS action)
+- [ ] Constructor accepts `facade: XyzBTFacade` (if it calls any ROS action)
 - [ ] All ROS actions delegated through `facade.*`, no direct rospy calls
 - [ ] `attach_blackboard_client(namespace=BB.LATCHED_NS)` — never hardcode `'/latched/'`
 - [ ] `register_key(key=BB.SOME_KEY_KEY)` for `/latched/` keys; `key=BB.HEAD_PAN_POS` for root-ns
@@ -443,11 +443,11 @@ existing tree structure. Consider:
 ### Step 6 — Check if SemanticFacade needs a new method
 
 If the new node calls a `facade.*` method that doesn't exist yet:
-1. Add the abstract method to `ainex_bt_edu/base_facade.py`
+1. Add the abstract method to `xyz_bt_edu/base_facade.py`
 2. Implement it in `<project>/semantics/semantic_facade.py` (delegates to `comm_facade.*`)
 3. Add the corresponding `comm_facade.*` method if needed (with `_emit()` call)
 
-Verify `AinexBTFacade` still fully implemented: `isinstance(facade, AinexBTFacade)` → True.
+Verify `XyzBTFacade` still fully implemented: `isinstance(facade, XyzBTFacade)` → True.
 
 ### Step 7 — Check infra_manifest and bb_ros_bridge
 
@@ -456,7 +456,7 @@ BB keys, or input adapters:
 
 - Determine if the interface is **infra** (framework-level) or **business_in/out**
 - If infra → add record to `<project>/infra/infra_manifest.py`
-- If business_in → provided by `ainex_bt_edu/input_adapters/` (no `app/` change needed;
+- If business_in → provided by `xyz_bt_edu/input_adapters/` (no `app/` change needed;
   adapters handle `ros_in` + `input_state` automatically)
 - If new BB key introduced → also add to `<project>/infra/bb_ros_bridge.py`
   (`{{PROJECT_UPPER}}_BB_TOPIC_MAP`) so ROSA/debug tools can observe it
@@ -469,7 +469,7 @@ BB keys, or input adapters:
 Remind user to verify no layered import violations:
 
 ```bash
-cd /home/pi/docker/ros_ws_src/ainex_behavior
+cd /home/pi/docker/ros_ws_src/xyz_behavior
 python3 <project>/check_imports.py
 ```
 

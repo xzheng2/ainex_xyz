@@ -7,11 +7,11 @@ SUCCESS/FAILURE without executing actuator commands).
 For **action** nodes (L2+ actuator commands, RUNNING/SUCCESS/FAILURE):
   → use behaviours/actions.py (actions.py.tpl).
 
-Only place nodes here that have NO generic equivalent in ainex_bt_edu.
-Check ainex_bt_edu/behaviours/ first — if a generic node exists, use it
+Only place nodes here that have NO generic equivalent in xyz_bt_edu.
+Check xyz_bt_edu/behaviours/ first — if a generic node exists, use it
 from tree/{{PROJECT}}_bt.py instead of reimplementing here.
 
-Generic nodes available in ainex_bt_edu:
+Generic nodes available in xyz_bt_edu:
   L1_perception/L1_Balance_IsStanding
   L1_perception/L1_Head_IsHeadCentered
   L1_perception/L1_Vision_IsLineDetected
@@ -22,24 +22,24 @@ Generic nodes available in ainex_bt_edu:
   L2_locomotion/L2_Balance_RecoverFromFall
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexL1ConditionNode
-from ainex_bt_edu.blackboard_keys import BB
+from xyz_bt_edu.base_node import XyzL1ConditionNode
+from xyz_bt_edu.blackboard_keys import BB
 
 
 # ── Example project-specific condition ───────────────────────────────────────
 # Remove or replace with your actual project-specific node.
 
-# class IsAtStartingPosition(AinexL1ConditionNode):
+# class IsAtStartingPosition(XyzL1ConditionNode):
 #     """SUCCESS when the robot is detected at the starting position.
 #
-#     Project-specific: no generic equivalent in ainex_bt_edu.
+#     Project-specific: no generic equivalent in xyz_bt_edu.
 #
 #     System Thinking Checklist (complete BEFORE writing this node):
-#       1. Add to ainex_bt_edu/blackboard_keys.py:
+#       1. Add to xyz_bt_edu/blackboard_keys.py:
 #            START_MARKER_KEY = 'start_marker'
 #            START_MARKER     = BB.LATCHED_NS + '/' + START_MARKER_KEY
 #       2. Verify an input_adapter writes BB.START_MARKER every tick.
-#          If none exists, create one in ainex_bt_edu/input_adapters/ first.
+#          If none exists, create one in xyz_bt_edu/input_adapters/ first.
 #       3. Wire the adapter into app/<project>_bt_node.py __init__() + run().
 #     """
 #     LEVEL = 'L1'

@@ -29,11 +29,11 @@ Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexL1ConditionNode
-from ainex_bt_edu.blackboard_keys import BB
+from xyz_bt_edu.base_node import XyzL1ConditionNode
+from xyz_bt_edu.blackboard_keys import BB
 
 
-class {{CLASS_NAME}}(AinexL1ConditionNode):
+class {{CLASS_NAME}}(XyzL1ConditionNode):
     """{{DESCRIPTION}}"""
 
     LEVEL = 'L1'
@@ -48,6 +48,7 @@ class {{CLASS_NAME}}(AinexL1ConditionNode):
     }
     BB_LOG_KEYS = BB_READS
 
+    # Param order: name first, then domain params, then logger, tick_id_getter.
     def __init__(self, name: str = {{DEFAULT_NAME}},
                  expected_state: str = 'stand',
                  threshold: int = 0,

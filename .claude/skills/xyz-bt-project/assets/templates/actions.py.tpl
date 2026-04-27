@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """{{PROJECT_CLASS}}-specific action behaviour nodes.
 
-Only add nodes here when NO generic equivalent exists in ainex_bt_edu.
-Check ainex_bt_edu/behaviours/ first — if a generic node exists, import it
+Only add nodes here when NO generic equivalent exists in xyz_bt_edu.
+Check xyz_bt_edu/behaviours/ first — if a generic node exists, import it
 directly in tree/{{PROJECT}}_bt.py instead of reimplementing here.
 
-Generic nodes available in ainex_bt_edu:
+Generic nodes available in xyz_bt_edu:
   L1_perception/L1_Balance_IsStanding
   L1_perception/L1_Head_IsHeadCentered
   L1_perception/L1_Vision_IsLineDetected
@@ -17,7 +17,7 @@ Generic nodes available in ainex_bt_edu:
 
 Rules for project-specific action nodes (enforce strictly):
 
-  1. Must inherit AinexL2ActionNode — NEVER py_trees.behaviour.Behaviour directly.
+  1. Must inherit XyzL2ActionNode — NEVER py_trees.behaviour.Behaviour directly.
   2. No direct rospy, gait_manager, motion_manager, publisher, or service calls.
      All ROS output via: self._facade.<method>() → semantic_facade → comm_facade.
   3. logger=None must be zero-cost no-op (base helpers handle this).
@@ -29,18 +29,18 @@ Rules for project-specific action nodes (enforce strictly):
      comm_facade's _emit() call — not directly in the BT node.
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexL2ActionNode
-from ainex_bt_edu.base_facade import AinexBTFacade
-from ainex_bt_edu.blackboard_keys import BB
+from xyz_bt_edu.base_node import XyzL2ActionNode
+from xyz_bt_edu.base_facade import XyzBTFacade
+from xyz_bt_edu.blackboard_keys import BB
 
 
 # ── Example project-specific action ──────────────────────────────────────────
 # Remove or replace with your actual project-specific node.
 
-# class DoSomethingAction(AinexL2ActionNode):
+# class DoSomethingAction(XyzL2ActionNode):
 #     """RUNNING while executing; SUCCESS on completion; FAILURE on error.
 #
-#     Project-specific: no generic equivalent in ainex_bt_edu.
+#     Project-specific: no generic equivalent in xyz_bt_edu.
 #
 #     System Thinking Checklist (complete BEFORE writing this node):
 #       1. Confirm the BB keys this node reads are defined in blackboard_keys.py.
@@ -54,7 +54,7 @@ from ainex_bt_edu.blackboard_keys import BB
 #     FACADE_CALLS = ['do_something']
 #     BB_LOG_KEYS = BB_READS           # compatibility alias during migration
 #
-#     def __init__(self, name: str, facade: AinexBTFacade, logger=None, tick_id_getter=None):
+#     def __init__(self, name: str, facade: XyzBTFacade, logger=None, tick_id_getter=None):
 #         super().__init__(name, facade=facade, logger=logger, tick_id_getter=tick_id_getter)
 #         self._bb = None
 #

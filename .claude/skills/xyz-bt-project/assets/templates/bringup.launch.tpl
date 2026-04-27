@@ -49,6 +49,6 @@
   </group>
 
   <!-- ── 5. BT node ────────────────────────────────────────────────────── -->
-  <include file="$(find ainex_behavior)/{{PROJECT}}/{{PROJECT}}_bt_node.launch"/>
+  <include file="$(find xyz_behavior)/{{PROJECT}}/{{PROJECT}}_bt_node.launch"/>
 
 </launch>

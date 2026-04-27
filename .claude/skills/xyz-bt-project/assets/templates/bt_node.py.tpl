@@ -7,10 +7,10 @@ import sys
 import signal
 
 import rospkg as _rospkg
-_AINEX_BEHAV_DIR = _rospkg.RosPack().get_path('ainex_behavior')
-sys.path.insert(0, _AINEX_BEHAV_DIR)
+_XYZ_BEHAV_DIR = _rospkg.RosPack().get_path('xyz_behavior')
+sys.path.insert(0, _XYZ_BEHAV_DIR)
 
-_LOG_DIR = os.path.join(_AINEX_BEHAV_DIR, 'log')
+_LOG_DIR = os.path.join(_XYZ_BEHAV_DIR, 'log')
 
 import rospy
 import py_trees
@@ -26,8 +26,8 @@ from {{PROJECT}}.infra.tree_publisher import TreeROSPublisher
 from {{PROJECT}}.infra.bb_ros_bridge import {{PROJECT_CLASS}}BBBridge
 from {{PROJECT}}.infra.bt_exec_controller import BTExecController
 from {{PROJECT}}.infra.infra_manifest import build_infra_manifest, write_infra_manifest
-from ainex_bt_edu.input_adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
-from ainex_bt_edu.input_adapters.line_detection_adapter import LineDetectionAdapter
+from xyz_bt_edu.input_adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
+from xyz_bt_edu.input_adapters.line_detection_adapter import LineDetectionAdapter
 from bt_observability.debug_event_logger import DebugEventLogger
 from bt_observability.bt_debug_visitor import BTDebugVisitor
 
@@ -71,7 +71,7 @@ class {{PROJECT_NODE_CLASS}}(Common):
         )
 
         # ── Input adapters ────────────────────────────────────────────────
-        # rospy.Subscriber lives in ainex_bt_edu/input_adapters/, not here.
+        # rospy.Subscriber lives in xyz_bt_edu/input_adapters/, not here.
         # Two-phase latch: snapshot_and_reset() under lock, write_snapshot() after.
         # Both adapters share self.lock so all live states are snapshotted atomically.
         self._imu_adapter = ImuBalanceStateAdapter(

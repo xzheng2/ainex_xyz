@@ -10,7 +10,7 @@ BB writes:
   TODO: list BB.* constants written by this node, or 'none'.
 
 Facade calls:
-  TODO: list existing AinexBTFacade methods called by this node.
+  TODO: list existing XyzBTFacade methods called by this node.
 
 Action strategy:
   {{DESCRIPTION}}
@@ -32,12 +32,12 @@ Observability:
   Never emits ros_out/ros_result or any comm event; those belong to comm_facade.py.
 """
 from py_trees.common import Access, Status
-from ainex_bt_edu.base_node import AinexL2ActionNode
-from ainex_bt_edu.base_facade import AinexBTFacade
-from ainex_bt_edu.blackboard_keys import BB
+from xyz_bt_edu.base_node import XyzL2ActionNode
+from xyz_bt_edu.base_facade import XyzBTFacade
+from xyz_bt_edu.blackboard_keys import BB
 
 
-class {{CLASS_NAME}}(AinexL2ActionNode):
+class {{CLASS_NAME}}(XyzL2ActionNode):
     """{{DESCRIPTION}}"""
 
     LEVEL = 'L2'
@@ -57,22 +57,23 @@ class {{CLASS_NAME}}(AinexL2ActionNode):
     }
     BB_LOG_KEYS = BB_READS
 
+    # Param order: name, facade, then domain params, then logger, tick_id_getter.
     def __init__(self, name: str = {{DEFAULT_NAME}},
-                 facade: AinexBTFacade = None,
+                 facade: XyzBTFacade = None,
                  speed: float = 0.015,
                  yaw_limit: int = 8,
                  head_pan_center: int = 500,
-                 tick_id_getter=None,
-                 logger=None):
+                 logger=None,
+                 tick_id_getter=None):
         """
         Args:
             name: BT node name.
-            facade: Project semantic facade implementing AinexBTFacade.
+            facade: Project semantic facade implementing XyzBTFacade.
             speed: Linear speed (m/step). Project trees may override.
             yaw_limit: Maximum yaw angle (deg). Project trees may override.
             head_pan_center: Head servo center position.
-            tick_id_getter: Callable returning current tick_id.
             logger: DebugEventLogger-compatible object, or None.
+            tick_id_getter: Callable returning current tick_id.
 
         Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
         Runtime logic must use self._ fields, not raw literals.
@@ -112,7 +113,7 @@ class {{CLASS_NAME}}(AinexL2ActionNode):
     def _select_action(self, *values) -> tuple:
         """Return (facade_method_name, kwargs, reason).
 
-        facade_method_name must name an existing AinexBTFacade method unless the
+        facade_method_name must name an existing XyzBTFacade method unless the
         user approved a breaking facade migration.
 
         Use this helper for both simple selection and parameter computation.
