@@ -4,7 +4,7 @@ import json
 import re
 import sys
 
-_PATTERN = re.compile(r'ainex_behavior/.+/behaviours/[^/]+\.py$')
+_PATTERN = re.compile(r'(ainex|xyz)_behavior/.+/behaviours/[^/]+\.py$')
 
 # Strip single-line comments and string literals for cleaner analysis
 _COMMENT_RE = re.compile(r'#[^\n]*')

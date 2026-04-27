@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/pi/.claude/hooks/ainex_bt_edu_pre_guard.py",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_edu_pre_guard.py",
             "timeout": 5
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/pi/.claude/hooks/ainex_bt_edu_guard.py",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_edu_guard.py",
             "timeout": 5
           }
         ]

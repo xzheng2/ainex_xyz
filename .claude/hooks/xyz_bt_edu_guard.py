@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: check AinexBTNode / adapter compliance after writing to ainex_bt_edu source."""
+"""PostToolUse hook: check AinexBTNode / adapter compliance after writing to xyz_bt_edu source."""
 import json
 import re
 import sys
 
-_NODE_PATTERN    = re.compile(r'ainex_bt_edu/src/ainex_bt_edu/behaviours/L[12]_\w+/[^/]+\.py$')
-_ADAPTER_PATTERN = re.compile(r'ainex_bt_edu/src/ainex_bt_edu/input_adapters/[^/]+\.py$')
+_NODE_PATTERN    = re.compile(r'xyz_bt_edu/src/xyz_bt_edu/behaviours/L[12]_\w+/[^/]+\.py$')
+_ADAPTER_PATTERN = re.compile(r'xyz_bt_edu/src/xyz_bt_edu/input_adapters/[^/]+\.py$')
 
 _COMMENT_RE = re.compile(r'#[^\n]*')
 _STRING_RE  = re.compile(r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"[^"\n]*"|\'[^\'\n]*\')')
@@ -84,9 +84,9 @@ def main() -> None:
     lines = "\n".join(f"  {v}" for v in violations)
     kind  = "BT节点" if is_node else "适配器"
     context = (
-        f"【ainex_bt_edu {kind}守护 · 合规检查】{file_path} 存在 {len(violations)} 项违规：\n"
+        f"【xyz_bt_edu {kind}守护 · 合规检查】{file_path} 存在 {len(violations)} 项违规：\n"
         f"{lines}\n"
-        "请立即修正上述问题，确保符合 ainex_bt_edu 规范后再继续。"
+        "请立即修正上述问题，确保符合 xyz_bt_edu 规范后再继续。"
     )
     print(json.dumps({"additionalContext": context}))
     sys.exit(0)
