@@ -99,7 +99,10 @@ class XyzL2ActionNode(XyzBTNode):
     """Base class for L2 action/strategy nodes.
 
     L2 nodes may read/write documented blackboard keys and dispatch side effects
-    only through an injected XyzBTFacade implementation.
+    only through the injected XyzBTFacade runtime interface.
+
+    All ROS output flows: L2 node → call_facade() → RuntimeFacade → _RuntimeIO.
+    L2 nodes must never call _RuntimeIO, managers, or raw ROS APIs directly.
     """
 
     LEVEL = 'L2'
@@ -127,3 +130,6 @@ class XyzL2ActionNode(XyzBTNode):
         kwargs.setdefault('bt_node', self.name)
         kwargs.setdefault('tick_id', self.tick_id)
         return getattr(self._facade, method_name)(**kwargs)
+
+    # Alias for clarity in newer code; both names are identical.
+    call_runtime = call_facade

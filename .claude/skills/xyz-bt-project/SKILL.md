@@ -13,6 +13,12 @@ argument-hint: <project_name> [task_description]
 
 # xyz-bt-project Skill
 
+> **DEPRECATED**: This skill is archived.
+> Use `xyz-bt-facade-project` for all new projects.
+> Do not use as reference for new templates or modifications.
+> Templates here (`semantic_facade.py.tpl`, `comm_facade.py.tpl`) represent the old
+> SemanticFacade/CommFacade paradigm which has been superseded by RuntimeFacade/_RuntimeIO.
+
 Create or modify BT projects under `xyz_behavior/`, fully compliant with the
 observability framework and infra manifest framework. All rules are in `references/`.
 

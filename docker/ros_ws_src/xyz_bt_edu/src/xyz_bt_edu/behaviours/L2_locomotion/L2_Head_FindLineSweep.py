@@ -23,7 +23,7 @@ BB reads:
 BB writes:
   BB.HEAD_PAN_POS  (/head_pan_pos) — read by companion IsHeadCentered condition
 
-Facade:    stop_walking(), move_head(pan_pos), turn_step(x, y, yaw)
+Facade:    stop_gait(), move_head(pan_pos), turn_step(x, y, yaw)
 Strategy:  _compute_align_turn(head_offset) → gait_yaw (int)
 
 Returns:
@@ -53,7 +53,7 @@ class L2_Head_FindLineSweep(XyzL2ActionNode):
     LEVEL        = 'L2'
     BB_READS     = [BB.LINE_DATA, BB.LAST_LINE_ERROR_X]
     BB_WRITES    = [BB.HEAD_PAN_POS]
-    FACADE_CALLS = ['stop_walking', 'move_head', 'turn_step']
+    FACADE_CALLS = ['stop_gait', 'move_head', 'turn_step']
     CONFIG_DEFAULTS = {
         'sweep_left_pos':     700,
         'sweep_right_pos':    300,
@@ -139,12 +139,12 @@ class L2_Head_FindLineSweep(XyzL2ActionNode):
         the memory=False Selector restarting the node every tick, _sweep_dir is
         preserved so the sweep continues in the same direction.
 
-        stop_walking() is only called when line_data is None (SWEEP mode — robot
+        stop_gait() is only called when line_data is None (SWEEP mode — robot
         stands still while scanning).  When line_data is present the node will
         immediately re-enter ALIGN, so the gait must not be stopped mid-turn.
         """
         if self._bb.line_data is None:            # SWEEP: stand still while scanning
-            self.call_facade('stop_walking')
+            self.call_facade('stop_gait')
         self._state       = self._ST_SWEEP
         self._pause_ticks = 0
 
@@ -220,7 +220,7 @@ class L2_Head_FindLineSweep(XyzL2ActionNode):
             self._head_pan = self._head_pan_center
             self._command_head(self._head_pan_center)
             self._write_head_pan()
-            self.call_facade('stop_walking')
+            self.call_facade('stop_gait')
             self._fresh_start = True   # next initialise() is a genuine restart
             self.emit_decision(
                 inputs={'head_pan': self._head_pan},

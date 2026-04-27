@@ -88,7 +88,7 @@ setup()                                         # 注册 BB 访问
 
 initialise()                                    # 节点从 IDLE 进入 RUNNING 时调用
   emit_bt('action_intent') if useful            # 例：准备开始 follow_line
-  never emit ros_out                            # ros_out 只能由 comm_facade 发
+  never emit ros_out                            # ros_out 只能由 _RuntimeIO 发
 
 update()                                        # 每 tick 执行动作策略
   value = read BB                               # 例：err = self._bb.line_error_x
@@ -108,6 +108,6 @@ OPTIONAL _compute_command()                     # 只有复杂算法才拆出来
   compute command dict only                     # 例：{'profile':'turn','yaw':-5,'x':0}
   called by _select_action()                    # 避免简单节点产生多余空方法
 
-OUTPUT: facade dispatch                         # 真正 ROS 通信在 comm_facade 记录 ros_out
+OUTPUT: facade dispatch                         # 真正 ROS 通信在 _RuntimeIO 记录 ros_out
 OUTPUT: optional BB write                       # 仅限文档声明的动作状态/协调 key
 OUTPUT: optional action_intent/decision         # 只走 emit_bt

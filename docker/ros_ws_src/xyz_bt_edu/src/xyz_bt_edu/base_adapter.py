@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Base class for AiNex observable input adapters.
 
-Input adapters are business-in components, not behaviour-tree nodes. They
+Input adapters are inbound ROS components, not behaviour-tree nodes. They
 subscribe to ROS input streams, maintain live state under a shared lock, and
 expose a two-phase latch API used by the BT app loop:
 
 1. ``snapshot_and_reset()`` while the caller holds the shared lock.
 2. ``write_snapshot(snap, tick_id)`` after releasing the lock on the main thread.
+
+Boundary rules:
+  Inbound (ROS → BB): adapters own rospy.Subscriber and BB writes.
+  Outbound (BT → ROS): all execution side-effects go via _RuntimeIO only.
+                        Adapters must never call managers or publish ROS topics.
 """
 from abc import ABC, abstractmethod
 import time

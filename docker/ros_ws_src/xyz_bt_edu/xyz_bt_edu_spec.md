@@ -6,8 +6,8 @@
 
 | 字段 | 值 |
 |------|---|
-| 文档版本 | 2.3.1 |
-| 日期 | 2026-04-18 |
+| 文档版本 | 2.6.0 |
+| 日期 | 2026-04-27 |
 | ROS 版本 | ROS Noetic (Ubuntu 20.04, aarch64) |
 | 包路径（宿主机） | `docker/ros_ws_src/xyz_bt_edu/` |
 | 包路径（容器内） | `/home/ubuntu/ros_ws/src/xyz_bt_edu/` |
@@ -20,7 +20,7 @@
 
 ### 核心设计规则
 
-1. **Facade 隔离**：所有节点只持有 `XyzBTFacade`（抽象接口），不直接调用 ROS publisher/service/gait_manager。ROS I/O 全部由项目层 SemanticFacade → CommFacade 负责。
+1. **Facade 隔离**：所有节点只持有 `XyzBTFacade`（抽象接口），不直接调用 ROS publisher/service/gait_manager。ROS I/O 全部由项目层 RuntimeFacade → _RuntimeIO 负责。_RuntimeIO 是唯一 raw ROS / manager 出口。
 2. **Latched Blackboard**：节点读写 `/latched/` 命名空间下的 BB 键，由 `input_adapters/` 在每次 tick 前通过两阶段 latch 协议原子性快照，保证同一 tick 内所有节点读取一致的传感器输入。
 3. **可观测性注入**：节点构造时接收可选的 `logger`（`DebugEventLogger`）和 `tick_id_getter`（`Callable[[], int]`），均有 None 安全默认值，不影响无观测器场景的使用。
 4. **零 ROS 依赖初始化**：节点 `__init__` 不调用任何 ROS API；ROS 资源（BB clients）在 `setup()` 中初始化。
@@ -38,7 +38,7 @@
 | `ainex_interfaces` | 自定义消息（`BTNodeEvent`, `BTRunComplete`） |
 | `ainex_kinematics` | 仅供 `XyzBTRunner`（`bt_runner.py`）参考 |
 
-节点本体**不**直接依赖 `ainex_kinematics`、`ainex_example`、`ainex_sdk`——这些依赖由 SemanticFacade 实现层承担。
+节点本体**不**直接依赖 `ainex_kinematics`、`ainex_example`、`ainex_sdk`——这些依赖由 RuntimeFacade / _RuntimeIO 实现层承担。
 
 ---
 
@@ -182,42 +182,52 @@ self._imu_adapter = ImuBalanceStateAdapter(
 
 ## `XyzBTFacade`（`base_facade.py`）
 
-所有项目 SemanticFacade 必须继承此抽象基类。节点只持有 `XyzBTFacade`，不知道具体项目细节。
+所有项目 RuntimeFacade 必须继承此抽象基类。节点只持有 `XyzBTFacade`，不知道具体项目细节。
+
+Public contract（完整方法集）：
 
 ```python
 class XyzBTFacade(ABC):
-    # ── 行走 ──────────────────────────────────────────────────────────────
-    @abstractmethod
-    def stop_walking(self, bt_node: str, tick_id: int = None) -> None:
-        """立即禁用步态控制器。"""
+    # ── Primitive: gait ───────────────────────────────────────────────────
+    def disable_gait(self, bt_node=None, tick_id=None)
+        """关闭步态控制器；需要 enable_gait() 才能重新工作。"""
+    def enable_gait(self, bt_node=None, tick_id=None)
+        """启动（或重启）步态控制器。"""
+    def stop_gait(self, bt_node=None, tick_id=None)
+        """停止当前步态动作；控制器保持运行，可立即接受新 set_step() 命令。"""
+    def set_step(self, dsp, x, y, yaw, gait_param=None, arm_swap=None,
+                 step_num=0, bt_node=None, tick_id=None,
+                 semantic_source='set_step', motion_profile=None)
+        """发送一步完整步态参数（不做 profile 推断）。"""
 
-    @abstractmethod
-    def follow_line(self, line_data, bt_node: str, tick_id: int = None) -> None:
-        """计算并发送跟线步态指令。line_data 须有 .x 和 .width 字段。"""
+    # ── Primitive: motion ─────────────────────────────────────────────────
+    def run_action(self, action_name, bt_node=None, tick_id=None)
+        """执行命名动作（如 'lie_to_stand'）。"""
+    def set_servos_position(self, duration_ms, positions, bt_node=None, tick_id=None)
+        """直接控制舵机位置。positions = [[servo_id, target], ...]"""
 
-    @abstractmethod
-    def search_line(self, last_line_x, lost_count: int,
-                    bt_node: str, tick_id: int = None) -> int:
-        """原地旋转寻线。返回 gait_yaw（供调用方日志用）。"""
+    # ── Primitive: buzzer ─────────────────────────────────────────────────
+    def publish_buzzer(self, freq, on_time, off_time, repeat,
+                       bt_node=None, tick_id=None)
+        """触发蜂鸣器。公约参数为标量；_RuntimeIO 内部构造 BuzzerState。"""
 
-    # ── 恢复 ──────────────────────────────────────────────────────────────
-    @abstractmethod
-    def recover_from_fall(self, robot_state: str,
-                          bt_node: str, tick_id: int = None) -> None:
-        """完整摔倒恢复序列（蜂鸣→禁步→起身动作）。不写 BB，由节点负责。"""
-
-    # ── 头部 ──────────────────────────────────────────────────────────────
-    @abstractmethod
-    def move_head(self, pan_pos: int, bt_node: str, tick_id: int = None) -> None:
-        """命令头部水平舵机到指定位置（500 = 中心）。"""
-
-    @abstractmethod
-    def head_sweep_align(self, head_offset: int,
-                         bt_node: str, tick_id: int = None) -> int:
-        """按头部偏移量命令身体转向（用于 sweep-align 阶段）。返回 gait_yaw。"""
+    # ── Convenience wrappers ──────────────────────────────────────────────
+    def go_step(self, x, y, yaw, step_num=0, bt_node=None, tick_id=None,
+                semantic_source='gait_step')
+        """前行步：合并 go_cfg（静态） + x/y/yaw（每 tick 动态） → set_step(motion_profile='go')"""
+    def turn_step(self, x, y, yaw, step_num=0, bt_node=None, tick_id=None,
+                  semantic_source='gait_step')
+        """转向步：合并 turn_cfg + x/y/yaw → set_step(motion_profile='turn')"""
+    def move_head(self, pan_pos, bt_node=None, tick_id=None)
+        """头部平移舵机到指定位置（500 = 中心）。set_servos_position 的便捷包装。"""
 ```
 
-**参考实现**：`xyz_behavior/marathon/semantics/semantic_facade.py` → `MarathonSemanticFacade`
+已删除（不在 public contract 中）：
+- `stop_walking` → 改用 `stop_gait`
+- `recover_from_fall` → 逻辑移至 `L2_Balance_RecoverFromFall` 节点内联
+- `follow_line`, `gait_step`, `search_line`, `head_sweep_align` → 已删除
+
+**参考实现**：`xyz-bt-facade-project` skill 的 `runtime_facade.py.tpl`
 
 ---
 

@@ -8,7 +8,7 @@ Do not treat existing non-conforming legacy code as precedent. New work must fol
 the rules below.
 
 **Scope**: this skill targets `xyz_bt_edu` only.
-For project-level work under `xyz_behavior/`, use the `xyz-bt-project` skill.
+For project-level work under `xyz_behavior/`, use the `xyz-bt-facade-project` skill.
 
 ---
 
@@ -108,7 +108,7 @@ Observability ownership:
 - L2 nodes may emit `action_intent` via `self.emit_action_intent()` in
   `initialise()` when useful.
 - L1/L2 nodes must never call `logger.emit_comm()`.
-- `ros_out` and `ros_result` are emitted only by project `comm/comm_facade.py`.
+- `ros_out` and `ros_result` are emitted only by project `_RuntimeIO`.
 - `tick_id` must come from the injected `tick_id_getter`; adapters/nodes must not maintain
   their own tick counters.
 
@@ -373,8 +373,7 @@ def _select_action(self, ...) -> tuple:
 - return the documented `Status`
 
 `initialise()` may emit `action_intent` via `self.emit_action_intent()` for action
-start observability. It must not emit `ros_out`; `ros_out` belongs to
-`comm_facade.py`.
+start observability. It must not emit `ros_out`; `ros_out` belongs to `_RuntimeIO`.
 
 Hard-coded strategy constants are forbidden inside `update()`. Strategy constants must
 live in:
@@ -387,10 +386,11 @@ Allowed L2 BB writes:
   state consistent
 - documented root-level coordination keys read by L1, e.g. head-pan position
 
-L2 nodes must not hide project-specific policy in `SemanticFacade`.
-`SemanticFacade` translates generic action requests into project ROS communication.
+L2 nodes must not hide project-specific policy in `RuntimeFacade`.
+`RuntimeFacade` translates generic action requests into project ROS communication.
 Generic computation such as yaw selection, deadband checks, profile selection, and
 sweep state machines belongs in the L2 node or a generic `xyz_bt_edu` helper.
+`_RuntimeIO` is the sole raw ROS / manager layer; L2 nodes must never call it directly.
 
 ### L2 BT-visible State Synchronization
 
@@ -408,15 +408,27 @@ commanded target and must be documented as "commanded state, not sensor feedback
 
 New L2 nodes should call existing `XyzBTFacade` methods.
 
-Currently available facade methods:
-- `move_head(pan_pos, bt_node, tick_id)` — head servo position
-- `stop_walking(bt_node, tick_id)` — stop gait
-- `recover_from_fall(robot_state, bt_node, tick_id)` — fall recovery
-- `follow_line(line_data, bt_node, tick_id)` — deprecated compatibility method
+Currently available facade methods (full public contract):
+
+Primitives:
+- `disable_gait(bt_node, tick_id)` — shut down gait controller (needs enable_gait to restart)
+- `enable_gait(bt_node, tick_id)` — start/restart gait controller
+- `stop_gait(bt_node, tick_id)` — stop current motion; controller stays up
+- `set_step(dsp, x, y, yaw, gait_param, arm_swap, step_num, ...)` — fully-resolved gait step
+- `run_action(action_name, bt_node, tick_id)` — named stand-alone motion action
+- `set_servos_position(duration_ms, positions, bt_node, tick_id)` — direct servo command
+- `publish_buzzer(freq, on_time, off_time, repeat, bt_node, tick_id)` — buzzer pattern (scalars only)
+
+Convenience wrappers:
 - `go_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — go profile step
 - `turn_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — turn profile step
-- `gait_step(profile, x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` —
-  select by profile `'go'` or `'turn'`
+- `move_head(pan_pos, bt_node, tick_id)` — head servo position
+
+Removed from contract (do not call):
+- `stop_walking` — replaced by `stop_gait`
+- `recover_from_fall` — logic now inline in `L2_Balance_RecoverFromFall`
+- `follow_line` — removed (algorithm lives in `L2_Gait_FollowLine`)
+- `gait_step` — removed (use `go_step` / `turn_step` directly)
 
 If a required facade method does not exist, stop before editing and ask the user to
 choose one option:
@@ -429,16 +441,11 @@ If the user chooses option 2, the change is a breaking contract migration. It mu
 update, in the same task:
 
 - `xyz_bt_edu/src/xyz_bt_edu/base_facade.py`
-- every existing `xyz_behavior/*/semantics/semantic_facade.py`
-- the project scaffold template `semantic_facade.py.tpl`
-- `comm_facade.py.tpl` if new ROS communication is also required
+- every existing `xyz_behavior/*/runtime/runtime_facade.py`
+- the project scaffold template `runtime_facade.py.tpl` in `xyz-bt-facade-project`
+- `_runtime_io.py.tpl` if new ROS communication is also required
 - `xyz_bt_edu/xyz_bt_edu_spec.md`
 - relevant import/build checks
-
-After user approval for option 2, open a worker/subagent to synchronize all project
-`semantic_facade.py` files. The main agent owns the `xyz_bt_edu` API and final
-integration. If worker/subagent support is unavailable, report that the skill cannot
-be completed as specified before making a partial facade migration.
 
 ---
 
@@ -459,7 +466,7 @@ be completed as specified before making a partial facade migration.
 2. Verify every read key exists and follows BB conventions.
 3. Scan `input_adapters/` or documented L2 writes to verify something writes each read key.
    If no writer exists, warn and recommend adding an adapter or documented L2 writer first.
-4. Generate the node in:
+4. Expand `assets/templates/l1_node.py.tpl` to generate the node at:
    `xyz_bt_edu/src/xyz_bt_edu/behaviours/L1_perception/{{CLASS_NAME}}.py`
 5. Verify structural conformance: the generated file must be structurally
    identical to `assets/templates/l1_node.py.tpl` — same `__init__` parameter
@@ -524,7 +531,7 @@ be completed as specified before making a partial facade migration.
    they are part of the intended public contract.
 4. Verify every facade method exists. If not, follow the Facade Contract Rule.
 5. Scan `input_adapters/` and documented L2 writes to verify something writes each read key.
-6. Generate the node in:
+6. Expand `assets/templates/l2_node.py.tpl` to generate the node at:
    `xyz_bt_edu/src/xyz_bt_edu/behaviours/L2_locomotion/{{CLASS_NAME}}.py`
 7. Verify structural conformance: the generated file must be structurally
    identical to `assets/templates/l2_node.py.tpl` — same `__init__` parameter
@@ -609,9 +616,14 @@ be completed as specified before making a partial facade migration.
      DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config)
    ```
 
-5. Generate the adapter in:
+5. Expand `assets/templates/input_adapter.py.tpl` to generate the adapter at:
    `xyz_bt_edu/src/xyz_bt_edu/input_adapters/{{class_name_snake}}.py`
-6. Ensure the file satisfies all Input Adapter rules:
+6. Verify structural conformance: the generated file must be structurally
+   identical to `assets/templates/input_adapter.py.tpl` — same `__init__`
+   parameter order, same class-level declarations, same helper structure,
+   same `_callback()` / `snapshot_and_reset()` / `write_snapshot()` skeleton.
+   Any structural deviation is a conformance violation.
+7. Ensure the file satisfies all Input Adapter rules:
    - inherits `XyzInputAdapter`, not `XyzBTNode`
    - top-level docstring fully traces input -> BB writes
    - `BB_READS = []`, `BB_WRITES`, `FACADE_CALLS = []`, `CONFIG_DEFAULTS` declared
@@ -621,8 +633,8 @@ be completed as specified before making a partial facade migration.
    - only `ros_in` and `input_state` are emitted via `XyzInputAdapter` helpers
    - no BT action strategy
    - no unresolved template `TODO` or `NotImplementedError`
-7. Update `input_adapters/__init__.py` only if that package uses explicit exports.
-8. Update `xyz_bt_edu_spec.md` with file path, topic, message type, BB writes,
+8. Update `input_adapters/__init__.py` only if that package uses explicit exports.
+9. Update `xyz_bt_edu_spec.md` with file path, topic, message type, BB writes,
    extraction/classification rules, defaults, integration notes, and version history.
 
 ### Adapter Integration Instructions
@@ -670,6 +682,7 @@ be completed as specified before making a partial facade migration.
 ✅ CMakeLists.txt installs config/ if deployment needs it
 ✅ No unresolved template TODO or NotImplementedError remains
 ✅ xyz_bt_edu_spec.md updated
+✅ File structure matches input_adapter.py.tpl (param order, class decls, helpers, callback/snapshot skeleton)
 ```
 
 ---

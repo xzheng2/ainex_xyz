@@ -3,7 +3,7 @@
 
 BB reads:  none
 BB writes: BB.HEAD_PAN_POS (/head_pan_pos) — commanded target (not sensor feedback)
-Facade:    move_head(pan_pos)
+Facade:    move_head(pan_pos)  — convenience wrapper over set_servos_position()
 Strategy:  none (trivial: always dispatches the configured pan position)
 
 Returns:
