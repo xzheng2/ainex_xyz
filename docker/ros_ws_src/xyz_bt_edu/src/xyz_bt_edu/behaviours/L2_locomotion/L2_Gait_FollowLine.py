@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """L2 Action: read line_error_x + line_data from blackboard and follow the line.
 
+Node kind: dispatch
+
 BB reads:
   BB.LINE_DATA    (/latched/line_data)     — detection result (.width used for ramp threshold)
   BB.LINE_ERROR_X (/latched/line_error_x)  — pre-computed signed offset from calibrated centre,

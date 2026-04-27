@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """L2 Action: stop gait motion. Always returns SUCCESS.
 
+Node kind: dispatch
+
 BB reads:  none
 BB writes: none
 Facade:    stop_gait()

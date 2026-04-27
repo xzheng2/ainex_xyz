@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """L2 Action: turn in-place to recover a lost line.
 
+Node kind: continuous_controller
+
 BB reads:
   BB.LAST_LINE_ERROR_X  (/latched/last_line_error_x) — sticky signed offset from last
                           detected line, written by LineDetectionAdapter

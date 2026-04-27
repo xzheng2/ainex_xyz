@@ -339,16 +339,42 @@ L2 nodes must:
 - expose all tuning values in CONFIG_DEFAULTS so project trees can override them via constructor args
 - document every BB read/write and facade method call
 
+### L2 Node Kinds
+
+Every L2 node belongs to exactly one of three execution kinds.
+The kind must be declared in the top-level docstring as:
+
+  Node kind: dispatch | finite_action | continuous_controller
+
+**dispatch**
+  Fire-and-forget. The command is accepted or dispatched this tick.
+  `update()` always returns `SUCCESS`. Never returns `RUNNING`.
+  Examples: L2_Gait_Stop, L2_Head_MoveTo, L2_Gait_FollowLine
+
+**finite_action**
+  Has an internal completion condition. Drives itself to a terminal state.
+  `update()` returns `RUNNING` while in progress, `SUCCESS` when done
+  (rarely `FAILURE` on unrecoverable error). Does NOT rely on external
+  preemption to terminate.
+  Examples: L2_Head_FindLineSweep, L2_Balance_RecoverFromFall
+
+**continuous_controller**
+  Owns continuous control while active. `update()` always returns `RUNNING`.
+  Intended to run indefinitely; terminated by the tree structure (e.g. an
+  upstream Selector re-evaluates when a condition passes). Never self-SUCCESS.
+  Examples: L2_Gait_FindLine
+
 Each L2 file must include a top-level docstring declaring:
 
-1. BB keys read.
-2. BB keys written, or `none`.
-3. Facade method(s) called.
-4. The action strategy being computed.
-5. Helper function(s) used for computation.
-6. CONFIG_DEFAULTS entries: thresholds, speeds, yaw limits, servo centers, state labels,
+1. Node kind: dispatch | finite_action | continuous_controller
+2. BB keys read.
+3. BB keys written, or `none`.
+4. Facade method(s) called.
+5. The action strategy being computed.
+6. Helper function(s) used for computation.
+7. CONFIG_DEFAULTS entries: thresholds, speeds, yaw limits, servo centers, state labels,
    frame counts, etc.
-7. Return semantics: when it returns `RUNNING`, `SUCCESS`, or `FAILURE`.
+8. Return semantics: when it returns `RUNNING`, `SUCCESS`, or `FAILURE`.
 
 Every non-trivial L2 node must implement explicit side-effect-free helpers in the same file:
 
@@ -515,13 +541,14 @@ update, in the same task:
 ### Information to collect
 
 1. **name** — `L2_Module_ActionDescription`
-2. **what action/strategy it performs** — one sentence
-3. **BB keys it reads**
-4. **BB keys it writes** — or `none`
-5. **facade method(s) it calls**
-6. **strategy helper** — `_compute_command()` or `_select_action()`
-7. **CONFIG_DEFAULTS** — thresholds, speeds, yaw limits, servo centers, labels, etc.
-8. **return semantics** — `RUNNING`, `SUCCESS`, `FAILURE`
+2. **node kind** — dispatch | finite_action | continuous_controller
+3. **what action/strategy it performs** — one sentence
+4. **BB keys it reads**
+5. **BB keys it writes** — or `none`
+6. **facade method(s) it calls**
+7. **strategy helper** — `_compute_command()` or `_select_action()`
+8. **CONFIG_DEFAULTS** — thresholds, speeds, yaw limits, servo centers, labels, etc.
+9. **return semantics** — `RUNNING`, `SUCCESS`, `FAILURE`
 
 ### Workflow
 
@@ -540,6 +567,7 @@ update, in the same task:
 8. Ensure the file satisfies all L2 rules:
    - `LEVEL = 'L2'`
    - inherits `XyzL2ActionNode`
+   - Node kind declared in docstring and consistent with update() return values
    - `BB_READS`, `BB_WRITES`, `FACADE_CALLS`, `CONFIG_DEFAULTS` declared
    - no direct ROS publish/subscribe
    - no `logger.emit_comm()`
@@ -557,6 +585,8 @@ update, in the same task:
 ```text
 ✅ BB keys use BB.* / BB.*_KEY conventions
 ✅ Top-level docstring declares reads, writes, facade calls, strategy, helpers, defaults, returns
+✅ Node kind declared in docstring (dispatch | finite_action | continuous_controller)
+   and consistent with update() return values
 ✅ Inherits XyzL2ActionNode
 ✅ BB_READS / BB_WRITES / FACADE_CALLS / CONFIG_DEFAULTS declared
 ✅ All hardware/ROS side effects go through XyzBTFacade
@@ -749,7 +779,7 @@ Verification checklist:
 ✅ L1 nodes do not call facade methods
 ✅ L1/L2 nodes do not call emit_comm
 ✅ L2 nodes do not directly publish/subscribe ROS
-✅ ros_out/ros_result are emitted only by comm_facade.py
+✅ ros_out/ros_result are emitted only by _RuntimeIO
 ✅ Adapter declared BB_WRITES matches actual snapshot writes
 ✅ Non-trivial L1/L2 helper functions are present and documented
 ✅ CONFIG_DEFAULTS covers all thresholds/tuning constants

@@ -16,6 +16,8 @@ Phase 2 — ALIGN
     so the Selector re-evaluates: IsLineDetected + IsHeadCentered both pass →
     FollowLine takes over.
 
+Node kind: finite_action
+
 BB reads:
   BB.LINE_DATA          (/latched/line_data)         — triggers SWEEP→ALIGN transition
   BB.LAST_LINE_ERROR_X  (/latched/last_line_error_x) — seeds initial sweep direction

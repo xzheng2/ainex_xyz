@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """L2 Action: blocking fall-recovery sequence.
 
+Node kind: finite_action
+
 BB reads:  BB.ROBOT_STATE  (/latched/robot_state) — posture: 'lie' | 'recline'
 BB writes: BB.ROBOT_STATE  = 'stand' after recovery completes
 Facade:    publish_buzzer(freq, on_time, off_time, repeat)

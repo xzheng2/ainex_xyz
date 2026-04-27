@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """L2 Action: move the head-pan servo to a fixed position.
 
+Node kind: dispatch
+
 BB reads:  none
 BB writes: BB.HEAD_PAN_POS (/head_pan_pos) — commanded target (not sensor feedback)
 Facade:    move_head(pan_pos)  — convenience wrapper over set_servos_position()

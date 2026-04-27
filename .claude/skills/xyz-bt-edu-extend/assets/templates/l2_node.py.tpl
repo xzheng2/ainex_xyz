@@ -3,6 +3,8 @@
 
 L2 action/strategy node.
 
+Node kind: <dispatch | finite_action | continuous_controller>
+
 BB reads:
   TODO: list BB.* constants read by this node.
 
@@ -29,7 +31,7 @@ Returns:
 
 Observability:
   May emit 'action_intent' and 'decision' via base-node helpers.
-  Never emits ros_out/ros_result or any comm event; those belong to comm_facade.py.
+  Never emits ros_out/ros_result or any comm event; those belong to _RuntimeIO.
 """
 from py_trees.common import Access, Status
 from xyz_bt_edu.base_node import XyzL2ActionNode
@@ -103,7 +105,7 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
     def initialise(self):
         """Optionally emit action_intent when this action starts.
 
-        This method must not emit ros_out. ros_out belongs to comm_facade.py.
+        This method must not emit ros_out. ros_out belongs to _RuntimeIO.
         """
         self.emit_action_intent(
             action='{{CLASS_NAME}}',
