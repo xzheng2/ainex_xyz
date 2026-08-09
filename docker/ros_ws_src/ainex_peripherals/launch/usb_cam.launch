@@ -1,0 +1,35 @@
+<launch>
+    <arg name="camera_name" default="camera" />
+    <arg name="image_topic" default="image_raw" /> <!--image_raw/image_rect_color-->
+
+    <param name="camera/camera_name"  value="$(arg camera_name)"/>
+    <param name="camera/image_topic"  value="$(arg image_topic)"/>
+
+    <!-- Gemini 305: colour ZMQ bridge (host port 5552 → /camera/image_raw) -->
+    <node name="$(arg camera_name)" pkg="ainex_peripherals"
+          type="colour_ros_bridge_node.py" respawn="true" respawn_delay="5" output="screen">
+        <param name="camera_name"     value="$(arg camera_name)" />
+        <param name="zmq_host"        value="172.17.0.1" />
+        <param name="zmq_port"        value="5552" />
+        <param name="camera_info_url" value="file:///home/ubuntu/.ros/camera_info/head_camera.yaml"/>
+    </node>
+
+    <!-- Gemini 305: depth ZMQ bridge (host port 5553 → /camera/depth/image_raw) -->
+    <node name="depth_ros_bridge" pkg="ainex_peripherals"
+          type="depth_ros_bridge_node.py" respawn="true" respawn_delay="5" output="screen">
+        <param name="zmq_host" value="172.17.0.1" />
+        <param name="zmq_port" value="5553" />
+    </node>
+
+    <!-- YOLO detections + annotated image are provided by yolo_detection_node.py
+         (xyz_bt_lib), started by the project launch.
+         It is the single ZMQ PULL consumer of the host worker's PUSH on :5551 —
+         do NOT start a second consumer here or ZMQ round-robins detections. -->
+
+    <!-- Servo state → ZMQ (/ros_robot_controller/bus_servo/state → host SUB :5555) -->
+    <node name="servo_state_zmq_bridge" pkg="ainex_peripherals"
+          type="servo_state_zmq_bridge.py" respawn="true" respawn_delay="5" output="screen">
+        <param name="zmq_host" value="172.17.0.1" />
+        <param name="zmq_port" value="5555" />
+    </node>
+</launch>

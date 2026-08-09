@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- 独立按键节点(standalone board-button node)
+     依赖 ainex_sdk 的 sensor_node 已在运行(assumes the ainex_sdk sensor_node GPIO
+     button publisher is already running, e.g. via ainex_bringup base.launch).
+     不要在此再启动 sensor_node,否则 GPIO 线会被重复申请而失败
+     (do NOT start a 2nd sensor node here — the GPIO line is exclusive). -->
+<launch>
+    <node pkg="ainex_app" type="button_node.py" name="button" output="screen"/>
+</launch>

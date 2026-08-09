@@ -1,0 +1,28 @@
+# Expected nodes per launch file — used by summarize_ros_logs.py
+# to auto-flag nodes that should have started but didn't appear in master.log.
+#
+# Format:  launch_name: [list of expected node names (without leading /)]
+# The summarizer matches these against +PUB/+SUB/+SERVICE entries in master.log.
+
+marathon_bringup:
+  - camera
+  - camera/manager
+  - camera/rectify_color
+  - sensor
+  - ros_robot_controller
+  - ainex_controller
+  - imu_calib
+  - imu_filter
+  - color_detection
+  - web_video_server
+  - marathon_bt
+
+bringup:
+  - camera
+  - camera/manager
+  - camera/rectify_color
+  - sensor
+  - ros_robot_controller
+  - ainex_controller
+  - imu_calib
+  - imu_filter

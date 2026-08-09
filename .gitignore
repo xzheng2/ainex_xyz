@@ -1,0 +1,73 @@
+# Deny everything by default
+*
+
+# Allow .gitignore itself
+!.gitignore
+
+# Allow the project rulebook (authoritative CLAUDE.md, tracked in place alongside skills)
+!CLAUDE.md
+
+# Allow ROS workspace source
+!docker/
+!docker/ros_ws_src/
+!docker/ros_ws_src/**
+
+# Allow ROSA agent
+!docker/rosa-agent/
+!docker/rosa-agent/**
+!docker/docker-compose.yml
+
+# Allow runtime debug page
+!runtime_debug_page/
+!runtime_debug_page/**
+
+# Allow design docs in docker/
+!docker/ROSA_RQT_NOVNC_TERMINAL_PAGE_DESIGN.md
+
+# Allow Claude config (memory, settings, CLAUDE.md)
+!.claude/
+!.claude/projects/
+!.claude/projects/-home-pi/
+!.claude/projects/-home-pi/memory/
+!.claude/projects/-home-pi/memory/**
+!.claude/projects/-home-pi/CLAUDE.md
+!.claude/settings.json
+!.claude/settings.local.json
+!.claude/skills/
+!.claude/skills/**
+!.claude/hooks/
+!.claude/hooks/**
+
+# Exclude macOS metadata
+docker/ros_ws_src/**/.DS_Store
+.DS_Store
+
+# Exclude generated/binary files within allowed paths
+docker/ros_ws_src/**/__pycache__/
+docker/ros_ws_src/**/*.pyc
+docker/ros_ws_src/**/*.zip
+docker/ros_ws_src/**/*.7z
+docker/ros_ws_src/**/*.bag
+docker/ros_ws_src/**/*.so
+# crash-dump files named `core`, but NOT a source package directory named core/
+docker/ros_ws_src/**/core
+!docker/ros_ws_src/**/core/
+docker/ros_ws_src/**/build/
+
+# Exclude session-specific notes
+docker/ros_ws_src/**/*_this_session.md
+
+# Exclude generated Python package metadata
+docker/rosa-agent/**/*.egg-info/
+
+
+# Exclude secrets and generated files in rosa-agent
+docker/rosa-agent/.env
+docker/rosa-agent/**/__pycache__/
+docker/rosa-agent/**/*.pyc
+
+# Exclude editor backups and runtime artifacts within allowed paths
+docker/rosa-agent/logs/
+docker/rosa-agent/**/*.bak
+.claude/**/__pycache__/
+docker/ros_ws_src/**/*_original.py

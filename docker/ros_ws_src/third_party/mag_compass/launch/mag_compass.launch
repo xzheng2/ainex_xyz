@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="mag_topic"          default="/ros_robot_controller/mag"/>
+    <arg name="heading_topic"      default="~heading_deg"/>
+    <arg name="declination_deg"    default="0.0"/>
+    <arg name="invert"             default="false"/>
+    <arg name="tilt_compensation"  default="false"/>
+    <arg name="imu_topic"          default="/imu"/>
+    <arg name="log_throttle"       default="1.0"/>
+
+    <node name="mag_compass" pkg="mag_compass" type="mag_compass_node.py" output="screen">
+        <param name="mag_topic"          value="$(arg mag_topic)"/>
+        <param name="heading_topic"      value="$(arg heading_topic)"/>
+        <param name="declination_deg"    value="$(arg declination_deg)"/>
+        <param name="invert"             value="$(arg invert)"/>
+        <param name="tilt_compensation"  value="$(arg tilt_compensation)"/>
+        <param name="imu_topic"          value="$(arg imu_topic)"/>
+        <param name="log_throttle"       value="$(arg log_throttle)"/>
+    </node>
+</launch>

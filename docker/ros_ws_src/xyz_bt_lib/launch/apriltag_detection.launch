@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!-- AprilTag detection using apriltag_ros.
+     Config (tag family, IDs, sizes) in:
+       xyz_bt_lib/src/xyz_bt_lib/sensors/apriltag/config/tags.yaml
+     Publishes: /tag_detections (apriltag_ros/AprilTagDetectionArray)
+
+     enable_camera: set to false if the camera is already started elsewhere
+                    (e.g. when using xyz_bringup.launch as the hardware bringup). -->
+<launch>
+    <arg name="enable_camera"     default="true"/>
+    <arg name="enable_web_video"  default="false"/>
+    <arg name="camera_name"       default="camera"/>
+    <arg name="image_topic"       default="image_raw"/>
+    <arg name="node_namespace"    default="apriltag_ros_continuous_node"/>
+    <arg name="enable_detect"     default="true"/>
+    <arg name="launch_prefix"     default=""/>
+
+    <!-- Camera (disable if already started by another node, e.g. xyz_bringup.launch) -->
+    <include if="$(arg enable_camera)"
+             file="$(find ainex_peripherals)/launch/usb_cam_with_calib.launch">
+        <arg name="camera_name" value="$(arg camera_name)"/>
+        <arg name="image_topic" value="$(arg image_topic)"/>
+    </include>
+
+    <!-- Web video server for live preview (opt-in) -->
+    <node if="$(arg enable_web_video)" name="web_video_server" pkg="web_video_server"
+          respawn="true" respawn_delay="2" type="web_video_server" output="screen"/>
+
+    <!-- Load detector settings and tag database from sensors/apriltag -->
+    <rosparam command="load"
+              file="$(find xyz_bt_lib)/src/xyz_bt_lib/sensors/apriltag/config/settings.yaml"
+              ns="$(arg node_namespace)"/>
+    <rosparam command="load"
+              file="$(find xyz_bt_lib)/src/xyz_bt_lib/sensors/apriltag/config/tags.yaml"
+              ns="$(arg node_namespace)"/>
+
+    <!-- AprilTag continuous detector -->
+    <node pkg="apriltag_ros"
+          type="apriltag_ros_continuous_node"
+          name="$(arg node_namespace)"
+          clear_params="true"
+          output="screen"
+          launch-prefix="$(arg launch_prefix)">
+        <param name="enable_detect"                type="bool" value="$(arg enable_detect)"/>
+        <param name="publish_tag_detections_image" type="bool" value="true"/>
+        <remap from="image_rect"  to="/$(arg camera_name)/$(arg image_topic)"/>
+        <remap from="camera_info" to="/$(arg camera_name)/camera_info"/>
+    </node>
+</launch>

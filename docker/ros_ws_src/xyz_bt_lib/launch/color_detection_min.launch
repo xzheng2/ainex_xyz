@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<!-- Minimal color detection: single color + single shape, no runtime update services -->
+<launch>
+    <arg name="enable_camera"           default="true"/>
+    <arg name="enable_web_video"        default="false"/>
+    <arg name="camera_name"             default="camera"/>
+    <arg name="image_topic"             default="image_raw"/>
+
+    <arg name="detect_color"            default="blue"/>
+    <arg name="detect_type"             default="circle"/>   <!-- circle | rect -->
+    <arg name="min_area"                default="300"/>
+    <arg name="max_area"                default="250000"/>
+    <arg name="enable_display"          default="false"/>
+    <arg name="image_process_width"     default="160"/>
+    <arg name="image_process_height"    default="120"/>
+    <!-- rect-only shape validation: ignored for circle -->
+    <arg name="min_aspect_ratio"        default="1.0"/>  <!-- long/short; raise to reject blobs -->
+    <arg name="max_aspect_ratio"        default="4.0"/> <!-- lower to reject thin slivers -->
+    <arg name="min_solidity"            default="0.6"/>  <!-- raise to 0.85 for clean targets -->
+    <arg name="detection_hz"            default="10"/>    <!-- reduce (e.g. 10) to lower CPU load -->
+
+    <!-- Camera node -->
+    <include if="$(arg enable_camera)" file="$(find ainex_peripherals)/launch/usb_cam_with_calib.launch">
+        <arg name="camera_name" value="$(arg camera_name)"/>
+        <arg name="image_topic" value="$(arg image_topic)"/>
+    </include>
+
+    <node if="$(arg enable_web_video)" name="web_video_server" pkg="web_video_server"
+          respawn="true" respawn_delay="2" type="web_video_server" output="screen"/>
+
+    <!-- Minimal color detection node -->
+    <node pkg="xyz_bt_lib" type="color_detection_min_node.py" name="color_detection_min" output="screen">
+        <param name="detect_color"          value="$(arg detect_color)"/>
+        <param name="detect_type"           value="$(arg detect_type)"/>
+        <param name="min_area"              value="$(arg min_area)"/>
+        <param name="max_area"              value="$(arg max_area)"/>
+        <param name="enable_display"        value="$(arg enable_display)"/>
+        <param name="image_process_width"   value="$(arg image_process_width)"/>
+        <param name="image_process_height"  value="$(arg image_process_height)"/>
+        <param name="min_aspect_ratio"      value="$(arg min_aspect_ratio)"/>
+        <param name="max_aspect_ratio"      value="$(arg max_aspect_ratio)"/>
+        <param name="min_solidity"          value="$(arg min_solidity)"/>
+        <param name="detection_hz"          value="$(arg detection_hz)"/>
+    </node>
+</launch>

@@ -1,0 +1,32 @@
+<launch>
+    <arg name="servo_id"      default="24" />
+    <arg name="exit_position" default="370" />
+
+    <!-- 4-waypoint sequence: each position has its own move time + stay-still time -->
+    <arg name="position_1" default="300" />  <arg name="move_1" default="0.05" />  <arg name="stay_1" default="0.0" />
+    <arg name="position_2" default="300" />  <arg name="move_2" default="0.05" />  <arg name="stay_2" default="2.0" />
+    <arg name="position_3" default="370" />  <arg name="move_3" default="0.05" />  <arg name="stay_3" default="0.0" />
+    <arg name="position_4" default="370" />  <arg name="move_4" default="0.05" />  <arg name="stay_4" default="0.5" />
+
+    <node name="serial_servo_move" pkg="ainex_tutorial"
+          type="serial_servo_move_node.py" output="screen">
+        <param name="servo_id"      value="$(arg servo_id)" />
+        <param name="exit_position" value="$(arg exit_position)" />
+
+        <param name="position_1" value="$(arg position_1)" />
+        <param name="move_1"     value="$(arg move_1)" />
+        <param name="stay_1"     value="$(arg stay_1)" />
+
+        <param name="position_2" value="$(arg position_2)" />
+        <param name="move_2"     value="$(arg move_2)" />
+        <param name="stay_2"     value="$(arg stay_2)" />
+
+        <param name="position_3" value="$(arg position_3)" />
+        <param name="move_3"     value="$(arg move_3)" />
+        <param name="stay_3"     value="$(arg stay_3)" />
+
+        <param name="position_4" value="$(arg position_4)" />
+        <param name="move_4"     value="$(arg move_4)" />
+        <param name="stay_4"     value="$(arg stay_4)" />
+    </node>
+</launch>

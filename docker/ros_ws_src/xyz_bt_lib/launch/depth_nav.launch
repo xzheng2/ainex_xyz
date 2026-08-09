@@ -1,0 +1,134 @@
+<?xml version="1.0"?>
+<!-- depth_nav_node: depth-based local mapping + A* navigation -> /depth_nav/state.
+     PRECONDITION: the head must be pre-positioned (tilted down) at a fixed pitch
+     by a separate node / launch step before this output is meaningful.
+
+     Command-line overridable args (e.g. `roslaunch ... publish_debug:=true`):
+       publish_debug, color_topic, use_yolo_obstacles, obstacle_labels, obstacle_dist
+     (obstacle_labels is comma-separated, e.g. obstacle_labels:=obstacle,chair,person) -->
+<launch>
+  <arg name="publish_debug"      default="false"/>
+  <arg name="color_topic"        default="/camera/image_raw"/>
+  <arg name="debug_jpeg_quality" default="65"/>
+  <!-- colour frame height: 640 = banded view bridge (gemini305_view_bridge, offset 0),
+       480 = plain down-view bridge (gemini305_bridge, offset 160) -->
+  <arg name="color_frame_height" default="640"/>
+  <arg name="use_yolo_obstacles" default="true"/>
+  <arg name="obstacle_labels"    default="obstacle"/>
+  <arg name="obstacle_dist"      default="300"/>
+  <!-- Keep an obstacle block in the fused mask this many ticks (10 Hz) after it stops being
+       detected, so the A* path still avoids it through flicker / FOV exit. 0 = off. -->
+  <arg name="obstacle_hold_ticks" default="10"/>
+  <!-- obstacle proximity penalty: 'horizontal' = bx-only (same row), 'radial' = 2D halo -->
+  <arg name="prox_mode"          default="horizontal"/>
+  <!-- Separate near-feet proximity halo for rows [min,max]: its OWN reach (distance, blocks)
+       and weight (scores), replacing the shared halo there. Set near_max_dist/near_weight
+       equal to the base prox (4 / 8) to make the band identical to other rows. -->
+  <arg name="prox_near_extra_row_min" default="13"/>
+  <arg name="prox_near_extra_row_max" default="15"/>
+  <arg name="prox_near_max_dist"      default="10.0"/>
+  <arg name="prox_near_weight"        default="16.0"/>
+  <!-- Floor (like y_min): min penalty for in-reach near blocks (d < prox_near_max_dist);
+       near-band penalty = clamp(weight*(1-d/max_dist), prox_near_min, prox_near_weight).
+       Out-of-reach / obstacle blocks stay 0. 0 = no floor (pure falloff to 0). -->
+  <arg name="prox_near_min"           default="8.0"/>
+  <!-- Goal correction: bias the A* goal toward a target world heading using the IMU
+       heading source:
+         IMU — cal-6ax heading (deg) from imu_gui_node.py on imu_gui_topic;
+               imu_gui_node.py must be running (NOT started by this launch).
+       With no source available it falls back to the centre goal. -->
+  <arg name="enable_goal_correction"   default="true"/>
+  <arg name="target_world_heading_deg" default="0.0"/>
+  <!-- IMU heading source (default on): subscribe to imu_gui_topic (std_msgs/Float64 deg). -->
+  <arg name="use_imu_accum"            default="true"/>
+  <arg name="imu_gui_topic"            default="/imu_gui"/>
+  <arg name="imu_accum_sign"           default="1.0"/>   <!-- heading→goal-correction sign (validate on robot) -->
+  <arg name="imu_accum_deg_per_unit"   default="1.0"/>   <!-- deg of real heading per integrated unit -->
+  <!-- Goalpost goal: once the obstacle is gone (mandatory midpoint waypoint dropped)
+       and a goalpost is detected, aim the A* goal at the nearest goalpost bearing
+       (skips the heading correction). No goalpost → normal heading/centre goal. -->
+  <arg name="enable_goalpost_goal"     default="true"/>
+  <arg name="goalpost_label"           default="goalpost"/>
+  <!-- Offset the goal N grid columns from the detected goalpost toward the goal gate;
+       gate side from the per-run IMU heading swing (|min|>|max| left, else right).
+       goalpost_gate_sign flips the direction (validate on robot). -->
+  <arg name="goalpost_gate_offset_blocks" default="0"/>
+  <arg name="goalpost_gate_sign"          default="1.0"/>
+  <!-- Apply the gate offset only when the goalpost is within this depth (mm); beyond it,
+       aim straight at the post. The gate side comes from the per-run IMU heading swing. -->
+  <arg name="goalpost_gate_max_dist_mm"   default="1500.0"/>
+  <!-- A* start from a YOLO object centre (default the football the robot pushes),
+       used only when its grid row is within [start_min_row, start_max_row]. -->
+  <arg name="enable_start_from_object" default="true"/>
+  <arg name="start_object_label"       default="football"/>
+  <arg name="start_min_row"            default="5"/>
+  <arg name="start_max_row"            default="15"/>
+  <!-- MPC-style multi-candidate path selection (temporal consistency).
+       enable_mpc:=false → single best A* path per tick, no temporal scoring. -->
+  <arg name="enable_mpc"               default="false"/>
+  <arg name="mpc_top_k"                default="3"/>
+  <arg name="mpc_w_near"               default="10.0"/>
+  <arg name="mpc_w_far"                default="10.0"/>
+  <arg name="mpc_w_turn"               default="20.0"/>
+  <arg name="mpc_center_col"           default="8"/>
+  <!-- Mandatory midpoint waypoint: the path MUST pass through the horizontal middle of the
+       largest connected corridor's cells on the near band row (by5), scanned in by1..by5. -->
+  <arg name="enable_midpoint"          default="false"/>
+  <arg name="midpoint_row_min"         default="1"/>
+  <arg name="midpoint_row_max"         default="3"/>
+  <!-- Drop the midpoint after this many consecutive ticks with no obstacle (YOLO+depth). -->
+  <arg name="midpoint_deactivate_ticks" default="15"/>
+
+  <node pkg="xyz_bt_lib" type="depth_nav_node.py"
+        name="depth_nav_node" output="screen">
+    <param name="depth_topic"        value="/camera/depth/image_raw"/>
+    <param name="camera_info_topic"  value="/camera/depth/camera_info"/>
+    <param name="yolo_topic"         value="/yolo/detections"/>
+    <param name="rate_hz"            value="10.0"/>
+    <param name="obstacle_dist"      value="$(arg obstacle_dist)"/>
+    <param name="obstacle_hold_ticks" value="$(arg obstacle_hold_ticks)"/>
+    <param name="use_yolo_obstacles" value="$(arg use_yolo_obstacles)"/>
+    <param name="obstacle_labels"    value="$(arg obstacle_labels)"/>
+    <param name="prox_mode"          value="$(arg prox_mode)"/>
+    <param name="prox_near_extra_row_min" value="$(arg prox_near_extra_row_min)"/>
+    <param name="prox_near_extra_row_max" value="$(arg prox_near_extra_row_max)"/>
+    <param name="prox_near_max_dist"      value="$(arg prox_near_max_dist)"/>
+    <param name="prox_near_weight"        value="$(arg prox_near_weight)"/>
+    <param name="prox_near_min"           value="$(arg prox_near_min)"/>
+    <param name="near_row_min"       value="12"/>
+    <param name="near_row_max"       value="15"/>
+    <param name="near_col_min"       value="6"/>
+    <param name="near_col_max"       value="9"/>
+    <param name="enable_goal_correction"   value="$(arg enable_goal_correction)"/>
+    <param name="target_world_heading_deg" value="$(arg target_world_heading_deg)"/>
+    <param name="use_imu_accum"            value="$(arg use_imu_accum)"/>
+    <param name="imu_gui_topic"            value="$(arg imu_gui_topic)"/>
+    <param name="imu_accum_sign"           value="$(arg imu_accum_sign)"/>
+    <param name="imu_accum_deg_per_unit"   value="$(arg imu_accum_deg_per_unit)"/>
+    <param name="enable_goalpost_goal"     value="$(arg enable_goalpost_goal)"/>
+    <param name="goalpost_label"           value="$(arg goalpost_label)"/>
+    <param name="goalpost_gate_offset_blocks" value="$(arg goalpost_gate_offset_blocks)"/>
+    <param name="goalpost_gate_sign"          value="$(arg goalpost_gate_sign)"/>
+    <param name="goalpost_gate_max_dist_mm"   value="$(arg goalpost_gate_max_dist_mm)"/>
+    <param name="enable_start_from_object" value="$(arg enable_start_from_object)"/>
+    <param name="start_object_label"       value="$(arg start_object_label)"/>
+    <param name="start_min_row"            value="$(arg start_min_row)"/>
+    <param name="start_max_row"            value="$(arg start_max_row)"/>
+    <param name="enable_mpc"               value="$(arg enable_mpc)"/>
+    <param name="mpc_top_k"                value="$(arg mpc_top_k)"/>
+    <param name="mpc_w_near"               value="$(arg mpc_w_near)"/>
+    <param name="mpc_w_far"                value="$(arg mpc_w_far)"/>
+    <param name="mpc_w_turn"               value="$(arg mpc_w_turn)"/>
+    <param name="mpc_center_col"           value="$(arg mpc_center_col)"/>
+    <param name="enable_midpoint"          value="$(arg enable_midpoint)"/>
+    <param name="midpoint_row_min"         value="$(arg midpoint_row_min)"/>
+    <param name="midpoint_row_max"         value="$(arg midpoint_row_max)"/>
+    <param name="midpoint_deactivate_ticks" value="$(arg midpoint_deactivate_ticks)"/>
+    <!-- phase3 debug: publish_debug:=true → two compressed topics, view in rqt_image_view:
+         /depth_nav/debug_view (camera+blocks) and /depth_nav/debug_map (2D map) -->
+    <param name="publish_debug"      value="$(arg publish_debug)"/>
+    <param name="color_topic"        value="$(arg color_topic)"/>
+    <param name="debug_jpeg_quality" value="$(arg debug_jpeg_quality)"/>
+    <param name="color_frame_height" value="$(arg color_frame_height)"/>
+  </node>
+</launch>

@@ -1,0 +1,12 @@
+high_speed_backward_offset: 0.0
+high_speed_forward_offset: 0.0
+high_speed_move_left_offset: 0.0
+high_speed_move_right_offset: 0.0
+low_speed_backward_offset: 0.0
+low_speed_forward_offset: 0.0
+low_speed_move_left_offset: 0.0
+low_speed_move_right_offset: 0.0
+medium_speed_backward_offset: 0.0
+medium_speed_forward_offset: 0.0
+medium_speed_move_left_offset: 0.0
+medium_speed_move_right_offset: 0.0

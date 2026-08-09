@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="xyz_bt_lib" type="yolo_detection_node.py"
+        name="yolo_detection_node" output="screen">
+    <param name="zmq_host" value="172.17.0.1"/>
+    <param name="zmq_port" value="5551"/>
+  </node>
+</launch>

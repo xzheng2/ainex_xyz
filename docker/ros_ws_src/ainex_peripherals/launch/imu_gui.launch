@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!-- IMU GUI + /imu_gui publisher for the NEW serial WitMotion IMU. Reads the sensor
+     directly over serial (default /dev/ttyUSB0 @ 9600 baud); it does NOT depend on
+     imu.launch / the RRC /imu topic. Runs headless by default (SHOW_GUI in the node);
+     for the on-screen window set SHOW_GUI=True and provide DISPLAY=:1 +
+     LIBGL_ALWAYS_SOFTWARE=1 in the container env. -->
+<launch>
+    <arg name="serial_port" default="/dev/ttyUSB0"/>
+    <node name="imu_gui" pkg="ainex_peripherals" type="imu_gui_node.py"
+          args="$(arg serial_port)" output="screen"/>
+</launch>

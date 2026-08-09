@@ -1,0 +1,68 @@
+
+# ============================================================================
+# Ainex Robot — Docker Compose
+#
+# Services:
+#   rosa-agent  — NASA JPL ROSA, read-only diagnostic agent (ROS1/Noetic)
+#
+# The 'ainex' container (ROS1 Noetic) is managed separately (pre-existing,
+# started manually). All containers use host networking so they share the
+# host's network namespace without bridge conflicts.
+#
+# Start rosa-agent:  docker compose up rosa-agent
+# ============================================================================
+
+services:
+
+  # ── ROSA diagnostic agent (read-only) ─────────────────────────────────────
+  rosa-agent:
+    build:
+      # Build context is docker/ so the Dockerfile can COPY ainex_interfaces
+      # from the ROS workspace source alongside rosa-agent/.
+      # Dockerfile is still at rosa-agent/Dockerfile.
+      context: .
+      dockerfile: rosa-agent/Dockerfile
+    image: ainex-rosa-agent:latest
+    container_name: rosa-agent
+    network_mode: host
+    restart: unless-stopped
+
+    # ROS network configuration (host networking: roscore is on localhost)
+    environment:
+      ROS_MASTER_URI: http://127.0.0.1:11311
+      XYZ_WRITE_ENABLED: "false"     # Phase 1: read-only. Change only after audit.
+      ROS_PYTHON_LOG_CONFIG_FILE: /opt/rosa-agent/config/python_logging.yaml
+
+    # Load secrets from .env file (API keys etc.) — NOT committed to git
+    env_file:
+      - ./rosa-agent/.env            # Copy from rosa-agent/.env.example
+
+    # Interactive terminal for CLI mode
+    stdin_open: true
+    tty: true
+
+    # Volumes
+    volumes:
+      - /home/pi/docker/rosa-agent:/opt/rosa-agent  # live-mount source (edit on host, instant in container)
+      - /home/pi/docker/ros_log:/root/.ros/log:ro   # ainex ROS logs (read-only)
+      - /home/pi/docker/ros_ws_src/xyz_behavior/log:/opt/ainex_bt_log:ro  # BT observability logs
+      - /home/pi/runtime_debug_page:/opt/ainex_page:ro                               # runtime debug page source
+      - /etc/localtime:/etc/localtime:ro             # sync timezone with host
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/resolv.conf:/etc/resolv.conf:ro         # always use host DNS (survives WiFi changes)
+
+    # Healthcheck: verify ROS master is reachable
+    healthcheck:
+      test:
+        - CMD
+        - python3.9
+        - -c
+        - |
+          import rosgraph
+          m = rosgraph.Master('/healthcheck')
+          m.getPid()
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+

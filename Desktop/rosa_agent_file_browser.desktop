@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=ROSA Agent File Browser
+Comment=Browse rosa-agent container filesystem (/)
+Encoding=UTF-8
+Exec=bash -c "DISPLAY=:1 LIBGL_ALWAYS_SOFTWARE=1 python3 /home/pi/rosa_file_browser.py"
+Terminal=false
+MultipleArgs=false
+Type=Application
+Categories=Application;
+StartupNotify=true
+Icon=system-file-manager
+X-KeepTerminal=false

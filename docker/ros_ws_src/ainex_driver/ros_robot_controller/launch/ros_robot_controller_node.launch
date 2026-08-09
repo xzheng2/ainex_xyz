@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="freq"              default="30"/>
+    <arg name="imu_link"          default="imu_link"/>
+    <arg name="mag_calib_path"    default="$(find ainex_calibration)/config/mag_calib.yaml"/>
+    <arg name="state_rate_hz"     default="10.0"/>
+    <node name="ros_robot_controller" pkg="ros_robot_controller" type="ros_robot_controller_node.py" required="true" output="screen">
+        <param name="freq"             value="$(arg freq)"/>
+        <param name="imu_frame"        value="$(arg imu_link)"/>
+        <rosparam unless="$(eval mag_calib_path == '')" file="$(arg mag_calib_path)" command="load"/>
+        <rosparam param="state_servo_ids">[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]</rosparam>
+        <param  name="state_rate_hz"   value="$(arg state_rate_hz)"/>
+    </node>
+</launch>

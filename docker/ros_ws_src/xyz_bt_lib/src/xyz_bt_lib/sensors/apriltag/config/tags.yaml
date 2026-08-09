@@ -1,0 +1,36 @@
+# sensors/apriltag/config/tags.yaml
+# *** USER-EDITABLE AprilTag database ***
+#
+# Add or remove entries in standalone_tags to control which tags the
+# apriltag_ros detector will recognise and publish on /tag_detections.
+#
+# Fields per entry:
+#   id   : integer tag ID  (must match the printed tag)
+#   size : physical side length IN METRES of the solid black/white border
+#          (NOT the outer white quiet zone).
+#          Example: a tag printed at 10 cm side → size: 0.10
+#   name : optional human-readable label (for TF frame naming)
+#
+# How to find the right tag images to print:
+#   tag family: tag36h11  (see settings.yaml)
+#   Image files: https://github.com/AprilRobotics/apriltag-imgs
+#                folder: tag36h11/
+#                file:   tag36h11_id<N>.png   (e.g. tag36h11_id0.png for id=0)
+#   Print at the physical size specified in 'size' above.
+#
+# Tip: a project can filter detections by tag ID (see the project's tag_id_filter),
+# so tags not in a project's filter are ignored even if in view.
+# Ensure at least one tag below matches your printed marker.
+# Edit these entries to match the tags your project actually uses.
+
+standalone_tags:
+  [
+    {id: 0, size: 0.10, name: 'tag_0'},
+    {id: 1, size: 0.10, name: 'tag_1'},
+    {id: 2, size: 0.10, name: 'tag_2'},
+  ]
+
+# Tag bundles (multi-tag rigid bodies) — leave empty if not used.
+tag_bundles:
+  [
+  ]

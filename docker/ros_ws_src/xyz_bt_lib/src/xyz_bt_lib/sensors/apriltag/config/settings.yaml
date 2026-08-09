@@ -1,0 +1,24 @@
+# sensors/apriltag/config/settings.yaml
+# apriltag_ros_continuous_node detector parameters.
+# These are loaded into the detector node namespace at launch.
+# Change tag_family if you are using a different AprilTag family.
+#
+# tag_family options:
+#   tag36h11 (recommended, robust, 36-bit)
+#   tag25h9
+#   tag16h5
+#   tagStandard52h13
+#   tagStandard41h12
+#   tagCircle21h7
+#   tagCircle49h12
+#   tagCustom48h12
+
+tag_family:       'tag36h11'
+tag_threads:       2          # number of detection threads (default: 2)
+tag_decimate:      1.0        # image decimation factor (1.0 = full resolution)
+tag_blur:          0.0        # blur sigma before detection (0.0 = off)
+tag_refine_edges:  1          # subpixel edge refinement (1 = on)
+tag_debug:         0          # debug output (0 = off)
+max_hamming_dist:  2          # max bit errors allowed (2 is a safe default; >=3 uses excessive memory)
+publish_tf:        true       # publish TF transforms for each detected tag
+transport_hint:   "raw"       # image transport: "raw", "compressed", etc.

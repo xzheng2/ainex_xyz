@@ -1,0 +1,122 @@
+{
+  "env": {
+    "OPENAI_API_KEY": "REDACTED",
+    "COMMAND_EXPLAINER": "0"
+  },
+  "includeCoAuthoredBy": false,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/bt_log_read_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/command_explainer.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/bt_log_read_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/command_explainer.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_lib_pre_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_behavior_pre_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_tree_pre_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/command_explainer.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_lib_pre_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_behavior_pre_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_tree_pre_guard.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_lib_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_behavior_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_l1_running_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_lib_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_behavior_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_bt_l1_running_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/git_untracked_check.py"
+          }
+        ]
+      }
+    ]
+  },
+  "tui": "fullscreen",
+  "theme": "dark"
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!-- Default hardware bringup for xyz_behavior projects.
+     Starts: servos, gait controller, IMU, and camera.
+     Run this before any xyz_behavior project launch file.
+     If a project needs different hardware init (e.g. no camera, or custom camera
+     args), create launch/{{PROJECT}}_bringup.launch instead. -->
+<launch>
+    <arg name="camera_name"  default="camera"/>
+    <arg name="image_topic"  default="image_raw"/>
+
+    <!-- Servo unlock all at bringup start (same as servo_unlock.sh): clear the lock file -->
+    <param name="servo_unlock_done" command="bash -c '&gt; /home/ubuntu/share/src/.servo_lock.txt; echo unlocked'"/>
+
+    <!-- Hardware essentials: servos, gait controller, IMU -->
+    <include file="$(find ainex_bringup)/launch/base.launch"/>
+
+    <!-- Board button: 1st click lock legs, 2nd click power down all servos -->
+    <include file="$(find ainex_app)/launch/button_node.launch"/>
+
+    <!-- Camera -->
+    <include file="$(find ainex_peripherals)/launch/usb_cam_with_calib.launch">
+        <arg name="camera_name" value="$(arg camera_name)"/>
+        <arg name="image_topic" value="$(arg image_topic)"/>
+    </include>
+
+    <!-- web_video_server: serve image topics as MJPEG over HTTP :8080 (0.0.0.0).
+         Stream URL: http://<host>:8080/stream?topic=/camera/image_raw
+         Disable with: roslaunch ... enable_web_video:=false -->
+    <arg name="enable_web_video" default="true"/>
+    <node if="$(arg enable_web_video)" name="web_video_server" pkg="web_video_server"
+          type="web_video_server" respawn="true" respawn_delay="2" output="screen"/>
+</launch>
