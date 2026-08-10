@@ -24,6 +24,17 @@ CONFIG_DEFAULTS:
   expected_stand_label: 'stand'  — BB value that represents the upright state.
   Project trees may override this via constructor args.
 
+Related node — NOT a strict inverse (since Aug 2026):
+  L1_Balance_IsFallen asks the opposite question, and both are kept rather than
+  collapsed into one node plus py_trees Inverter, because tree wiring is the
+  layer humans and agents read and a named positive condition beats a double
+  negative. But they are no longer exact complements: robot_state has a fourth
+  value, 'pending' (stand-up action played, awaiting IMU confirmation), and
+  BOTH nodes return FAILURE for it. That is intentional — during 'pending' the
+  robot is neither confirmed upright nor confirmed down, and a safety gate must
+  not assume either. A tree that needs "not yet resolved" should test for
+  'pending' explicitly rather than inferring it from these two.
+
 Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.
 """

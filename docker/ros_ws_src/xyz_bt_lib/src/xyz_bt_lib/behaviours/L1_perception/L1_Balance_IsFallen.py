@@ -14,14 +14,26 @@ Judgement helper:
   _is_fallen(state)
 
 SUCCESS:
-  robot_state != expected_stand_label  ('lie' or 'recline')
+  robot_state is a confirmed fallen posture ('lie' or 'recline')
 
 FAILURE:
-  robot_state == expected_stand_label  ('stand' — robot is upright)
+  robot_state == expected_stand_label ('stand' — robot is upright), OR
+  robot_state == 'pending' (recovery played, IMU still confirming)
 
 CONFIG_DEFAULTS:
   expected_stand_label: 'stand'  — BB value that represents the upright state.
   Project trees may override this via constructor args.
+
+Related node — NOT a strict inverse (since Aug 2026):
+  L1_Balance_IsStanding asks the opposite question, and both are kept rather than
+  collapsed into one node plus py_trees Inverter, because the tree wiring is the
+  layer humans and agents read: a safety branch guarded by `L1_Balance_IsFallen`
+  states its intent directly, where `Inverter(L1_Balance_IsStanding)` makes the
+  reader resolve a double negative. But they are no longer exact complements:
+  robot_state has a fourth value, 'pending' (stand-up action played, awaiting IMU
+  confirmation), and BOTH nodes return FAILURE for it — so recovery is not
+  re-triggered while the IMU is still deciding. FAILURE here is the safe
+  direction: it means "do not start another recovery", not "the robot is fine".
 
 Observability:
   Emits optional 'decision' via self.emit_decision(). Never emits comm events.
@@ -62,9 +74,17 @@ class L1_Balance_IsFallen(XyzL1ConditionNode):
             name=self.name, namespace=BB.LATCHED_NS)
         self._bb.register_key(key=BB.ROBOT_STATE_KEY, access=Access.READ)
 
+    PENDING_LABEL = 'pending'
+
     def _is_fallen(self, state: str) -> bool:
-        """Return True when robot_state indicates a fallen or transitional state."""
-        return state != self._expected_stand_label
+        """Return True only for a CONFIRMED fallen posture.
+
+        'pending' (recovery action played, IMU not yet confirmed) is explicitly
+        not fallen: returning True there would re-trigger recovery on the very
+        next tick, before the robot has had a chance to be judged upright.
+        """
+        return (state != self._expected_stand_label
+                and state != self.PENDING_LABEL)
 
     def update(self) -> Status:
         state = self._bb.robot_state

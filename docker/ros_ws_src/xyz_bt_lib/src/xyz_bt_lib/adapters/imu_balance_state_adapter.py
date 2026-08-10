@@ -27,7 +27,18 @@ Per-BB-value traceability:
     → _make_bb_writes()   : {BB.ROBOT_STATE: 'lie'|'recline'} or {}
     → _apply_live_writes(): updates self._live_robot_state under self._lock
     → snapshot field      : 'robot_state'
-    → BB.ROBOT_STATE  ∈ {'stand', 'lie', 'recline'}
+    → BB.ROBOT_STATE  ∈ {'stand', 'lie', 'recline', 'pending'}
+
+robot_state values and who writes them:
+  'stand'   — confirmed upright. Written by this adapter (initial value, and when
+              it confirms a 'pending' recovery succeeded).
+  'lie'     — confirmed face-down. Written by this adapter.
+  'recline' — confirmed back-down. Written by this adapter.
+  'pending' — stand-up action was played, posture not yet confirmed. Written ONLY
+              by L2_Balance_RecoverFromFall (plus its robot_state_setter hook,
+              which syncs this adapter's live store so the next latch does not
+              overwrite it with a stale value). This adapter is the only thing
+              that clears it — see _classify_fall().
 
 Threshold/calibration source:
   CONFIG_DEFAULTS:
@@ -102,9 +113,10 @@ class ImuBalanceStateAdapter(XyzInputAdapter):
         # Live (async) state — written only by _callback under self._lock.
         self._live_robot_state = 'stand'
 
-        # Fall-detection accumulators — callback-thread-only; no lock needed.
+        # Posture accumulators — callback-thread-only; no lock needed.
         self._count_lie     = 0
         self._count_recline = 0
+        self._count_upright = 0   # only advances while state == 'pending'
 
         # Latched BB client — written only by write_snapshot() (main thread).
         self._bb = self.make_latched_bb_client(name=self.ADAPTER_NAME)
@@ -129,26 +141,50 @@ class ImuBalanceStateAdapter(XyzInputAdapter):
                        msg.linear_acceleration.z))))
 
     def _classify_fall(self, angle: int, current_state: str,
-                       count_lie: int, count_recline: int) -> tuple:
-        """Compute updated fall-count accumulators and optional new posture state.
+                       count_lie: int, count_recline: int,
+                       count_upright: int = 0) -> tuple:
+        """Compute updated posture accumulators and optional new posture state.
 
         Side-effect-free: reads only parameters and constructor thresholds;
-        returns (new_count_lie, new_count_recline, new_state_or_none).
-        new_state is the confirmed posture: 'lie' (face-down) or 'recline'
-        (back-down), or None if no threshold was crossed.
+        returns ``(new_count_lie, new_count_recline, new_count_upright,
+        new_state_or_none)``. new_state is the confirmed posture
+        ('lie' | 'recline' | 'stand'), or None if no threshold was crossed.
         No self-state mutation, no ROS calls, no BB reads/writes.
+
+        Which states are "armed":
+          'stand'   — fall detection active (the normal case).
+          'pending' — set by L2_Balance_RecoverFromFall after it plays a stand-up
+                      action. This adapter is the ONLY thing that clears it:
+                      sustained upright tilt confirms 'stand'; sustained
+                      face-down/back-down tilt means the recovery failed and the
+                      robot is down again. BOTH directions are armed here, so a
+                      failed recovery re-triggers recovery instead of latching.
+          'lie' / 'recline' — inert. The robot is known to be down; only the
+                      recovery node moves it out (to 'pending'). Counting falls
+                      while already fallen would be meaningless.
+
+        Upright confirmation reuses ``fall_count_threshold``, so "confirmed
+        standing" is exactly as hard to trigger spuriously as "confirmed fallen".
+
+        Before Aug 2026 the recovery node wrote 'stand' directly and this method
+        armed only on 'stand'. Writing 'pending' without arming it here would
+        permanently disable fall detection — hence the explicit two-state gate.
         """
-        if current_state != 'stand':
-            return count_lie, count_recline, None
+        if current_state not in ('stand', 'pending'):
+            return count_lie, count_recline, count_upright, None
 
         new_lie     = (count_lie + 1)     if angle < self._lie_angle_max     else 0
         new_recline = (count_recline + 1) if angle > self._recline_angle_min else 0
+        upright     = (self._lie_angle_max <= angle <= self._recline_angle_min)
+        new_upright = (count_upright + 1) if upright else 0
 
         if new_lie > self._fall_count_threshold:
-            return 0, 0, 'lie'
+            return 0, 0, 0, 'lie'
         if new_recline > self._fall_count_threshold:
-            return 0, 0, 'recline'
-        return new_lie, new_recline, None
+            return 0, 0, 0, 'recline'
+        if current_state == 'pending' and new_upright > self._fall_count_threshold:
+            return 0, 0, 0, 'stand'
+        return new_lie, new_recline, new_upright, None
 
     def _make_bb_writes(self, new_state) -> dict:
         """Return {BB.ROBOT_STATE: new_state} when a fall was confirmed, else {}.
@@ -187,12 +223,15 @@ class ImuBalanceStateAdapter(XyzInputAdapter):
             current_state = self._live_robot_state
 
         angle = self._extract_imu(msg)
-        new_count_lie, new_count_recline, new_state = self._classify_fall(
-            angle, current_state, self._count_lie, self._count_recline)
+        (new_count_lie, new_count_recline,
+         new_count_upright, new_state) = self._classify_fall(
+            angle, current_state, self._count_lie, self._count_recline,
+            self._count_upright)
 
         # Update callback-thread-only accumulators (no lock needed).
         self._count_lie     = new_count_lie
         self._count_recline = new_count_recline
+        self._count_upright = new_count_upright
 
         if new_state is not None:
             rospy.loginfo('[ImuAdapter] posture: %s', new_state)
