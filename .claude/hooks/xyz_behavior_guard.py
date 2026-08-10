@@ -199,8 +199,11 @@ def check_behaviours(content: str, file_path: str) -> list[str]:
     if not re.search(r'class\s+', clean):
         return violations
 
-    if not re.search(r'class\s+\w+\s*\([^)]*XyzL2ActionNode[^)]*\)', clean):
-        violations.append("❌ Behaviour class does not inherit XyzL2ActionNode  →  class Foo(XyzL2ActionNode):")
+    # XyzL2GaitActionNode is an accepted base too (project gait nodes inherit it to
+    # get the shared gait pass-through plumbing). Kept as a widened pattern so a
+    # future intermediate base does not silently false-positive every node.
+    if not re.search(r'class\s+\w+\s*\([^)]*XyzL2\w*ActionNode[^)]*\)', clean):
+        violations.append("❌ Behaviour class does not inherit XyzL2ActionNode / XyzL2GaitActionNode  →  class Foo(XyzL2ActionNode):")
     if not re.search(r'^\s{4}LEVEL\s*=', clean, re.MULTILINE):
         violations.append("❌ Missing class variable LEVEL  →  LEVEL = 'L2'")
     if not re.search(r'^\s{4}BB_LOG_KEYS\s*=', clean, re.MULTILINE):

@@ -18,17 +18,37 @@ def _strip_noise(src: str) -> str:
     return src
 
 
-def check_node(content: str) -> list:
+def check_node(content: str, file_path: str = '') -> list:
     violations = []
     clean = _strip_noise(content)
 
-    if not re.search(r'class\s+\w+\s*\([^)]*Xyz(?:L1ConditionNode|L2ActionNode|L3ActionNode)[^)]*\)', clean):
-        violations.append("❌ Does not inherit XyzL1ConditionNode / XyzL2ActionNode / XyzL3ActionNode  →  class L1_Foo(XyzL1ConditionNode): / L2_Foo(XyzL2ActionNode): / L3_Foo(XyzL3ActionNode):")
+    # Naming IS the contract: a file called L2_Gait_*.py must inherit the gait
+    # base, so the rule is checkable from the filename alone with no ambiguity
+    # about whether the node "really" dispatches a step. Nodes that only stop the
+    # gait (L2_Motion_StopGait, L2_Motion_PauseAfterTicks) deliberately live
+    # outside the L2_Gait_ namespace. Three nodes drifted from this rule in Aug
+    # 2026 because it existed only in prose — hence this check.
+    if re.search(r'/L2_Gait_[^/]*\.py$', file_path):
+        if not re.search(r'class\s+\w+\s*\([^)]*XyzL2GaitActionNode[^)]*\)', clean):
+            violations.append(
+                "❌ L2_Gait_* node does not inherit XyzL2GaitActionNode  →  the "
+                "L2_Gait_ prefix means 'dispatches gait steps'; inherit "
+                "XyzL2GaitActionNode for the shared pass-through knobs + gait_kwargs(). "
+                "If it never dispatches a step, rename it out of the L2_Gait_ namespace "
+                "(e.g. L2_Motion_*).")
+
+    # Matches any XyzL<n>...(Condition|Action)Node base, so adding a new
+    # intermediate base (as XyzL2GaitActionNode was in Aug 2026) does not silently
+    # turn every node that uses it into a false positive.
+    if not re.search(r'class\s+\w+\s*\([^)]*XyzL[123]\w*(?:Condition|Action)Node[^)]*\)', clean):
+        violations.append("❌ Does not inherit an XyzL1ConditionNode / XyzL2ActionNode / XyzL2GaitActionNode / XyzL3ActionNode base  →  class L1_Foo(XyzL1ConditionNode): / L2_Foo(XyzL2ActionNode):")
     if not re.search(r'^\s{4}LEVEL\s*=', clean, re.MULTILINE):
         violations.append("❌ Missing class variable LEVEL               →  LEVEL = 'L1'")
     if not re.search(r'^\s{4}BB_READS\s*=', clean, re.MULTILINE):
         violations.append("❌ Missing BB_READS / BB_WRITES / FACADE_CALLS / CONFIG_DEFAULTS   →  declare all four at class level")
-    if not re.search(r'super\(\)\.setup\(', clean):
+    # Only meaningful when the node defines setup() at all: a node with no BB access
+    # (L2_Gait_Stop, L2_Gait_StepNum, L2_Motion_RunAction, …) legitimately has none.
+    if re.search(r'def setup\(', clean) and not re.search(r'super\(\)\.setup\(', clean):
         violations.append("❌ setup() does not call super().setup()      →  required to initialise XyzBTNode")
     calls = re.findall(r'rospy\.\w+\s*\(', clean)
     if calls:
@@ -50,8 +70,11 @@ def check_adapter(content: str) -> list:
         violations.append("❌ No rospy.Subscriber created           →  subscribe to ROS topic in __init__()")
     if not re.search(r'received_count', clean):
         violations.append("❌ Missing received_count counter        →  required by two-phase lock protocol")
-    if not re.search(r'"input_state"', clean):
-        violations.append('❌ Missing input_state event             →  write_snapshot() must emit "input_state"')
+    # Look for the emit_input_state() helper call, NOT a quoted "input_state"
+    # literal: _strip_noise() blanks every string before we get here, so a
+    # quoted-literal search could never match and fired on all six adapters.
+    if not re.search(r'emit_input_state\s*\(', clean):
+        violations.append('❌ Missing input_state event             →  write_snapshot() must call self.emit_input_state(...)')
 
     return violations
 
@@ -62,8 +85,12 @@ def check_bb_keys(content: str) -> list:
     Only matches the standard pattern:
         FOO_BAR = LATCHED_NS + '/' + FOO_BAR_KEY
     Raw string literals and comments are intentionally ignored to avoid false positives.
+
+    The leading \\s* is load-bearing: these are class attributes indented by four
+    spaces, so anchoring at column 0 (as this did until Aug 2026) made `defined`
+    always empty and the whole check dead — it never once fired.
     """
-    defined = re.findall(r'^(\w+)\s*=\s*LATCHED_NS\s*\+\s*', content, re.MULTILINE)
+    defined = re.findall(r'^\s*(\w+)\s*=\s*LATCHED_NS\s*\+\s*', content, re.MULTILINE)
     if not defined:
         return []
 
@@ -105,7 +132,7 @@ def main() -> None:
         sys.exit(0)
 
     if is_node:
-        violations = check_node(content)
+        violations = check_node(content, file_path)
     elif is_adapter:
         violations = check_adapter(content)
     else:
