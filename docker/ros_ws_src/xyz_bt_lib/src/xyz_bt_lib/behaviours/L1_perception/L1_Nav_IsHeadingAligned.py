@@ -34,7 +34,7 @@ from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
 class L1_Nav_IsHeadingAligned(XyzL1ConditionNode):
-    """SUCCESS if abs(/latched/nav_imu_heading) < threshold_deg (dwell-configurable)."""
+    """SUCCESS if abs(/latched/nav_imu_heading) < threshold_deg."""
 
     LEVEL        = 'L1'
     BB_READS     = [BB.NAV_IMU_HEADING]

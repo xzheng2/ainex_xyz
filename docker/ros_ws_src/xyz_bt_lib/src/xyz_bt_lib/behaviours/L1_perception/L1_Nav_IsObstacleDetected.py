@@ -31,7 +31,7 @@ from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
 class L1_Nav_IsObstacleDetected(XyzL1ConditionNode):
-    """SUCCESS if /latched/nav_obstacle_detected is True (dwell-configurable)."""
+    """SUCCESS if /latched/nav_obstacle_detected is True."""
 
     LEVEL        = 'L1'
     BB_READS     = [BB.NAV_OBSTACLE_DETECTED]

@@ -29,6 +29,10 @@ BB.TRACKED_OBJECTS schema — same as ObjectDetectionAdapter:
         'error_y':    float,  # obj.y − image_center_y (with center_y_offset)
         'size':       float,  # width * height (YOLO always rect)
         'lost_count': int,    # consecutive frames without detection (0 = seen this frame)
+        'displacement': float | None,  # px moved since the previous consecutive
+                              # detection; None = first sighting / re-acquired after
+                              # loss / ANY multi-instance entry (no cross-frame
+                              # identity). Read by L1_Vision_IsObjectStill.
         # Depth fields (always present; None when depth disabled or unavailable):
         'depth_mm':   float | None,  # sampled depth at (x, y), millimetres
         'depth_m':    float | None,  # sampled depth at (x, y), metres
@@ -113,7 +117,9 @@ from py_trees.common import Access
 from ainex_interfaces.msg import ObjectsInfo
 
 from xyz_bt_lib.blackboard.blackboard_keys import BB
-from xyz_bt_lib.core.base_adapter import DepthSampler, XyzInputAdapter
+from xyz_bt_lib.core.base_adapter import (
+    DepthSampler, XyzInputAdapter, carry_displacement,
+)
 
 _DEFAULT_TARGET_SPECS = {'object': {'label': None, 'shape': None}}
 
@@ -348,18 +354,24 @@ class YoloObjectDetectionAdapter(XyzInputAdapter):
         """
         new_tracked = {}
         for target_id, spec in self._target_specs.items():
+            old = self._live_tracked_objects.get(target_id)
             if spec.get('multi'):
                 i = 1
                 while '{}_{}'.format(target_id, i) in resolved:
                     key = '{}_{}'.format(target_id, i)
-                    new_tracked[key] = resolved[key]
+                    # No cross-frame identity for multi specs (see docstring), so
+                    # displacement is not knowable — never guess it from an index.
+                    new_tracked[key] = dict(resolved[key], displacement=None)
                     i += 1
             elif target_id in resolved:
-                new_tracked[target_id] = resolved[target_id]
+                new_tracked[target_id] = carry_displacement(
+                    dict(resolved[target_id]), old)
             else:
-                old = self._live_tracked_objects.get(target_id)
                 if old is not None:
-                    new_tracked[target_id] = dict(old, lost_count=old['lost_count'] + 1)
+                    # Lost: preserve last known pose, but displacement is unknown.
+                    new_tracked[target_id] = dict(old,
+                                                  lost_count=old['lost_count'] + 1,
+                                                  displacement=None)
                 # else: never seen — omit (missing key is canonical absence)
         self._live_tracked_objects = new_tracked
 

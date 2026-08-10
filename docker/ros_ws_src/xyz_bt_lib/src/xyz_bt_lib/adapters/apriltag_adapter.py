@@ -41,6 +41,9 @@ BB value schema — TRACKED_OBJECTS is a dict[target_id, stat_dict]:
         'tag_id':     int,    # numeric AprilTag id of this detection
         'direction':  str,    # course label from tag_direction_map ('' if id unmapped)
         'lost_count': int,    # consecutive ticks without detection (0 = seen this tick)
+        'displacement': float | None,  # px moved since the previous consecutive
+                              # detection; None = first sighting / re-acquired after
+                              # loss. Read by L1_Vision_IsObjectStill.
         # Depth fields (always present; None when depth disabled or unavailable):
         'depth_mm':   float | None,  # sampled depth at tag centre, millimetres
         'depth_m':    float | None,  # sampled depth at tag centre, metres
@@ -84,7 +87,9 @@ from std_msgs.msg import Float64
 from apriltag_ros.msg import AprilTagDetectionArray
 
 from xyz_bt_lib.blackboard.blackboard_keys import BB
-from xyz_bt_lib.core.base_adapter import DepthSampler, XyzInputAdapter
+from xyz_bt_lib.core.base_adapter import (
+    DepthSampler, XyzInputAdapter, carry_displacement,
+)
 
 
 class AprilTagAdapter(XyzInputAdapter):
@@ -299,14 +304,15 @@ class AprilTagAdapter(XyzInputAdapter):
         If entry_or_none is not None: create/update with lost_count=0.
         If None (not detected this frame): increment lost_count, or omit if never seen.
         """
+        old = self._live_tracked_objects.get(self._target_id)
         if entry_or_none is not None:
-            new_entry = dict(entry_or_none, lost_count=0)
-            self._live_tracked_objects[self._target_id] = new_entry
+            self._live_tracked_objects[self._target_id] = carry_displacement(
+                dict(entry_or_none, lost_count=0), old)
         else:
-            old = self._live_tracked_objects.get(self._target_id)
             if old is not None:
+                # Lost: preserve last known pose, but displacement is unknown.
                 self._live_tracked_objects[self._target_id] = dict(
-                    old, lost_count=old['lost_count'] + 1)
+                    old, lost_count=old['lost_count'] + 1, displacement=None)
             # else: never seen — omit (missing key = canonical absence)
 
     # ------------------------------------------------------------------

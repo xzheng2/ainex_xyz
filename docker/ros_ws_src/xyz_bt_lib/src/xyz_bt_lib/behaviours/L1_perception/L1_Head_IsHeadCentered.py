@@ -28,7 +28,7 @@ xyz_bt_lib.core.latched_dwell.LatchedDwellDecorator — keep this node stateless
 CONFIG_DEFAULTS:
   head_pan_center:  500  — servo count for the head-forward pan position.
   center_threshold: 30   — max allowed pan offset from centre (servo counts).
-                           Must match L2_Head_FindLineSweep center_threshold
+                           Must match L2_Gait_AlignBodyToHead center_threshold
                            when both nodes are used in the same tree.
   head_tilt_center: None — tilt servo centre; None = do not check tilt.
   tilt_threshold:   15   — max allowed tilt offset from centre (servo counts).
@@ -64,7 +64,7 @@ class L1_Head_IsHeadCentered(XyzL1ConditionNode):
 
     def __init__(self, name: str = 'L1_Head_IsHeadCentered',
                  head_pan_center: int = 500, center_threshold: int = 30,
-                 head_tilt_center: int = None, tilt_threshold: int = 30,
+                 head_tilt_center: int = None, tilt_threshold: int = 15,
                  pan_servo_id: int = 23, tilt_servo_id: int = 24,
                  logger=None, tick_id_getter=None):
         """

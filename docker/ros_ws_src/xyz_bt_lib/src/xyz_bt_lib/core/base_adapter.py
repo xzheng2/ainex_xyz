@@ -14,12 +14,53 @@ Boundary rules:
                         Adapters must never call managers or publish ROS topics.
 """
 from abc import ABC, abstractmethod
+import math
 import threading
 import time
 
 import py_trees
 
 from xyz_bt_lib.blackboard.blackboard_keys import BB
+
+
+def carry_displacement(new_entry: dict, old_entry) -> dict:
+    """Add a ``displacement`` field to ``new_entry``, measured against ``old_entry``.
+
+    ``displacement`` is the Euclidean pixel distance the target centroid moved
+    since the PREVIOUS CONSECUTIVE detection of that target.
+
+    This exists so that "is the object still?" can be answered by a PURE L1
+    predicate. Motion is inherently a two-sample question, and an L1 condition
+    node may not hold cross-tick state (see ``XyzL1ConditionNode``), so the
+    cross-frame memory belongs in the tracking layer that already carries
+    ``lost_count`` — here. The L1 node then only compares one latched number
+    against a threshold, and "still for N ticks" is a tree-layer
+    ``LatchedDwellDecorator``.
+
+    Measured per CAMERA FRAME (adapter callback rate), not per BT tick: the
+    latched value each tick is the most recent frame-to-frame displacement.
+
+    Returns ``None`` when there is no comparable previous sample — first
+    sighting, or re-acquisition after a loss. Comparing across a loss gap would
+    report motion that may have happened at any point during the gap, so the
+    honest answer is "unknown", and a pure predicate treats unknown as not-still
+    (safe-fail, consistent with the RUNNING-is-not-passed rule in the dwell/
+    hysteresis decorators).
+
+    Args:
+        new_entry: this frame's stat_dict; must contain ``x`` and ``y``.
+        old_entry: the previous stat_dict for the same target, or None.
+
+    Returns:
+        ``new_entry``, mutated in place with ``displacement`` set.
+    """
+    if old_entry is not None and old_entry.get('lost_count') == 0:
+        new_entry['displacement'] = math.hypot(
+            new_entry['x'] - old_entry['x'],
+            new_entry['y'] - old_entry['y'])
+    else:
+        new_entry['displacement'] = None
+    return new_entry
 
 
 class XyzInputAdapter(ABC):

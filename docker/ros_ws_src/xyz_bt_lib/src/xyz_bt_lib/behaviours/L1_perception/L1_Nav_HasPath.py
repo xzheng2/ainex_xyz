@@ -28,7 +28,7 @@ from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
 class L1_Nav_HasPath(XyzL1ConditionNode):
-    """SUCCESS if /latched/nav_has_path is True (dwell-configurable)."""
+    """SUCCESS if /latched/nav_has_path is True."""
 
     LEVEL        = 'L1'
     BB_READS     = [BB.NAV_HAS_PATH]
