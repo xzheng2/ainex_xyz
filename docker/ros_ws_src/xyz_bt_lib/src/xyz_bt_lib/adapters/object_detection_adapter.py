@@ -23,8 +23,14 @@ BB value schema — TRACKED_OBJECTS is a dict[target_id, stat_dict]:
         'y':          float,  # raw pixel y (uncalibrated)
         'error_x':    float,  # obj.x − image_center_x (with center_x_offset)
         'error_y':    float,  # obj.y − image_center_y (with center_y_offset)
-        'size':       float,  # π * radius² for circle; width * height for rect
+        'size':       float | None,  # π*radius² (circle) | width*height (rect)
+                              # | None for 'line' and any other shape with no
+                              # meaningful area — see _compute_size()
         'lost_count': int,    # consecutive camera frames without detection (0 = seen this frame)
+        'displacement': float | None,  # px moved since the previous consecutive
+                              # detection; None = first sighting / re-acquired after
+                              # loss. Read by L1_Vision_IsObjectStill (keeps it a
+                              # pure predicate — see core.base_adapter.carry_displacement)
         # Depth fields (always present; None when depth disabled or unavailable):
         'depth_mm':   float | None,  # sampled depth at (x, y), millimetres
         'depth_m':    float | None,  # sampled depth at (x, y), metres
@@ -53,7 +59,14 @@ Per-BB-value traceability:
 Threshold/calibration source:
   CONFIG_DEFAULTS: image_width=640, image_height=480,
                    center_x_offset=0.0, center_y_offset=0.0
-  center_x/y_offset: shifts calibrated image centre (mirrors LineDetectionAdapter pattern).
+  center_x/y_offset: shifts the calibrated image centre. This is the ONLY line-
+                     following calibration knob now — the old LineDetectionAdapter
+                     loaded it from config/line_perception.yaml (value 66); both
+                     the adapter and the YAML were deleted Aug 2026, so a project
+                     that follows a line must pass center_x_offset explicitly:
+                         ObjectDetectionAdapter(
+                             target_specs={'line': {'shape': 'line'}},
+                             center_x_offset=66)
 
 ObjectInfo field mapping:
   label       — object class name
@@ -87,7 +100,9 @@ from py_trees.common import Access
 from ainex_interfaces.msg import ObjectsInfo
 
 from xyz_bt_lib.blackboard.blackboard_keys import BB
-from xyz_bt_lib.core.base_adapter import DepthSampler, XyzInputAdapter
+from xyz_bt_lib.core.base_adapter import (
+    DepthSampler, XyzInputAdapter, carry_displacement,
+)
 
 _DEFAULT_TARGET_SPECS = {'object': {'label': None, 'shape': None}}
 
@@ -211,16 +226,27 @@ class ObjectDetectionAdapter(XyzInputAdapter):
             entry.update(DepthSampler._NONE_FIELDS)
         return entry
 
-    def _compute_size(self, obj) -> float:
-        """Return standardised size for one detected object.
+    def _compute_size(self, obj):
+        """Return standardised size for one detected object, or None if undefined.
 
-        circle: π * radius²  (uses ObjectInfo.radius field directly)
-        rect  : width * height
+        circle: π * radius²   (ObjectInfo.radius carries the real size; width/height
+                               are the IMAGE dimensions for this shape)
+        rect  : width * height (the only shape whose width/height are the object's own)
+        line  : None           — the vendor line detector puts the IMAGE dimensions in
+                               width/height too, so width*height would be a constant
+                               ~307200 "size" that silently satisfies any min_size gate.
+                               A line has no meaningful area; None says so honestly.
+        other : None           — same reasoning; do not invent a size.
+
+        Consumers must treat None as "size unknown", not as zero — see
+        L1_Vision_IsObjectPositioned, which skips its min_size gate when size is None.
         No BB/ROS/facade calls here.
         """
         if obj.type == 'circle':
             return math.pi * float(obj.radius) * float(obj.radius)
-        return float(obj.width * obj.height)
+        if obj.type == 'rect':
+            return float(obj.width * obj.height)
+        return None
 
     def _compute_errors(self, obj) -> tuple:
         """Return (error_x, error_y) calibrated to image centre.
@@ -245,14 +271,17 @@ class ObjectDetectionAdapter(XyzInputAdapter):
         """
         new_tracked = {}
         for target_id in self._target_specs:
+            old = self._live_tracked_objects.get(target_id)
             if target_id in built_entries:
                 entry = dict(built_entries[target_id])
                 entry['lost_count'] = 0
-                new_tracked[target_id] = entry
+                new_tracked[target_id] = carry_displacement(entry, old)
             else:
-                old = self._live_tracked_objects.get(target_id)
                 if old is not None:
-                    new_tracked[target_id] = dict(old, lost_count=old['lost_count'] + 1)
+                    # Lost: preserve last known pose, but displacement is unknown.
+                    new_tracked[target_id] = dict(old,
+                                                  lost_count=old['lost_count'] + 1,
+                                                  displacement=None)
                 # else: never seen — omit (missing key is canonical absence)
         self._live_tracked_objects = new_tracked
 
@@ -302,7 +331,10 @@ class ObjectDetectionAdapter(XyzInputAdapter):
         # Serialize for the log (omit raw pixel coords, keep key fields).
         tracked_log = {}
         for tid, e in snap['tracked_objects'].items():
-            entry_log = {'shape': e['shape'], 'size': round(e['size'], 1),
+            # size is None for shapes with no meaningful area (e.g. 'line') — keep it
+            # None in the log rather than rounding, which would raise on None.
+            entry_log = {'shape': e['shape'],
+                         'size': None if e['size'] is None else round(e['size'], 1),
                          'error_x': round(e['error_x'], 1), 'lost_count': e['lost_count']}
             if e.get('depth_m') is not None:
                 entry_log['depth_m'] = round(e['depth_m'], 3)

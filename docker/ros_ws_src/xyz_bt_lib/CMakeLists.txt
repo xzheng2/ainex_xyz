@@ -23,5 +23,5 @@ catkin_install_python(PROGRAMS
   src/xyz_bt_lib/sensors/depth_nav/depth_nav_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
-install(DIRECTORY launch config
+install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

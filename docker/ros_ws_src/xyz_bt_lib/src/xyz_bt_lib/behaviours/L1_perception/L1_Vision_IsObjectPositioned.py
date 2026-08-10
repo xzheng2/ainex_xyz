@@ -26,8 +26,18 @@ Distance gate (optional):
 
 SUCCESS:
   target_id present in tracked_objects with lost_count == 0,
-  size >= min_size, abs(error_x) <= max_error_x, and — when a distance bound is
-  set — min_distance_mm <= depth_mm <= max_distance_mm.
+  size >= min_size (skipped when size is None — see below),
+  abs(error_x) <= max_error_x, and — when a distance bound is set —
+  min_distance_mm <= depth_mm <= max_distance_mm.
+
+Shapes without an area (size is None):
+  A detected 'line' has no meaningful area, so the adapter writes size=None and
+  this node SKIPS the min_size gate for it, still answering the centring (and
+  optional distance) question. That is what lets one node serve both line and
+  object targets. Note the deliberate asymmetry with the distance gate below:
+  a missing depth FAILS, because a distance bound was explicitly configured and
+  "cannot confirm" must not pass; a None size is not a missing measurement but a
+  property that does not apply to that shape.
 
 FAILURE:
   target_id absent, lost_count > 0, size < min_size, abs(error_x) > max_error_x,
@@ -116,12 +126,20 @@ class L1_Vision_IsObjectPositioned(XyzL1ConditionNode):
             return False, f'target {self._target_id!r} not in tracked_objects'
         if obj['lost_count'] > 0:
             return False, f'target {self._target_id!r} lost (lost_count={obj["lost_count"]})'
-        size_ok  = obj['size']          >= self._min_size
+        size     = obj['size']
+        # size is None for shapes with no meaningful area (e.g. a detected line).
+        # Skip the gate rather than fail: this node then still answers the
+        # centring/distance question for those targets. Contrast the distance
+        # gate, which FAILS on missing depth — there the bound was explicitly
+        # requested, so "cannot confirm" must not pass. Here a None size means
+        # the concept does not apply to this shape at all.
+        size_ok  = True if size is None else size >= self._min_size
         error_ok = abs(obj['error_x'])  <= self._max_error_x
         dist_ok, dist_reason = self._distance_ok(obj)
         passed   = size_ok and error_ok and dist_ok
+        size_txt = 'n/a' if size is None else f'{size:.0f}/{self._min_size:.0f}'
         reason   = (
-            f"size={obj['size']:.0f}/{self._min_size:.0f} "
+            f"size={size_txt} "
             f"error_x={obj['error_x']:.1f}/{self._max_error_x:.1f}"
             f"{dist_reason}"
         )

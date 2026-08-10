@@ -15,14 +15,6 @@ class BB:
 
     # Short keys (relative) — used with register_key() on /latched/ clients
     ROBOT_STATE_KEY        = 'robot_state'
-    LINE_DATA_KEY          = 'line_data'
-    LAST_LINE_X_KEY        = 'last_line_x'
-    CAMERA_LOST_COUNT_KEY  = 'camera_lost_count'
-    LINE_ERROR_X_KEY       = 'line_error_x'
-    LINE_CENTER_X_KEY      = 'line_center_x'
-    LAST_LINE_ERROR_X_KEY  = 'last_line_error_x'
-    DETECTED_OBJECTS_KEY   = 'detected_objects'
-    DETECTED_COUNT_KEY     = 'detected_count'
     TRACKED_OBJECTS_KEY    = 'tracked_objects'
     DETECTION_SOURCE_KEY   = 'detection_source'
     APRILTAG_TURN_BIAS_KEY = 'apriltag_turn_bias'
@@ -45,14 +37,6 @@ class BB:
 
     # Absolute paths — used in BB_LOG_KEYS, bb_writes, ROSA_TOPIC_MAP
     ROBOT_STATE       = LATCHED_NS + '/' + ROBOT_STATE_KEY        # '/latched/robot_state'
-    LINE_DATA         = LATCHED_NS + '/' + LINE_DATA_KEY          # '/latched/line_data'
-    LAST_LINE_X       = LATCHED_NS + '/' + LAST_LINE_X_KEY        # '/latched/last_line_x'
-    CAMERA_LOST_COUNT = LATCHED_NS + '/' + CAMERA_LOST_COUNT_KEY  # '/latched/camera_lost_count'
-    LINE_ERROR_X      = LATCHED_NS + '/' + LINE_ERROR_X_KEY       # '/latched/line_error_x'
-    LINE_CENTER_X     = LATCHED_NS + '/' + LINE_CENTER_X_KEY      # '/latched/line_center_x'
-    LAST_LINE_ERROR_X = LATCHED_NS + '/' + LAST_LINE_ERROR_X_KEY  # '/latched/last_line_error_x'
-    DETECTED_OBJECTS  = LATCHED_NS + '/' + DETECTED_OBJECTS_KEY   # '/latched/detected_objects'
-    DETECTED_COUNT    = LATCHED_NS + '/' + DETECTED_COUNT_KEY     # '/latched/detected_count'
     TRACKED_OBJECTS   = LATCHED_NS + '/' + TRACKED_OBJECTS_KEY    # '/latched/tracked_objects'
     DETECTION_SOURCE  = LATCHED_NS + '/' + DETECTION_SOURCE_KEY   # '/latched/detection_source'
     APRILTAG_TURN_BIAS = LATCHED_NS + '/' + APRILTAG_TURN_BIAS_KEY # '/latched/apriltag_turn_bias'
@@ -73,7 +57,9 @@ class BB:
     NAV_IMU_HEADING_MIN = LATCHED_NS + '/' + NAV_IMU_HEADING_MIN_KEY  # '/latched/nav_imu_heading_min'
     NAV_IMU_HEADING_MAX = LATCHED_NS + '/' + NAV_IMU_HEADING_MAX_KEY  # '/latched/nav_imu_heading_max'
 
-    # /perception/ — future L3 use (DETECTED_OBJECTS is /latched/ — see above)
+    # /perception/ — reserved for future L3 use; nothing writes or reads these today.
+    # (The former /latched/ DETECTED_OBJECTS + DETECTED_COUNT keys were removed
+    #  Aug 2026 — superseded by TRACKED_OBJECTS, and dead by then.)
     PERCEPTION_NS     = '/perception'
     TARGET_PIXEL_X_KEY = 'target_pixel_x'   # short key for /perception/ client
     PERCEPTION_DETECTED_OBJECTS = '/perception/detected_objects'
@@ -90,8 +76,14 @@ class BB:
     # /locomotion/ (ROBOT_STATE moved to /latched/)
     #
     # 废弃 Key（Legacy — 禁止在新代码中使用）:
-    #   '/locomotion/robot_state'  → 已迁移至 /latched/，用 BB.ROBOT_STATE ('/latched/robot_state')
-    #   '/perception/line_data'    → 已迁移至 /latched/，用 BB.LINE_DATA   ('/latched/line_data')
+    #   '/locomotion/robot_state' → 已迁移至 /latched/，用 BB.ROBOT_STATE
+    #   line 专用扁平键（line_data / last_line_x / camera_lost_count /
+    #     line_error_x / line_center_x / last_line_error_x）→ Aug 2026 全部删除。
+    #     line 现在是 TRACKED_OBJECTS 里的一个普通目标（shape='line'）：
+    #       line_error_x       → tracked_objects['line']['error_x']
+    #       camera_lost_count  → tracked_objects['line']['lost_count']
+    #       last_line_error_x  → 同一个 error_x（丢失时 adapter 保留旧值，天然粘滞）
+    #       line_center_x / last_line_x → 删除前已无任何消费方
     # 新节点、新 adapter、新项目 behaviours 禁止读写上述废弃 key；在代码中发现须重构。
     # 下面 /locomotion/ 其余 key（GAIT_ENABLED、WALK_* 等）保留供未来 L2/L3 扩展使用，
     # 当前没有任何 input adapter 写入它们，也不在 ROSA_TOPIC_MAP 中。
@@ -115,12 +107,6 @@ class BB:
     # ROSA mirror topic map
     ROSA_TOPIC_MAP = {
         ROBOT_STATE:       '/bt/bb/latched/robot_state',
-        LINE_DATA:         '/bt/bb/latched/line_data',
-        LAST_LINE_X:       '/bt/bb/latched/last_line_x',
-        CAMERA_LOST_COUNT: '/bt/bb/latched/camera_lost_count',
-        LINE_ERROR_X:      '/bt/bb/latched/line_error_x',
-        LINE_CENTER_X:     '/bt/bb/latched/line_center_x',
-        LAST_LINE_ERROR_X: '/bt/bb/latched/last_line_error_x',
         TRACKED_OBJECTS:   '/bt/bb/latched/tracked_objects',
         DETECTION_SOURCE:  '/bt/bb/latched/detection_source',
         APRILTAG_TURN_BIAS: '/bt/bb/latched/apriltag_turn_bias',
