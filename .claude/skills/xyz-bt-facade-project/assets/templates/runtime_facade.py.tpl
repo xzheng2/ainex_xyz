@@ -30,6 +30,7 @@ class {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade):
 
     # ── Head constants ────────────────────────────────────────────────────
     HEAD_PAN_SERVO     = 23
+    HEAD_TILT_SERVO    = 24    # clamped to [280, 550] in the controller
     HEAD_MOVE_DELAY_MS = 50
 
     # ── go_step yaw accumulation ──────────────────────────────────────────
@@ -166,11 +167,20 @@ class {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade):
             semantic_source=semantic_source,
         )
 
-    def move_head(self, pan_pos, bt_node=None, tick_id=None):
-        """Convenience wrapper: set_servos_position with HEAD_PAN_SERVO + HEAD_MOVE_DELAY_MS."""
+    def move_head(self, pan_pos, tilt_pos=None, bt_node=None, tick_id=None):
+        """Convenience wrapper: set_servos_position with the head servos.
+
+        tilt_pos is OPTIONAL but the parameter is NOT: L2_Head_MoveTo,
+        L2_Head_SearchSweep and L2_Head_TrackTarget all pass tilt_pos= on every
+        call, so a signature without it raises TypeError on the first tick.
+        None means "leave tilt where it is" — only the pan servo is commanded.
+        """
+        positions = [[self.HEAD_PAN_SERVO, int(pan_pos)]]
+        if tilt_pos is not None:
+            positions.append([self.HEAD_TILT_SERVO, int(tilt_pos)])
         self._io.set_servos_position(
             self.HEAD_MOVE_DELAY_MS,
-            [[self.HEAD_PAN_SERVO, int(pan_pos)]],
+            positions,
             bt_node=bt_node, tick_id=self._tid(tick_id),
         )
 

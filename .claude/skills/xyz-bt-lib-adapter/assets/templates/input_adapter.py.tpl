@@ -22,7 +22,30 @@ Per-BB-value traceability:
     - final BB.* key
 
 Threshold/calibration source:
-  TODO: CONFIG_DEFAULTS or xyz_bt_lib/config/*.yaml.
+  CONFIG_DEFAULTS + matching __init__ args, always. There is no
+  xyz_bt_lib/config/ directory (deleted Aug 2026 with line_perception.yaml);
+  a project passes its calibration in as a constructor argument, e.g.
+  ObjectDetectionAdapter(..., center_x_offset=66).
+
+If this is a VISION adapter, write into the shared registry — not new flat keys:
+  Every visual detector (colour blob, YOLO, AprilTag, AND line) writes
+  BB.TRACKED_OBJECTS, a dict keyed by target_id. Do NOT invent a per-sensor set
+  of flat keys; that is what the deleted LineDetectionAdapter did, parsing the
+  same topic ObjectDetectionAdapter already read. A new detector adds a
+  target_specs entry, not a BB namespace.
+
+  Two schema conventions such an adapter MUST honour (see ObjectDetectionAdapter):
+    - 'size' may be None. Branch per shape: circle -> pi*r^2, rect -> w*h,
+      line (and anything else) -> None. Never fall back to width*height for a
+      shape whose width/height carry the IMAGE dimensions — that yields a
+      constant ~307200 "area" that silently satisfies any min_size gate.
+    - 'displacement' — px moved since the previous consecutive detection, via
+      carry_displacement(new_entry, old_entry); call it in the SAME merge
+      function that maintains lost_count, and write None when there is no
+      comparable previous sample (first sighting, re-acquisition after a loss,
+      or a multi-instance entry with no cross-frame identity). It exists so
+      L1_Vision_IsObjectStill can stay a pure predicate — an L1 node may not
+      hold cross-tick state, so the two-sample memory lives here.
 
 Two-phase latch protocol:
   Phase 1: snapshot_and_reset() while caller holds the shared lock.
@@ -37,9 +60,12 @@ Observability:
 import threading
 
 import rospy
+from py_trees.common import Access
 {{MSG_TYPE_IMPORT}}
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 from xyz_bt_lib.core.base_adapter import XyzInputAdapter
+# For a tracking adapter that maintains lost_count, also import:
+#   from xyz_bt_lib.core.base_adapter import carry_displacement
 
 
 class {{CLASS_NAME}}(XyzInputAdapter):
@@ -161,6 +187,11 @@ class {{CLASS_NAME}}(XyzInputAdapter):
         """Return current live-state snapshot and reset received_count.
 
         Must be called while the caller holds self._lock.
+
+        Reset ONLY per-tick bookkeeping here. Counters that carry SENSOR history
+        across ticks — lost_count above all — are sticky and must survive the
+        snapshot; zeroing them here would make "how long has the target been
+        missing?" unanswerable.
         """
         snap = {
             {{SNAP_FIELDS}}

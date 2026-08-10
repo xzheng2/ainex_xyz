@@ -24,7 +24,7 @@
         <Condition ID="L1_Balance_IsStanding" name="IsStanding"
           expected_stand_label="stand"/>
         <Sequence name="Recovery" memory="false">
-          <Action ID="L2_Gait_Stop" name="L2_Gait_Stop_recovery"/>
+          <Action ID="L2_Motion_StopGait" name="StopGait_recovery"/>
           <Action ID="L2_Balance_RecoverFromFall" name="RecoverFromFall"
             lie_action="lie_to_stand"
             recline_action="recline_to_stand"
@@ -36,25 +36,28 @@
             post_action_delay_s="0.5"/>
         </Sequence>
       </Fallback>
-      <Fallback name="PatrolControl" memory="false">
-        <Sequence name="LineFollowing" memory="false">
-          <Condition ID="L1_Vision_IsLineDetected" name="IsLineDetected"/>
-          <Action ID="L2_Gait_FollowLine" name="FollowLine"
-            x_range="[0, 0.015]"
-            yaw_range="[-8, 10]"
-            deadband_px="10"
-            go_turn_threshold="4"
-            head_pan_center="500"
-            hi_yaw_threshold="6"
-            x_hi_yaw="0.008"/>
+      <Fallback name="TaskControl" memory="false">
+        <Sequence name="Approach" memory="false">
+          <Condition ID="L1_Vision_IsObjectDetected" name="IsObjectDetected"
+            target_id="ball"
+            lost_count_threshold="0"/>
+          <Action ID="L2_Gait_VisionToObject" name="ApproachObject"
+            target_id="ball"
+            align_x="320"
+            align_y="360"
+            x_error_threshold="30"
+            y_error_threshold="30"
+            x_speed="0.010"/>
         </Sequence>
-        <Action ID="L2_Gait_FindLine" name="FindLine"
-          base_turn_deg="3"
-          max_turn_deg="7"
-          count_scale_at="30"
-          default_turn_deg="3"
-          right_turn_deg="5"/>
-        <Action ID="L2_Gait_Stop" name="L2_Gait_Stop_fallback"/>
+        <Sequence name="Search" memory="false">
+          <Action ID="L2_Motion_StopGait" name="StopGait_search"/>
+          <Action ID="L2_Head_SearchSweep" name="SearchSweep"
+            target_id="ball"
+            state_key="target_search"
+            sweep_left_pos="700"
+            sweep_right_pos="300"
+            sweep_step="10"/>
+        </Sequence>
       </Fallback>
     </Sequence>
   </BehaviorTree>
@@ -69,8 +72,11 @@
     <Condition ID="L1_Balance_IsStanding">
       <input_port name="expected_stand_label"/>
     </Condition>
-    <Condition ID="L1_Vision_IsLineDetected"/>
-    <Action ID="L2_Gait_Stop"/>
+    <Condition ID="L1_Vision_IsObjectDetected">
+      <input_port name="target_id"/>
+      <input_port name="lost_count_threshold"/>
+    </Condition>
+    <Action ID="L2_Motion_StopGait"/>
     <Action ID="L2_Balance_RecoverFromFall">
       <input_port name="lie_action"/>
       <input_port name="recline_action"/>
@@ -81,21 +87,37 @@
       <input_port name="pre_action_delay_s"/>
       <input_port name="post_action_delay_s"/>
     </Action>
-    <Action ID="L2_Gait_FollowLine">
-      <input_port name="x_range"/>
-      <input_port name="yaw_range"/>
-      <input_port name="deadband_px"/>
-      <input_port name="go_turn_threshold"/>
-      <input_port name="head_pan_center"/>
-      <input_port name="hi_yaw_threshold"/>
-      <input_port name="x_hi_yaw"/>
+    <Action ID="L2_Gait_VisionToObject">
+      <input_port name="target_id"/>
+      <input_port name="align_x"/>
+      <input_port name="align_y"/>
+      <input_port name="x_error_threshold"/>
+      <input_port name="y_error_threshold"/>
+      <input_port name="max_size_threshold"/>
+      <input_port name="x_speed"/>
+      <input_port name="y_speed"/>
+      <input_port name="kp"/>
+      <input_port name="max_yaw_deg"/>
+      <input_port name="deadband"/>
+      <input_port name="min_yaw_deg"/>
+      <input_port name="steer_axis"/>
+      <input_port name="lateral_kp"/>
+      <input_port name="max_y_speed"/>
+      <input_port name="min_y_speed"/>
+      <input_port name="pan_default"/>
+      <input_port name="tilt_default"/>
+      <input_port name="lost_count_threshold"/>
     </Action>
-    <Action ID="L2_Gait_FindLine">
-      <input_port name="base_turn_deg"/>
-      <input_port name="max_turn_deg"/>
-      <input_port name="count_scale_at"/>
-      <input_port name="default_turn_deg"/>
-      <input_port name="right_turn_deg"/>
+    <Action ID="L2_Head_SearchSweep">
+      <input_port name="target_id"/>
+      <input_port name="state_key"/>
+      <input_port name="sweep_left_pos"/>
+      <input_port name="sweep_right_pos"/>
+      <input_port name="sweep_step"/>
+      <input_port name="sweep_pause_ticks"/>
+      <input_port name="tilt_sweep_min"/>
+      <input_port name="tilt_sweep_max"/>
+      <input_port name="tilt_step"/>
     </Action>
   </TreeNodesModel>
 

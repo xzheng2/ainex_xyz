@@ -79,7 +79,8 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
         # Register every BB key this node reads. Use BB.*_KEY for /latched keys.
         # Example:
         # self._bb.register_key(key=BB.SOME_KEY, access=Access.READ)
-        raise NotImplementedError("Fill in Access.READ register_key() calls")
+        # TODO(DELETE THIS LINE once the register_key() calls above are filled in)
+        pass
 
     def _evaluate(self, *values) -> tuple:
         """Return (passed, reason) for the documented L1 condition.
@@ -93,7 +94,10 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
         Use self._ instance fields (self._threshold, self._expected_state, etc.),
         not raw literals. Hard-coded literals are a conformance violation.
         """
-        raise NotImplementedError("Fill in side-effect-free judgement logic")
+        # TODO(REPLACE): compute the real judgement. Placeholder keeps the
+        # unedited template syntactically complete and every name defined.
+        passed, reason = False, 'not implemented'
+        return passed, reason
 
     def update(self) -> Status:
         # Read BB values only, then call _evaluate().
@@ -101,7 +105,13 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
         # value = self._bb.some_key
         # passed, reason = self._evaluate(value)
         # inputs = {'some_key': value}
-        raise NotImplementedError("Fill in BB reads and _evaluate() call")
+        # TODO(REPLACE): read the BB value(s) and call the judgement helper, e.g.
+        #   value = self._bb.some_key
+        #   passed, reason = self._evaluate(value)
+        #   inputs = {'some_key': value}
+        value = None
+        passed, reason = self._evaluate(value)
+        inputs = {}
 
         # L1 is a pure predicate: status_from_bool() returns SUCCESS or FAILURE
         # only — never RUNNING. Do NOT add cross-tick state here; timing/dwell

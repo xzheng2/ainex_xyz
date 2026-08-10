@@ -25,7 +25,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 
 DEFAULT_SESSION_LOGS_DIR = "/home/pi/docker/rosa-agent/logs"
 
@@ -112,10 +112,14 @@ def _anchors_from_observation(observation):
         if hi - lo <= MAX_ANCHOR_SPAN:
             out |= set(range(lo, hi + 1))
     for m in _OBS_LIST.finditer(head):
-        for part in m.group(1).split(","):
-            part = part.strip()
-            if part.isdigit():
-                out.add(int(part))
+        listed = {int(part.strip()) for part in m.group(1).split(",")
+                  if part.strip().isdigit()}
+        # Apply the same breadth guard as the range form: a tool that reports
+        # "tick_ids: [...]" for its whole window (cross_tick_analysis does this
+        # for any selection <= 40 ticks) would otherwise anchor a general
+        # question to every tick in the window and survive any drill-down filter.
+        if listed and (max(listed) - min(listed)) <= MAX_ANCHOR_SPAN:
+            out |= listed
     return out
 
 
@@ -305,10 +309,23 @@ def format_overlay(overlay, tick_filter=None):
 
 
 def _parse_tick_range(s):
+    """Parse the --tick-range argument into a set of ticks, or None for no filter.
+
+    Raises ValueError rather than silently returning None for a syntactically
+    valid but unusable selection: expand_tick_selection() deliberately refuses
+    spans wider than MAX_ANCHOR_SPAN and forms like "all"/"latest:N", and
+    quietly turning those into "no filter" would print the entire run under a
+    heading that claims it was filtered.
+    """
     if not s:
         return None
     ticks = expand_tick_selection(s)
-    return ticks or None
+    if not ticks:
+        raise ValueError(
+            "--tick-range {!r} did not expand to a usable tick set. Use an "
+            "explicit range no wider than {} ticks (e.g. 556-561) or a comma "
+            "list (e.g. 556,558,560).".format(s, MAX_ANCHOR_SPAN))
+    return ticks
 
 
 def main(argv=None):
@@ -331,7 +348,10 @@ def main(argv=None):
 
     bt_range = bt_ts_range(args.bt_log) if args.bt_log else None
     sessions = find_overlapping_sessions(args.session_logs_dir, bt_range)
-    tick_filter = _parse_tick_range(args.tick_range)
+    try:
+        tick_filter = _parse_tick_range(args.tick_range)
+    except ValueError as exc:
+        ap.error(str(exc))          # exits 2 with a usage message, not a traceback
     overlay = build_overlay(sessions, tick_filter=tick_filter)
 
     if args.out == "json":

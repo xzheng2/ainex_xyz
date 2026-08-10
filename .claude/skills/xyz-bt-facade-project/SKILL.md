@@ -54,8 +54,29 @@ set up a competition BT, 新建 <name> 项目, scaffold facade project
     even when the specific tree body only uses one or neither composite type.
     Missing entries silently hide the `memory` port in Groot.
 
+## Template self-check
+
+Before relying on these templates — and after ANY edit to a `.tpl` or to a library
+contract they depend on (`core/base_facade.py` above all) — run:
+
+```bash
+docker exec -u ubuntu -w /home/ubuntu/ros_ws ainex bash -lc \
+  "source devel/setup.bash && python3 <skill-dir>/validate_templates.py"
+```
+
+It renders every template into a throwaway package, checks that `bt_node`'s
+construction call sites supply every required argument, that the facade's
+overrides accept every base-class parameter, and that `bootstrap()` yields a tree
+that actually ticks through both branches. Exit 0 = safe to scaffold.
+
+This exists because five defects once shipped that each crashed a fresh project
+before its first tick, and none was visible by reading: the templates and this
+document agreed with each other while both disagreed with the library. **A Python
+ABC checks method names, not signatures**, so a drifted facade still instantiates.
+
 ## Post-generation checklist
 
+- [ ] `validate_templates.py` passes (see § Template self-check) — run it if any template or facade contract changed
 - [ ] `CMakeLists.txt` lists `{{PROJECT}}/app/{{PROJECT}}_bt_node.py` (full relative path from package root) under `catkin_install_python` — NOT a scripts/ shim
 - [ ] After any `CMakeLists.txt` change (new script in `catkin_install_python`, new `install(DIRECTORY ...)` block): run catkin build inside the `ainex` container and confirm the node is installed:
   ```bash
@@ -105,19 +126,24 @@ Templates: `bt_node.py.tpl` → `app/{{PROJECT}}_bt_node.py` · `runtime_facade.
 
 ## Public contract (XyzBTFacade)
 
-Primitives — implemented by RuntimeFacade, executed by _RuntimeIO:
-- `disable_gait()` — shut down gait controller (needs enable_gait() to restart)
-- `enable_gait()` — start/restart gait controller
-- `stop_gait()` — stop current motion; controller stays up for new commands
-- `set_step(dsp, x, y, yaw, ...)` — send one fully-resolved gait step; x/y in **meters**
-- `run_action(action_name)` — execute a named stand-alone motion action
-- `set_servos_position(duration_ms, positions)` — command servos directly
-- `publish_buzzer(freq, on_time, off_time, repeat)` — scalar params only; _RuntimeIO constructs BuzzerState
+**The authoritative signature list is `xyz_bt_lib/core/base_facade.py`** — read it,
+do not trust a copy. 10 abstract methods (7 primitives + `go_step` / `turn_step` /
+`move_head`) plus 2 concrete process-control methods. `runtime_facade.py.tpl`
+implements them; that template is the worked example.
 
-Convenience wrappers — implemented by RuntimeFacade:
-- `go_step(x, y, yaw, *, period_time_ms=None, dsp_ratio=None, y_swap_amplitude=None, arm_swap=None, step_num=None, gait_param=None)` — merges go_cfg + per-call overrides + x/y/yaw → set_step(motion_profile='go'); per-call overrides take precedence over _GO_CFG when not None
-- `turn_step(x, y, yaw, *, period_time_ms=None, dsp_ratio=None, y_swap_amplitude=None, arm_swap=None, step_num=None, gait_param=None)` — merges turn_cfg + per-call overrides + x/y/yaw → set_step(motion_profile='turn')
-- `move_head(pan_pos)` — maps to set_servos_position with HEAD_PAN_SERVO + HEAD_MOVE_DELAY_MS
+This section deliberately does NOT restate the signatures. A previous copy here
+drifted from the base class (`move_head` was documented and templated without
+`tilt_pos`, which every head node passes), and because the doc and the template
+agreed with each other, nothing flagged it until a project crashed on its first
+Search tick. **Python's ABC machinery checks method NAMES only, never signatures**,
+so a drifted override still instantiates — `validate_templates.py` exists to catch
+exactly this and must be run after any facade change.
+
+Facts that live nowhere else, so they stay here:
+- `set_step` / `go_step` / `turn_step`: **x and y are in metres**, yaw in degrees.
+- `publish_buzzer` takes scalars only; `_RuntimeIO` is what constructs `BuzzerState`.
+- `go_step` / `turn_step` merge `go_cfg` / `turn_cfg` with per-call overrides;
+  a non-None per-call value wins. See § go_cfg / turn_cfg shape below.
 
 ## Output file structure
 
@@ -217,12 +243,13 @@ composite: `PrioritySelector`=`Selector(memory=False)`, `CommittedSelector`=
 **Groot port registration**: `<TreeNodesModel>` must list **every** node type used in the
 tree — not just `Sequence`/`Fallback`. Without a `TreeNodesModel` entry, Groot renders the
 node box but shows no configuration port fields (params are invisible even though they exist
-as XML attributes on the instance).
+as XML attributes on the instance). One `<input_port>` per CONFIG_DEFAULTS key; omit
+dict-type params such as `gait_param`.
 
-- `Sequence` / `Fallback` → `<Control ID="..."><input_port name="memory"/></Control>`
-- L1 / L2 library nodes (xyz_bt_lib) → `<Condition ID="ClassName">` / `<Action ID="ClassName">` with one `<input_port name="..."/>` per CONFIG_DEFAULTS key (omit dict-type params such as `gait_param`)
-- Project-local action nodes (`behaviours/actions.py`, tree-local helpers) → same pattern
-- Decorators → `<Decorator ID="ClassName">` (usually no ports)
+For the per-node-kind syntax and a complete worked `<TreeNodesModel>`, see
+`assets/templates/project_bt_groot.xml.tpl` — it carries both the rules and the
+example, so they cannot drift apart. `validate_templates.py` asserts that every
+node type used in the tree has a model entry.
 
 Each node instance in `<BehaviorTree>` must use `ID=` (the registered type name matching
 its `TreeNodesModel` entry) and optionally `name=` as the display label:
@@ -242,6 +269,23 @@ Before editing `{{PROJECT}}_bt.py`, always read `{{PROJECT}}_groot.xml` first.
 **Sync invariant**: at the end of every edit session both files must describe
 identical tree structures — same composites, node IDs, names, memory= attributes,
 and port values.
+
+## `robot_state` has four values, not three
+
+`/latched/robot_state` ∈ `{'stand', 'lie', 'recline', 'pending'}`.
+
+`'pending'` means "a stand-up action was played, posture not yet confirmed". It is
+written ONLY by `L2_Balance_RecoverFromFall` (plus its `robot_state_setter` hook,
+which syncs the IMU adapter's live store); the IMU adapter is the only thing that
+clears it — to `'stand'` after sustained upright tilt, or back to `'lie'`/`'recline'`
+if the recovery failed.
+
+Consequence for tree wiring: `L1_Balance_IsStanding` and `L1_Balance_IsFallen` are
+**no longer strict inverses** — both return FAILURE while `pending`. That is
+deliberate: during `pending` the robot is neither confirmed upright nor confirmed
+down, so a safety gate must not assume either, and recovery must not re-trigger
+while the IMU is still deciding. Do not write a tree that infers "pending" from
+those two nodes; test `robot_state` explicitly if a branch really needs it.
 
 ## Stability confirmation
 
@@ -284,6 +328,35 @@ grab_seq = CommittedSequence('GrabSeq', children=[
 ])
 ```
 
+### Which gate: LatchedDwell or Hysteresis
+
+`LatchedDwellDecorator` is N-in / **1-out** — one failing tick unlatches it. That
+is right for a safety confirmation, wrong for a signal that flickers: a detector
+that drops one frame in twenty would tear down a branch that is still valid.
+For that, use `HysteresisDecorator` (`xyz_bt_lib.core.hysteresis`), which takes
+independent `enter_ticks` / `exit_ticks`. All the rules above (wrap only
+{SUCCESS, FAILURE}, literal `state_key`, numbers from `bootstrap()`, `tick_id`
+timing) apply identically — and both share the `/node_state/` namespace, so a
+`state_key` must be unique across BOTH.
+
+- **Latch** — "wait until the world is stable, then commit; abandon instantly if
+  it stops being true." Safety gates, alignment before a committed motion.
+- **Hysteresis** — "this measurement is noisy; hold the answer steady." Flickering
+  perception, a target hovering at a detection boundary.
+
+Unlike the latch, `HysteresisDecorator` **never returns RUNNING** — its output is
+a debounced boolean (SUCCESS engaged / FAILURE not), so it will not hold a
+`ReactiveSequence` branch RUNNING while it counts.
+
+```python
+ball_visible = HysteresisDecorator(
+    is_ball_detected,                     # a pure L1 predicate
+    enter_ticks=2,                        # 2 frames to believe it appeared
+    exit_ticks=ball_lost_ticks,           # N misses to believe it is gone
+    state_key='ball_visible',             # hardcoded LITERAL, greppable
+    tick_id_getter=tick_id_getter)
+```
+
 ## go_cfg / turn_cfg shape
 
 `_GO_CFG` / `_TURN_CFG` hold the **static** per-profile params merged by `go_step()` / `turn_step()`:
@@ -297,13 +370,10 @@ _GO_CFG = {
 }
 ```
 
-`_RuntimeIO` owns the **step velocity profile** constants that control gait speed:
-
-```python
-# In _RuntimeIO — tune per project
-_GO_STEP_VEL   = [300, 0.1, 0.01]  # [period_time_ms, dsp_ratio, y_swap_amplitude]
-_TURN_STEP_VEL = [400, 0.1, 0.01]
-```
+`_RuntimeIO` owns the **step velocity profile** constants that control gait speed
+(`_GO_STEP_VEL` / `_TURN_STEP_VEL`, each `[period_time_ms, dsp_ratio,
+y_swap_amplitude]`) — defined and documented in `assets/templates/_runtime_io.py.tpl`;
+tune them there per project.
 
 `gait_manager.set_step(step_vel, x, y, yaw, gait_param, ...)` takes `step_vel` list as first arg.
 Per-call overrides (`period_time_ms`, `dsp_ratio`, `y_swap_amplitude`, `arm_swap`, `step_num`,
@@ -329,19 +399,11 @@ After every valid `tree.tick()`, the node atomically refreshes:
 xyz_behavior/log/bb_current.json
 ```
 
-**Schema** (schema_version 1):
-```json
-{
-    "schema_version": 1,
-    "tick_id": 42,
-    "ts": 1715789012.345,
-    "root_status": "RUNNING",
-    "blackboard": {
-        "/latched/robot_state": "BALANCED",
-        "/latched/tracked_objects": {}
-    }
-}
-```
+**Schema**: owned by `BlackboardCurrentWriter` in
+`xyz_behavior/bt_observability/blackboard_current_writer.py` — read it for the
+authoritative field list (`schema_version`, `tick_id`, `ts`, `root_status`,
+`blackboard`). Note `robot_state` is one of `stand | lie | recline | pending`
+(see § `robot_state` has four values above).
 
 Ownership rules:
 - **Owner**: project/app infra (`bt_node.py`). Maintained centrally by the node entry point.

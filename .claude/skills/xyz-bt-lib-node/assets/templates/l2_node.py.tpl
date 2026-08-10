@@ -34,9 +34,31 @@ Observability:
   Never emits ros_out/ros_result or any comm event; those belong to _RuntimeIO.
 """
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2ActionNode, XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
+
+
+# ── Which base class? Naming IS the contract ─────────────────────────────────
+#
+#   File named L2_Gait_*.py   -> MUST inherit XyzL2GaitActionNode
+#   Anything else             -> inherit XyzL2ActionNode
+#
+# The L2_Gait_ prefix means "dispatches gait steps" (go_step / turn_step), and
+# xyz_bt_lib_guard.py enforces the pairing from the filename alone. If your node
+# only stops the gait or never steps at all, do NOT use the Gait prefix — name it
+# L2_Motion_* / L2_Head_* / L2_Balance_* instead (see L2_Motion_StopGait).
+#
+# XyzL2GaitActionNode carries the six gait pass-through knobs
+# (period_time_ms, dsp_ratio, y_swap_amplitude, arm_swap, step_num, gait_param)
+# plus gait_kwargs(). A gait node therefore:
+#   1. does NOT repeat those six in its own CONFIG_DEFAULTS,
+#   2. accepts them in __init__ and forwards them to super(),
+#   3. builds its facade call with **self.gait_kwargs(),
+#   4. never adds per-knob args (step_height=, init_yaw_offset=, ...) — every
+#      WalkingParam key travels inside the single gait_param dict.
+# See L2_Gait_StepNum.py for the reference implementation, and the gait variant
+# at the bottom of this file for the skeleton.
 
 
 class {{CLASS_NAME}}(XyzL2ActionNode):
@@ -100,7 +122,8 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
         # Examples:
         # self._bb.register_key(key=BB.SOME_INPUT_KEY, access=Access.READ)
         # self._bb.register_key(key=BB.SOME_OUTPUT_KEY, access=Access.WRITE)
-        raise NotImplementedError("Fill in register_key() calls")
+        # TODO(DELETE THIS LINE once the register_key() calls above are filled in)
+        pass
 
     def initialise(self):
         """Optionally emit action_intent when this action starts.
@@ -131,7 +154,9 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
         - no ROS calls
         - no logger calls
         """
-        raise NotImplementedError("Fill in side-effect-free action selection")
+        # TODO(REPLACE): choose the facade method and its kwargs. Placeholder
+        # keeps the unedited template syntactically complete.
+        return 'stop_gait', {}, 'not implemented'
 
     def update(self) -> Status:
         # Read BB values, select facade call, then dispatch.
@@ -146,7 +171,13 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
         # BB key, write that key in the same tick and document it in emit_decision:
         # self.emit_decision(inputs=inputs, status=status, reason=reason,
         #                    bb_writes={BB.SOME_KEY: value_written})
-        raise NotImplementedError("Fill in update() orchestration")
+        # TODO(REPLACE): read BB, call _select_action(), dispatch via call_facade(),
+        # and set the real status / inputs. The placeholders below keep the
+        # unedited template syntactically complete and every name defined.
+        method_name, kwargs, reason = self._select_action()
+        self.call_facade(method_name, **kwargs)
+        status = Status.RUNNING
+        inputs = {}
 
         self.emit_decision(
             inputs=inputs,
@@ -159,3 +190,65 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
     def terminate(self, new_status: Status):
         """Optional cleanup when this node stops ticking."""
         pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GAIT VARIANT — use this skeleton instead when the file is named L2_Gait_*.py
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# class {{CLASS_NAME}}(XyzL2GaitActionNode):
+#     """{{DESCRIPTION}}"""
+#
+#     LEVEL = 'L2'
+#     BB_READS = {{BB_READS}}
+#     BB_WRITES = []
+#     FACADE_CALLS = ['go_step']          # or 'turn_step'
+#     # Gait pass-through knobs are inherited from
+#     # XyzL2GaitActionNode.GAIT_CONFIG_DEFAULTS — do NOT repeat them here.
+#     # Declare strategy params only.
+#     CONFIG_DEFAULTS = {
+#         'x_speed': 0.010,
+#     }
+#
+#     def __init__(self, name: str = '{{CLASS_NAME}}',
+#                  facade: XyzBTFacade = None,
+#                  logger=None,
+#                  tick_id_getter=None,
+#                  x_speed: float = 0.010,
+#                  period_time_ms: int = None,
+#                  dsp_ratio: float = None,
+#                  y_swap_amplitude: float = None,
+#                  arm_swap: int = None,
+#                  step_num: int = None,
+#                  gait_param: dict = None):
+#         """
+#         CONFIG_DEFAULTS:
+#             x_speed: forward step magnitude (m).
+#
+#         Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude /
+#         arm_swap / step_num / gait_param): see XyzL2GaitActionNode. Tune
+#         WalkingParam keys through the dict, e.g.
+#         gait_param={'step_height': 0.03, 'init_yaw_offset': 2}.
+#         """
+#         super().__init__(
+#             name,
+#             facade=facade,
+#             logger=logger,
+#             tick_id_getter=tick_id_getter,
+#             period_time_ms=period_time_ms,
+#             dsp_ratio=dsp_ratio,
+#             y_swap_amplitude=y_swap_amplitude,
+#             arm_swap=arm_swap,
+#             step_num=step_num,
+#             gait_param=gait_param,
+#         )
+#         self._x_speed = x_speed
+#
+#     def update(self) -> Status:
+#         self.call_facade('go_step', x=self._x_speed, y=0, yaw=0,
+#                          semantic_source='{{NODE_NAME}}',
+#                          **self.gait_kwargs())
+#         self.emit_decision(inputs={'x': self._x_speed},
+#                            status=Status.SUCCESS,
+#                            reason='step dispatched')
+#         return Status.SUCCESS

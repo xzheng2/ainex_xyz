@@ -100,7 +100,7 @@ def build_infra_manifest(node_name: str) -> list:
             'target':     '/bt/bb/latched/*',
             'ros_node':   node_name,
             'payload':    {},
-            'summary':    'Shared BB keys for ROSA (robot_state, detected_count, etc.) at 10 Hz',
+            'summary':    'Shared BB keys for ROSA (robot_state, tracked_objects, detection_source, ...) at 10 Hz',
         },
         # ── Tree publisher ───────────────────────────────────────────────
         {

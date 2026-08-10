@@ -5,19 +5,33 @@ Only add nodes here when NO generic equivalent exists in xyz_bt_lib.
 Check xyz_bt_lib/behaviours/ first — if a generic node exists, import it
 directly in tree/{{PROJECT}}_bt.py instead of reimplementing here.
 
-Generic nodes available in xyz_bt_lib:
-  L1_perception/L1_Balance_IsStanding
-  L1_perception/L1_Head_IsHeadCentered
-  L1_perception/L1_Vision_IsLineDetected
-  L2_locomotion/L2_Gait_Stop
-  L2_locomotion/L2_Gait_FollowLine
-  L2_locomotion/L2_Gait_FindLine
-  L2_locomotion/L2_Head_FindLineSweep
-  L2_locomotion/L2_Balance_RecoverFromFall
+Generic nodes available in xyz_bt_lib (see each file's docstring for the full
+contract — there is no central spec document):
+  L1_perception/  L1_Balance_IsStanding, L1_Balance_IsFallen, L1_Head_IsHeadCentered,
+                  L1_Vision_IsObjectDetected, L1_Vision_IsObjectPositioned,
+                  L1_Vision_IsObjectStill, L1_Vision_IsTargetOnSide,
+                  L1_Nav_HasPath, L1_Nav_IsObstacleNear, L1_Nav_IsObstacleDetected,
+                  L1_Nav_IsHeadingAligned
+  L2_locomotion/  L2_Motion_StopGait, L2_Gait_StepNum, L2_Motion_PauseAfterTicks,
+                  L2_Gait_FollowTarget, L2_Gait_SearchTurn, L2_Gait_VisionToObject,
+                  L2_Gait_ControlToObject, L2_Gait_AlignBodyToHead,
+                  L2_Gait_AlignImuHeading, L2_Gait_FollowNavPath,
+                  L2_Head_MoveTo, L2_Head_SearchSweep, L2_Head_TrackTarget,
+                  L2_Motion_RunAction, L2_Balance_RecoverFromFall
+  L3_system/      L3_Process_Control (base: XyzL3ActionNode — orchestrates other
+                  programs, not motion)
+
+There is no "line" node family any more: a detected line is just a target in
+/latched/tracked_objects (shape='line'), so L1_Vision_IsObjectDetected(
+target_id='line') + L2_Gait_FollowTarget(target_id='line') do line following.
 
 Rules for project-specific action nodes (enforce strictly):
 
   1. Must inherit XyzL2ActionNode — NEVER py_trees.behaviour.Behaviour directly.
+     If the node commands the gait (go_step / turn_step), inherit
+     XyzL2GaitActionNode instead: it carries the shared gait pass-through knobs
+     and gait_kwargs(), so do NOT redeclare period_time_ms / dsp_ratio /
+     y_swap_amplitude / arm_swap / step_num / gait_param yourself.
   2. No direct ROS calls, gait_manager, motion_manager, publisher, or service calls.
      All ROS output via: self.call_facade('<method>') → RuntimeFacade → _RuntimeIO.
   3. logger=None must be zero-cost no-op (base helpers handle this).
@@ -27,7 +41,7 @@ Rules for project-specific action nodes (enforce strictly):
   5. Declare BB_READS, BB_WRITES, FACADE_CALLS, CONFIG_DEFAULTS as class attributes.
 """
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2ActionNode, XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 

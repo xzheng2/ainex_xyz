@@ -27,16 +27,15 @@ In this repo layout that is commonly `docker/ros_ws_src/`.
 
 | Path | Role |
 |---|---|
-| `xyz_bt_lib/src/xyz_bt_lib/core/base_node.py` | BT node base classes: `XyzBTNode`, `XyzL1ConditionNode`, `XyzL2ActionNode` |
+| `xyz_bt_lib/src/xyz_bt_lib/core/base_node.py` | BT node base classes: `XyzBTNode`, `XyzL1ConditionNode`, `XyzL2ActionNode`, `XyzL2GaitActionNode`, `XyzL3ActionNode` |
 | `xyz_bt_lib/src/xyz_bt_lib/core/base_adapter.py` | Input adapter base class: `XyzInputAdapter` |
 | `xyz_bt_lib/src/xyz_bt_lib/blackboard/blackboard_keys.py` | BB key constants; always read first |
 | `xyz_bt_lib/src/xyz_bt_lib/core/base_facade.py` | L2 facade abstract interface |
 | `xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_perception/` | L1 condition output dir |
 | `xyz_bt_lib/src/xyz_bt_lib/behaviours/L2_locomotion/` | L2 action/strategy output dir |
 | `xyz_bt_lib/src/xyz_bt_lib/adapters/` | Input adapter output dir |
-| `xyz_bt_lib/config/` | Generic calibration/config files owned by `xyz_bt_lib` |
 | `xyz_bt_lib/package.xml` | ROS package dependencies |
-| `xyz_bt_lib/CMakeLists.txt` | Install config files if needed |
+| `xyz_bt_lib/CMakeLists.txt` | Install launch/scripts if needed |
 
 There is no central spec document. **The module docstring is the authoritative
 spec** — after any public change it must fully describe topic, message type,
@@ -161,6 +160,29 @@ Use empty lists where not applicable.
   `ROSA_TOPIC_MAP`. Any new `/latched/` key intended for ROSA monitoring must
   be added to `ROSA_TOPIC_MAP` in the same edit.
 
+### `tracked_objects` is the one visual-object registry
+
+Every visual detector writes into `BB.TRACKED_OBJECTS` — colour blobs, YOLO
+detections, AprilTags **and lines**. Do not invent a per-sensor set of flat keys;
+that is exactly what the deleted `LineDetectionAdapter` did (six flat
+`line_*` keys parsed from the same topic `ObjectDetectionAdapter` already read).
+A new detector adds a `target_specs` entry, not a new BB namespace.
+
+Two schema conventions a tracking adapter must honour:
+
+- **`size` may be `None`.** Compute it per shape: `circle` → π·radius²,
+  `rect` → width·height, anything else (a `line`) → `None`. Do not fall back to
+  `width * height` for shapes whose `width/height` carry the IMAGE dimensions —
+  that yields a constant ~307200 "area" that silently satisfies any `min_size`
+  gate. Consumers treat `None` as "this shape has no area", not as zero.
+- **`displacement`** — px moved since the previous consecutive detection, filled
+  by `carry_displacement(new_entry, old_entry)` from `core/base_adapter.py`. Call
+  it in the same merge function that maintains `lost_count`, and write `None`
+  when there is no comparable previous sample (first sighting, re-acquisition
+  after a loss, or any multi-instance entry with no cross-frame identity).
+  This exists so `L1_Vision_IsObjectStill` can stay a pure predicate: motion is a
+  two-sample question, and an L1 node may not hold cross-tick state.
+
 ---
 
 ## Defaults / Tuning Rules
@@ -184,9 +206,10 @@ Every adapter, L1 condition, and L2 action must follow the two-layer defaults co
   helper methods) must use `self._` instance fields, not raw literals or bare class constants.
 - Class constants are allowed only for non-tunable symbolic values: state labels like
   `_ST_SWEEP = 'sweep'`, internal protocol names, etc.
-- YAML-loaded values: if a value is loaded from config YAML at runtime, CONFIG_DEFAULTS
-  must still document the fallback/default value, and the docstring must state that
-  config YAML is the single source of truth.
+- No YAML: `xyz_bt_lib` has no `config/` directory (deleted Aug 2026 with
+  `line_perception.yaml`). A library adapter must never read a config file. Calibration
+  that a project owns is passed in as a constructor argument and documented in
+  CONFIG_DEFAULTS — e.g. `ObjectDetectionAdapter(..., center_x_offset=66)`.
 - CONFIG_DEFAULTS and `__init__` defaults must stay in sync; mismatches are a conformance violation.
 
 ---
@@ -226,7 +249,7 @@ Each adapter file must include a top-level docstring declaring:
    - decision standard or threshold
    - final BB key written
 5. Whether thresholds/calibration values come from CONFIG_DEFAULTS or
-   `xyz_bt_lib/config/*.yaml`.
+   CONFIG_DEFAULTS (there is no `xyz_bt_lib/config/` — see Defaults rules).
 
 Each adapter must implement explicit side-effect-free helpers that show the full path
 from input to BB writes:
@@ -273,7 +296,7 @@ ROS msg input -> helper function -> rule/threshold -> snapshot field -> BB key
 ```
 
 Hard-coded thresholds are forbidden inside callback logic. Use CONFIG_DEFAULTS
-or `xyz_bt_lib/config/*.yaml`, and document default values.
+and document default values. (There is no `xyz_bt_lib/config/`.)
 
 ### Composite value adapters
 
@@ -290,7 +313,10 @@ or `xyz_bt_lib/config/*.yaml`, and document default values.
   cx = image_width / 2 + center_x_offset
   cy = image_height / 2 + center_y_offset
   ```
-  Mirror the `center_x_offset` pattern from `LineDetectionAdapter`.
+  Mirror the `center_x_offset` pattern from `ObjectDetectionAdapter`.
+  (`LineDetectionAdapter` was deleted Aug 2026 — a line is now just a target
+  in `tracked_objects` with `shape='line'`; configure it with
+  `target_specs={'line': {'shape': 'line'}}, center_x_offset=<cal>`.)
 
 Adapters must keep the two-phase latch protocol:
 
@@ -325,7 +351,7 @@ Convenience wrappers:
 Removed from contract (do not call):
 - `stop_walking` — replaced by `stop_gait`
 - `recover_from_fall` — logic now inline in `L2_Balance_RecoverFromFall`
-- `follow_line` — removed (algorithm lives in `L2_Gait_FollowLine`)
+- `follow_line` — removed (algorithm lives in `L2_Gait_FollowTarget`)
 - `gait_step` — removed (use `go_step` / `turn_step` directly)
 
 If a required facade method does not exist, stop before editing and ask the user to
@@ -355,7 +381,7 @@ update, in the same task:
 3. **what to extract** — e.g. "average depth of center ROI"
 4. **sensor-level judgement/classification standard**
 5. **BB keys to write**
-6. **adapter class name** — e.g. `DepthCameraAdapter`
+6. **adapter class name** — e.g. `DepthNavAdapter`
 7. **CONFIG_DEFAULTS** — thresholds, ROI, offsets, labels, etc.
 
 ### Workflow
@@ -370,28 +396,37 @@ update, in the same task:
 
 3. Check `package.xml` for the message package. If missing, add the required
    `<exec_depend>` and, when needed, `<build_depend>`.
-4. If calibration/config values are needed, use CONFIG_DEFAULTS or add a YAML file
-   under `xyz_bt_lib/config/`. If adding `config/` for install/deploy, update
-   `CMakeLists.txt`:
-
-   ```cmake
-   install(DIRECTORY config/
-     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config)
-   ```
+4. Calibration/config values go in CONFIG_DEFAULTS with matching `__init__` args.
+   Do NOT add a YAML file or recreate `xyz_bt_lib/config/` — that directory was
+   deleted Aug 2026 and a library adapter must not read config from disk. A value
+   the project owns (a camera-centre offset, a per-robot threshold) is threaded in
+   from the project layer as a constructor argument.
 
 5. Expand `assets/templates/input_adapter.py.tpl` to generate the adapter at:
    `xyz_bt_lib/src/xyz_bt_lib/adapters/{{class_name_snake}}.py`
 6. Verify structural conformance: the generated file must be structurally
-   identical to `assets/templates/input_adapter.py.tpl` — same `__init__`
-   parameter order, same class-level declarations, same helper structure,
-   same `_callback()` / `snapshot_and_reset()` / `write_snapshot()` skeleton.
-   Any structural deviation is a conformance violation.
+   identical to `assets/templates/input_adapter.py.tpl` in the parts that are
+   CONTRACT: the class-level declarations, and the
+   `_callback()` / `snapshot_and_reset()` / `write_snapshot()` skeleton with its
+   locking discipline.
+
+   The conversion helpers are shaped by the sensor, not by the template. Extra
+   `__init__` params and differently-named helpers are expected — see
+   `ObjectDetectionAdapter`, which uses `_match_targets()` / `_build_entry()` /
+   `_compute_size()` / `_compute_errors()` and takes `target_specs` +
+   `enable_depth`, or `ImuBalanceStateAdapter`, which adds a public
+   `force_state()`. What is NOT negotiable: every helper in the conversion path
+   stays side-effect-free, and only `_apply_live_writes()` mutates live state.
 7. Ensure the file satisfies all Input Adapter rules:
    - inherits `XyzInputAdapter`, not `XyzBTNode`
    - top-level docstring fully traces input -> BB writes
    - `BB_READS = []`, `BB_WRITES`, `FACADE_CALLS = []`, `CONFIG_DEFAULTS` declared
-   - `_extract_xxx()`, `_classify_xxx()`, `_make_bb_writes()` exist
-   - `_callback()` only receives, calls helpers, updates live state under lock, increments count
+   - the conversion path is split into side-effect-free helpers (names follow the
+     sensor: `_extract_*` / `_classify_*` / `_make_bb_writes` for a scalar adapter,
+     or `_match_targets` / `_build_entry` / `_compute_*` for a tracking one)
+   - `_callback()` only receives, calls helpers, updates live state under lock,
+     increments count — it MAY also read live state under the lock when the
+     classification depends on the current state (see `ImuBalanceStateAdapter`)
    - `write_snapshot()` only writes snapshot and emits observability events
    - only `ros_in` and `input_state` are emitted via `XyzInputAdapter` helpers
    - no BT action strategy
@@ -434,16 +469,15 @@ update, in the same task:
 ✅ Inherits XyzInputAdapter, not XyzBTNode
 ✅ Every BB write declared with source fields, helper, rule/threshold, BB key
 ✅ BB_READS / BB_WRITES / FACADE_CALLS / CONFIG_DEFAULTS declared
-✅ _extract_xxx() / _classify_xxx() / _make_bb_writes() exist
+✅ conversion path split into side-effect-free helpers (names may follow the sensor)
 ✅ _classify_xxx() contains no rospy logging and no self-state mutation;
    counter updates and rospy.loginfo() live in _callback()
 ✅ _callback() has no hidden BB writes or action strategy
 ✅ write_snapshot() only writes snapshot and emits ros_in/input_state
 ✅ No ros_out/ros_result emitted by adapter
-✅ Thresholds are in CONFIG_DEFAULTS or xyz_bt_lib/config values
+✅ Thresholds are in CONFIG_DEFAULTS (no config YAML — the directory does not exist)
 ✅ Thresholds and calibration values are in CONFIG_DEFAULTS and exposed as __init__ args (or documented as YAML-backed with CONFIG_DEFAULTS providing the fallback)
 ✅ package.xml updated if message dependency is new
-✅ CMakeLists.txt installs config/ if deployment needs it
 ✅ No unresolved template TODO or NotImplementedError remains
 ✅ Module docstring complete (topic, msg type, BB writes, rules, CONFIG_DEFAULTS) — docstring is the spec
 ✅ File structure matches input_adapter.py.tpl (param order, class decls, helpers, callback/snapshot skeleton)
@@ -487,7 +521,7 @@ cd /home/pi/docker/ros_ws_src
 python3 -c "
 import sys
 sys.path.insert(0, 'xyz_bt_lib/src')
-from xyz_bt_lib.behaviours.L1_perception.<ClassName> import <ClassName>
+from xyz_bt_lib.adapters.<ClassName> import <ClassName>
 print('import OK')
 "
 ```

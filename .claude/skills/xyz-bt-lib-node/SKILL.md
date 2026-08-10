@@ -1,9 +1,9 @@
 # Skill: `xyz-bt-lib-node`
 
-Extend the **xyz_bt_lib** shared BT library by adding L1 condition nodes or
-L2 action/strategy nodes.
+Extend the **xyz_bt_lib** shared BT library by adding L1 condition nodes,
+L2 action/strategy nodes, or L3 system/process-orchestration nodes.
 
-This `SKILL.md` is the source of truth for L1 and L2 node extensions in `xyz_bt_lib`.
+This `SKILL.md` is the source of truth for L1, L2 and L3 node extensions in `xyz_bt_lib`.
 Do not treat existing non-conforming legacy code as precedent. New work must follow
 the rules below.
 
@@ -32,16 +32,16 @@ In this repo layout that is commonly `docker/ros_ws_src/`.
 
 | Path | Role |
 |---|---|
-| `xyz_bt_lib/src/xyz_bt_lib/core/base_node.py` | BT node base classes: `XyzBTNode`, `XyzL1ConditionNode`, `XyzL2ActionNode` |
+| `xyz_bt_lib/src/xyz_bt_lib/core/base_node.py` | BT node base classes: `XyzBTNode`, `XyzL1ConditionNode`, `XyzL2ActionNode`, `XyzL2GaitActionNode`, `XyzL3ActionNode` |
 | `xyz_bt_lib/src/xyz_bt_lib/core/base_adapter.py` | Input adapter base class: `XyzInputAdapter` |
 | `xyz_bt_lib/src/xyz_bt_lib/blackboard/blackboard_keys.py` | BB key constants; always read first |
 | `xyz_bt_lib/src/xyz_bt_lib/core/base_facade.py` | L2 facade abstract interface |
 | `xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_perception/` | L1 condition output dir |
 | `xyz_bt_lib/src/xyz_bt_lib/behaviours/L2_locomotion/` | L2 action/strategy output dir |
+| `xyz_bt_lib/src/xyz_bt_lib/behaviours/L3_system/` | L3 system/process-orchestration output dir |
 | `xyz_bt_lib/src/xyz_bt_lib/adapters/` | Input adapter output dir |
-| `xyz_bt_lib/config/` | Generic calibration/config files owned by `xyz_bt_lib` |
 | `xyz_bt_lib/package.xml` | ROS package dependencies |
-| `xyz_bt_lib/CMakeLists.txt` | Install config files if needed |
+| `xyz_bt_lib/CMakeLists.txt` | Install launch/scripts if needed |
 
 There is no central spec document. **The module docstring is the authoritative
 spec** — after any public change it must fully describe BB reads/writes,
@@ -49,7 +49,8 @@ judgement/strategy rules, and CONFIG_DEFAULTS.
 
 Templates:
 - `assets/templates/l1_node.py.tpl`
-- `assets/templates/l2_node.py.tpl`
+- `assets/templates/l2_node.py.tpl` (carries both the plain and the **gait** variant)
+- `assets/templates/l3_node.py.tpl`
 
 ---
 
@@ -97,7 +98,8 @@ Observability ownership:
 - Adapter/node files in `xyz_bt_lib` must not import `bt_observability.*` directly.
 - `logger=None` must be safe and zero-cost; every manual emit must be guarded.
 - L1 nodes must inherit `XyzL1ConditionNode`; L2 nodes must inherit
-  `XyzL2ActionNode`. Both classes indirectly inherit `XyzBTNode`, so the
+  `XyzL2ActionNode` (or `XyzL2GaitActionNode` — see § Gait nodes); L3 nodes must
+  inherit `XyzL3ActionNode`. All of these indirectly inherit `XyzBTNode`, so the
   py_trees visitor still sees standard node identity/status behavior.
 - `XyzBTNode` is only a node-side helper base: logger storage, tick_id access,
   and `emit_bt` / `emit_decision` helpers. It must not own RUN/PAUSE/STEP control,
@@ -216,11 +218,26 @@ L1 nodes are PURE PREDICATES. They must:
 - hold NO cross-tick state (no counters, no dwell, no hysteresis, no
   `initialise()`/`terminate()` bookkeeping)
 
-Timing / stability confirmation is NOT an L1 responsibility. When a tree needs
-"condition stable for N ticks", the condition stays a stateless predicate and is
-wrapped at the TREE layer in `xyz_bt_lib.core.latched_dwell.LatchedDwellDecorator`
-(BB-backed, reactive-safe). Do not add `succeed_dwell_ticks` / `fail_dwell_ticks`
-or any counter to an L1 node.
+Timing / stability confirmation is NOT an L1 responsibility. The condition stays a
+stateless predicate and gets wrapped at the TREE layer by one of two BB-backed,
+reactive-safe decorators — never by a counter inside the node. Do not add
+`succeed_dwell_ticks` / `fail_dwell_ticks` or any accumulator to an L1 node.
+
+- `core.latched_dwell.LatchedDwellDecorator` — **N-in / 1-out**. Latches SUCCESS
+  after N consecutive passes; a single failing tick unlatches. Returns RUNNING
+  while counting. Use for "wait until the world is stable, then commit".
+- `core.hysteresis.HysteresisDecorator` — **N-in / M-out**, independent
+  `enter_ticks` / `exit_ticks`, and it **never returns RUNNING**. Use when the
+  signal flickers and the answer must be held steady (it is the replacement for
+  the removed asymmetric `fail_dwell_ticks`).
+
+Both store state at `/node_state/<state_key>`, so a `state_key` must be a
+hardcoded literal and unique across every user of that namespace.
+
+If the predicate genuinely needs two samples (e.g. "is the object still?"), the
+cross-frame memory belongs in the ADAPTER, not the node — see
+`carry_displacement()` in `core/base_adapter.py` and how
+`L1_Vision_IsObjectStill` consumes the resulting `displacement` field.
 
 Each L1 file must include a top-level docstring declaring:
 
@@ -266,7 +283,8 @@ strategy, optionally write documented action-state/correction keys, and dispatch
 external side effects only through `XyzBTFacade`.
 
 L2 nodes must:
-- inherit `XyzL2ActionNode`
+- inherit `XyzL2ActionNode` — or `XyzL2GaitActionNode` when the node commands the
+  gait (see below)
 - route all hardware/ROS side effects through `XyzBTFacade`
 - never directly publish/subscribe ROS
 - never call `logger.emit_comm()`
@@ -274,6 +292,56 @@ L2 nodes must:
 - keep generic strategy computation in the current node file or inside `xyz_bt_lib`
 - expose all tuning values in CONFIG_DEFAULTS so project trees can override them via constructor args
 - document every BB read/write and facade method call
+
+### Gait nodes: naming IS the contract
+
+**A file named `L2_Gait_*.py` MUST inherit `XyzL2GaitActionNode`** (in
+`core/base_node.py`). The prefix means "dispatches gait steps"
+(`go_step()` / `turn_step()`), and `xyz_bt_lib_guard.py` enforces the pairing from
+the filename alone — no judgement call about whether the node "really" steps.
+
+The converse is equally binding: a node that never dispatches a step must NOT use
+the `L2_Gait_` prefix. `L2_Motion_StopGait` and `L2_Motion_PauseAfterTicks` only
+call `stop_gait()`, so they live outside the Gait namespace and keep the plain
+`XyzL2ActionNode` base. Name new non-stepping nodes `L2_Motion_*` / `L2_Head_*` /
+`L2_Balance_*`.
+
+(Three nodes drifted from this rule in Aug 2026 because it existed only as prose
+in this file — hence the hook.)
+
+`XyzL2GaitActionNode` owns the gait plumbing that used to be copy-pasted into
+every gait node:
+
+```python
+class L2_Gait_Foo(XyzL2GaitActionNode):
+    CONFIG_DEFAULTS = {'x_speed': 0.01}      # strategy params ONLY
+
+    def __init__(self, name='L2_Gait_Foo', facade=None, logger=None,
+                 tick_id_getter=None, x_speed=0.01,
+                 period_time_ms=None, dsp_ratio=None, y_swap_amplitude=None,
+                 arm_swap=None, step_num=None, gait_param=None):
+        super().__init__(name, facade=facade, logger=logger,
+                         tick_id_getter=tick_id_getter,
+                         period_time_ms=period_time_ms, dsp_ratio=dsp_ratio,
+                         y_swap_amplitude=y_swap_amplitude, arm_swap=arm_swap,
+                         step_num=step_num, gait_param=gait_param)
+        self._x_speed = x_speed
+
+    def update(self):
+        self.call_facade('go_step', x=self._x_speed, y=0, yaw=0,
+                         semantic_source='foo', **self.gait_kwargs())
+```
+
+Rules:
+- Do **NOT** re-declare `period_time_ms` / `dsp_ratio` / `y_swap_amplitude` /
+  `arm_swap` / `step_num` / `gait_param` in the node's `CONFIG_DEFAULTS` — they
+  are inherited from `GAIT_CONFIG_DEFAULTS`. Declare only strategy params.
+- Do **NOT** add per-knob arguments such as `step_height=` / `init_yaw_offset=` /
+  `hip_pitch_offset=`. Those were removed Aug 2026; every WalkingParam key now
+  travels in the single `gait_param` dict, e.g.
+  `gait_param={'step_height': 0.03, 'init_yaw_offset': 2}`.
+- Build the facade call with `**self.gait_kwargs()`; do not hand-assemble the six
+  kwargs, and do not write your own `_effective_gait_param()`.
 
 ### L2 Node Kinds
 
@@ -285,20 +353,24 @@ The kind must be declared in the top-level docstring as:
 **dispatch**
   Fire-and-forget. The command is accepted or dispatched this tick.
   `update()` always returns `SUCCESS`. Never returns `RUNNING`.
-  Examples: L2_Gait_Stop, L2_Head_MoveTo, L2_Gait_FollowLine
+  Examples: L2_Motion_StopGait, L2_Head_MoveTo, L2_Gait_ControlToObject,
+            L2_Motion_RunAction and L2_Balance_RecoverFromFall (their
+            run_action() facade call BLOCKS, so they finish inside one tick)
 
 **finite_action**
   Has an internal completion condition. Drives itself to a terminal state.
   `update()` returns `RUNNING` while in progress, `SUCCESS` when done
   (rarely `FAILURE` on unrecoverable error). Does NOT rely on external
   preemption to terminate.
-  Examples: L2_Head_FindLineSweep, L2_Balance_RecoverFromFall
+  Examples: L2_Head_SearchSweep, L2_Gait_VisionToObject,
+            L2_Gait_AlignBodyToHead, L2_Gait_AlignImuHeading
 
 **continuous_controller**
   Owns continuous control while active. `update()` always returns `RUNNING`.
   Intended to run indefinitely; terminated by the tree structure (e.g. an
   upstream Selector re-evaluates when a condition passes). Never self-SUCCESS.
-  Examples: L2_Gait_FindLine
+  Examples: L2_Gait_SearchTurn, L2_Gait_FollowTarget,
+            L2_Head_TrackTarget, L2_Motion_PauseAfterTicks
 
 Each L2 file must include a top-level docstring declaring:
 
@@ -338,9 +410,11 @@ def _select_action(self, ...) -> tuple:
 start observability. It must not emit `ros_out`; `ros_out` belongs to `_RuntimeIO`.
 
 Hard-coded strategy constants are forbidden inside `update()`. Strategy constants must
-live in:
-- CONFIG_DEFAULTS (and matching `__init__` args stored on self._)
-- `xyz_bt_lib/config/*.yaml`
+live in CONFIG_DEFAULTS (and matching `__init__` args stored on `self._`).
+There is no `xyz_bt_lib/config/` directory — it was removed Aug 2026 along with
+`line_perception.yaml`. Calibration that a project must own goes in the project
+layer and is threaded in as a constructor argument, never read from inside a
+library node.
 
 Allowed L2 BB writes:
 - action-state keys owned by the node and documented in the file
@@ -380,26 +454,26 @@ commanded target and must be documented as "commanded state, not sensor feedback
 
 New L2 nodes should call existing `XyzBTFacade` methods.
 
-Currently available facade methods (full public contract):
+**The authoritative method list is `xyz_bt_lib/core/base_facade.py`** — read it before
+calling anything. It declares 10 abstract methods (7 primitives + the `go_step` /
+`turn_step` / `move_head` wrappers) plus the concrete `start_process` / `stop_process`
+pair that L3 nodes use.
 
-Primitives:
-- `disable_gait(bt_node, tick_id)` — shut down gait controller (needs enable_gait to restart)
-- `enable_gait(bt_node, tick_id)` — start/restart gait controller
-- `stop_gait(bt_node, tick_id)` — stop current motion; controller stays up
-- `set_step(dsp, x, y, yaw, gait_param, arm_swap, step_num, ...)` — fully-resolved gait step
-- `run_action(action_name, bt_node, tick_id)` — named stand-alone motion action
-- `set_servos_position(duration_ms, positions, bt_node, tick_id)` — direct servo command
-- `publish_buzzer(freq, on_time, off_time, repeat, bt_node, tick_id)` — buzzer pattern (scalars only)
+This section deliberately does not restate the signatures. It used to, and the copy
+drifted: `go_step`'s `step_num` was documented as `0` when the real default is `None`,
+the five gait kwargs were missing entirely, `move_head` was missing `tilt_pos`, and
+`start_process`/`stop_process` were absent — which would lead an agent doing L3 work to
+conclude, wrongly, that the facade methods it needs do not exist. **Python's ABC checks
+method NAMES only, never signatures**, so a drifted facade implementation still
+instantiates and then fails at runtime.
 
-Convenience wrappers:
-- `go_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — go profile step
-- `turn_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — turn profile step
-- `move_head(pan_pos, bt_node, tick_id)` — head servo position
+For a gait node, do not pass gait kwargs by hand at all: inherit `XyzL2GaitActionNode`
+and spread `**self.gait_kwargs()` (see § Gait nodes).
 
 Removed from contract (do not call):
 - `stop_walking` — replaced by `stop_gait`
 - `recover_from_fall` — logic now inline in `L2_Balance_RecoverFromFall`
-- `follow_line` — removed (algorithm lives in `L2_Gait_FollowLine`)
+- `follow_line` — removed (algorithm lives in `L2_Gait_FollowTarget`)
 - `gait_step` — removed (use `go_step` / `turn_step` directly)
 
 If a required facade method does not exist, stop before editing and ask the user to
