@@ -9,6 +9,7 @@ from xyz_bt_lib.blackboard.blackboard_keys import BB
 from xyz_bt_lib.core.bt_runner import XyzBTRunner
 from xyz_bt_lib.blackboard.bb_ros_bridge import BlackboardROSBridge
 from xyz_bt_lib.core.latched_dwell import LatchedDwellDecorator
+from xyz_bt_lib.core.hysteresis import HysteresisDecorator
 from xyz_bt_lib.core.composites import (
     ReactiveSequence,
     CommittedSequence,

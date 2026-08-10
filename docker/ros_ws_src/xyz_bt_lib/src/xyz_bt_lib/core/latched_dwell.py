@@ -26,7 +26,7 @@ Two ways wrapping an L2 breaks:
   - A continuous L2 (e.g. ``L2_Gait_ControlToObject``) returns RUNNING every
     tick. RUNNING is treated as not-passed (choice 4), so ``stable_ticks`` is
     zeroed every tick and the branch can never latch — it is unreachable.
-  - A one-shot L2 (e.g. ``L2_Gait_Stop``) returns SUCCESS every tick, so the
+  - A one-shot L2 (e.g. ``L2_Motion_StopGait``) returns SUCCESS every tick, so the
     count does climb — but the decorator ticks its child ONCE PER TICK, so the
     action's side effect is re-dispatched N times (a 20-tick dwell = 20×
     ``stop_gait``). L1 predicates are side-effect-free, so re-evaluating them
@@ -80,14 +80,16 @@ Four deliberate design choices
 No rospy. Blackboard access is intentional (this is a stateful gate, unlike a
 pure instance-state dwell decorator).
 
-Known gap — falling-edge hysteresis has NO decorator replacement
-----------------------------------------------------------------
-The removed node-level ``fail_dwell_ticks`` was asymmetric debounce: enter on
-1 passing tick, exit only after N failing ticks (1-in / N-out). This class is
-the opposite shape (N-in / 1-out): a single failing tick resets the latch, so
-it CANNOT express falling-edge debounce. No current tree needs it; add a
-separate ``HysteresisDecorator`` (independent enter/exit thresholds, BB-backed
-like this one) only when a real tree does — do not emulate it with this class.
+Falling-edge debounce is a DIFFERENT decorator
+----------------------------------------------
+This class is N-in / 1-out: a single failing tick unlatches it. That is correct
+for a safety confirmation, but wrong for a signal that flickers (one dropped
+detection frame would tear the branch down). For independent enter/exit
+thresholds — including the 1-in / N-out shape of the removed node-level
+``fail_dwell_ticks`` — use
+:class:`~xyz_bt_lib.core.hysteresis.HysteresisDecorator`. Do not emulate it with
+this class. Rule of thumb: latch = "wait until stable, abandon instantly";
+hysteresis = "this signal is noisy, hold the answer steady".
 """
 import py_trees
 from py_trees.common import Access, Status
