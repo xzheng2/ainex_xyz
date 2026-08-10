@@ -67,25 +67,23 @@ CONFIG_DEFAULTS:
   center_col:        8       — reference grid column to align to (fallback start cell)
   y_sign:            -1.0    — column-offset → gait-y sign (validate on robot)
   y_deadband_cols:   1       — |start_bx - center_col| (blocks) within this → y = 0 (deadband)
-  period_time_ms:    None    — gait cycle (ms); None = project default
-  dsp_ratio:         None    — double-support fraction (0–1); None = project default
-  y_swap_amplitude:  None    — lateral body swing (m); None = project default
-  arm_swap:          None    — arm swing amplitude (deg); None = project default
-  step_num:          None    — steps per tick (0 = continuous); None = project default
-  gait_param:        None    — partial WalkingParam dict; None = no override
-  step_height:       None    — leg-lift height (m, 0.01–0.04); None = controller default
-  hip_pitch_offset:  None    — hip pitch tilt (deg); None = controller default
-  init_z_offset:     None    — body height / init_z_offset (m, 0.015–0.06); None = controller default
-  init_yaw_offset:   None    — constant per-step heading bias (deg); None = controller default (0)
+
+Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude / arm_swap /
+step_num / gait_param): inherited from XyzL2GaitActionNode — see that class's
+docstring. Leg-lift height, hip pitch, body height and per-step heading bias now
+go in the dict, e.g. gait_param={'step_height': 0.03, 'hip_pitch_offset': 12,
+'body_height': 0.019, 'init_yaw_offset': 2}. NOTE the rename: this node used to
+accept init_z_offset= and silently map it to the 'body_height' key — write
+'body_height' directly now.
 """
 import math
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
-class L2_Gait_FollowNavPath(XyzL2ActionNode):
+class L2_Gait_FollowNavPath(XyzL2GaitActionNode):
     """Walk forward steering by the selected row-7/10 path point; FAILURE when no path."""
 
     LEVEL        = 'L2'
@@ -113,16 +111,8 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
         'center_col':       8,
         'y_sign':           -1.0,
         'y_deadband_cols':  1,
-        'period_time_ms':   None,
-        'dsp_ratio':        None,
-        'y_swap_amplitude': None,
-        'arm_swap':         None,
-        'step_num':         None,
-        'gait_param':       None,
-        'step_height':      None,
-        'hip_pitch_offset': None,
-        'init_z_offset':    None,
-        'init_yaw_offset':  None,
+        # Gait pass-through knobs are inherited from
+        # XyzL2GaitActionNode.GAIT_CONFIG_DEFAULTS — do not repeat them here.
     }
 
     def __init__(self, name: str = 'L2_Gait_FollowNavPath',
@@ -153,11 +143,7 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
                  y_swap_amplitude: float = None,
                  arm_swap: int = None,
                  step_num: int = None,
-                 gait_param: dict = None,
-                 step_height: float = None,
-                 hip_pitch_offset: float = None,
-                 init_z_offset: float = None,
-                 init_yaw_offset: float = None):
+                 gait_param: dict = None):
         """
         CONFIG_DEFAULTS:
             select_mode:       'larger'|'smaller' — pick the row-7/10 candidate with the
@@ -204,26 +190,18 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
             y_sign:            start_bx-offset → gait-y sign. Validate on the robot
                                (mirrors yaw_sign).
             y_deadband_cols:   |start_bx - center_col| within this many blocks (columns) → y = 0.
-            period_time_ms:    Gait cycle (ms). None = project default.
-            dsp_ratio:         Double-support fraction (0–1). None = project default.
-            y_swap_amplitude:  Lateral body swing (m). None = project default.
-            arm_swap:          Arm swing amplitude (deg). None = project default.
-            step_num:          Steps per tick (0 = continuous). None = project default.
-            gait_param:        Partial WalkingParam dict. None = no override.
-            step_height:       Leg-lift height (m, valid 0.01–0.04). None = controller default.
-                               Merged into gait_param as 'step_height'.
-            hip_pitch_offset:  Hip pitch tilt (deg). None = controller default.
-                               Merged into gait_param as 'hip_pitch_offset'.
-            init_z_offset:     Body height / init_z_offset (m, valid 0.015–0.06).
-                               None = controller default. Merged into gait_param as
-                               'body_height' (the get_gait_param() key for init_z_offset).
-            init_yaw_offset:   Constant per-step heading bias (deg). None = controller
-                               default (0). Merged into gait_param as 'init_yaw_offset'.
-                               Applied by the walking module as a persistent yaw offset on
-                               every step (distinct from the per-tick steering yaw) — use to
-                               cancel a mechanical veer. Validate sign on the robot.
+
+        Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude /
+        arm_swap / step_num / gait_param): see XyzL2GaitActionNode. Useful keys
+        for this node: 'step_height' (leg lift, 0.01–0.04 m), 'hip_pitch_offset'
+        (deg), 'body_height' (0.015–0.06 m), 'init_yaw_offset' (deg — a
+        persistent per-step yaw bias, distinct from the per-tick steering yaw;
+        use it to cancel a mechanical veer, and validate its sign on the robot).
         """
-        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade)
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade,
+                         period_time_ms=period_time_ms, dsp_ratio=dsp_ratio,
+                         y_swap_amplitude=y_swap_amplitude, arm_swap=arm_swap,
+                         step_num=step_num, gait_param=gait_param)
         self._select_mode      = 'smaller' if str(select_mode).lower() == 'smaller' else 'larger'
         self._x_speed          = x_speed
         self._x_speed_near     = x_speed_near
@@ -244,16 +222,6 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
         self._center_col       = center_col
         self._y_sign           = y_sign
         self._y_deadband_cols  = y_deadband_cols
-        self._period_time_ms   = period_time_ms
-        self._dsp_ratio        = dsp_ratio
-        self._y_swap_amplitude = y_swap_amplitude
-        self._arm_swap         = arm_swap
-        self._step_num         = step_num
-        self._gait_param       = gait_param
-        self._step_height      = step_height
-        self._hip_pitch_offset = hip_pitch_offset
-        self._init_z_offset    = init_z_offset
-        self._init_yaw_offset  = init_yaw_offset
         self._bb               = None
 
     def setup(self, **kwargs):
@@ -279,21 +247,6 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
         if self._select_mode == 'smaller':
             return min(cands, key=abs)
         return max(cands, key=abs)
-
-    def _effective_gait_param(self):
-        """Merge the named step_height / hip_pitch_offset knobs into the partial
-        gait_param dict (_RuntimeIO overlays the result onto the controller's full
-        WalkingParam). Returns None when nothing overrides (controller defaults)."""
-        gp = dict(self._gait_param) if self._gait_param else {}
-        if self._step_height is not None:
-            gp['step_height'] = self._step_height
-        if self._hip_pitch_offset is not None:
-            gp['hip_pitch_offset'] = self._hip_pitch_offset
-        if self._init_z_offset is not None:
-            gp['body_height'] = self._init_z_offset   # get_gait_param() key for init_z_offset
-        if self._init_yaw_offset is not None:
-            gp['init_yaw_offset'] = self._init_yaw_offset   # per-step heading bias (deg)
-        return gp or None
 
     def _yaw_from_offset(self, offset: float, fx: float):
         """Map a signed pixel offset to (gait_yaw_deg:int, bearing_deg:float).
@@ -393,13 +346,8 @@ class L2_Gait_FollowNavPath(XyzL2ActionNode):
         x = self._forward_x(start_bx, start_by)
         self.call_facade('go_step',
                          x=x, y=y, yaw=yaw,
-                         period_time_ms=self._period_time_ms,
-                         dsp_ratio=self._dsp_ratio,
-                         y_swap_amplitude=self._y_swap_amplitude,
-                         arm_swap=self._arm_swap,
-                         step_num=self._step_num,
-                         gait_param=self._effective_gait_param(),
-                         semantic_source='follow_nav_path')
+                         semantic_source='follow_nav_path',
+                         **self.gait_kwargs())
         self.emit_decision(
             inputs={'select_mode': self._select_mode,
                     'nav_u9':      round(u9, 1) if u9 == u9 else None,

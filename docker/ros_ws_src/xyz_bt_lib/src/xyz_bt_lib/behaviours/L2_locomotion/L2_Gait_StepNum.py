@@ -29,11 +29,9 @@ CONFIG_DEFAULTS:
   y:                0.015  — lateral step magnitude (m); sign chooses side (tree sets per branch)
   yaw:              0      — rotation per step (deg)
   step_num:         2      — number of steps to walk (blocking; 0 = continuous — do not use here)
-  period_time_ms:   None   — gait cycle (ms); None = project default
-  dsp_ratio:        None   — double-support fraction; None = project default
-  y_swap_amplitude: None   — lateral body swing (m); None = project default
-  arm_swap:         None   — arm swing amplitude (deg); None = project default
-  gait_param:       None   — partial WalkingParam dict (e.g. {'step_height': 0.03}); None = no override
+
+Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude / arm_swap /
+gait_param): inherited from XyzL2GaitActionNode — see that class's docstring.
 
 Returns:
   SUCCESS: the reposition step was dispatched (always, one-shot).
@@ -45,27 +43,25 @@ Observability:
   Never emits ros_out/ros_result or any comm event; those belong to _RuntimeIO.
 """
 from py_trees.common import Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 
 
-class L2_Gait_StepNum(XyzL2ActionNode):
+class L2_Gait_StepNum(XyzL2GaitActionNode):
     """Dispatch a single blocking N-step reposition walk, then SUCCESS (one-shot)."""
 
     LEVEL = 'L2'
     BB_READS = []
     BB_WRITES = []
     FACADE_CALLS = ['go_step']
+    # Gait pass-through knobs are inherited from XyzL2GaitActionNode.
+    # GAIT_CONFIG_DEFAULTS — do not repeat them here. step_num is listed because
+    # it is this node's core strategy (walk exactly N steps), not a pass-through.
     CONFIG_DEFAULTS = {
         'x':                0.0,
         'y':                0.015,
         'yaw':              0,
         'step_num':         2,
-        'period_time_ms':   None,
-        'dsp_ratio':        None,
-        'y_swap_amplitude': None,
-        'arm_swap':         None,
-        'gait_param':       None,
     }
     BB_LOG_KEYS = BB_READS
 
@@ -88,27 +84,27 @@ class L2_Gait_StepNum(XyzL2ActionNode):
             y:                Lateral step magnitude (m); sign chooses the side.
             yaw:              Rotation per step (deg).
             step_num:         Number of steps to walk (blocking; must be > 0).
-            period_time_ms:   Gait cycle (ms). None = project default.
-            dsp_ratio:        Double-support fraction. None = project default.
-            y_swap_amplitude: Lateral body swing (m). None = project default.
-            arm_swap:         Arm swing amplitude (deg). None = project default.
-            gait_param:       Partial WalkingParam dict. None = no override.
+                              Overrides the inherited default of None with 2 —
+                              a continuous (0/None) walk would defeat this node.
+
+        Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude /
+        arm_swap / gait_param): see XyzL2GaitActionNode.
         """
         super().__init__(
             name,
             facade=facade,
             logger=logger,
             tick_id_getter=tick_id_getter,
+            period_time_ms=period_time_ms,
+            dsp_ratio=dsp_ratio,
+            y_swap_amplitude=y_swap_amplitude,
+            arm_swap=arm_swap,
+            step_num=step_num,
+            gait_param=gait_param,
         )
         self._x                = x
         self._y                = y
         self._yaw              = yaw
-        self._step_num         = step_num
-        self._period_time_ms   = period_time_ms
-        self._dsp_ratio        = dsp_ratio
-        self._y_swap_amplitude = y_swap_amplitude
-        self._arm_swap         = arm_swap
-        self._gait_param       = gait_param
         self._dispatched       = False
 
     def initialise(self):
@@ -126,14 +122,9 @@ class L2_Gait_StepNum(XyzL2ActionNode):
             'x':                self._x,
             'y':                self._y,
             'yaw':              self._yaw,
-            'step_num':         self._step_num,
-            'period_time_ms':   self._period_time_ms,
-            'dsp_ratio':        self._dsp_ratio,
-            'y_swap_amplitude': self._y_swap_amplitude,
-            'arm_swap':         self._arm_swap,
-            'gait_param':       self._gait_param,
             'semantic_source':  'gait_step_num',
         }
+        kwargs.update(self.gait_kwargs())
         return 'go_step', kwargs, 'dispatch %d-step reposition' % self._step_num
 
     def update(self) -> Status:

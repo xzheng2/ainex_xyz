@@ -1,137 +1,117 @@
 #!/usr/bin/env python3
-"""L2 Action: walk toward a detected object using raw pixel data from BB.
+"""L2 Action: walk a detected target onto a pixel target point, then stop.
 
 Node kind: finite_action
 
-BB reads:
-  BB.TRACKED_OBJECTS  (/latched/tracked_objects)  — written each tick by
-                                                     ObjectDetectionAdapter
+Approaches and ARRIVES. For following a target indefinitely with no arrival
+judgement, use L2_Gait_FollowTarget instead.
 
-BB writes:
-  (none)
+Pick this node when you must stop at the target, or when the body heading has to
+stay fixed while a lateral offset is closed (steer_axis='lateral'). Pick
+FollowTarget when the path bends and corners need the rotation-biased gait
+profile — it switches between go_step and turn_step, which this node never does.
+The two use different control laws (proportional here, a piecewise ramp there),
+not just different termination.
+
+Precondition — the head must be at the pan centre:
+  This node steers the BODY from the target's horizontal pixel error, which is
+  only a valid body-heading signal while the head faces straight ahead. It
+  therefore commands the head to pan_default once in initialise() and leaves it
+  there. If the head is turned (e.g. straight after a sweep) run
+  L2_Gait_AlignBodyToHead first. Tilt is optional: it is parked at tilt_default
+  and defines the frame geometry that align_y is measured against.
+
+BB reads:
+  BB.TRACKED_OBJECTS  (/latched/tracked_objects) — 'x', 'y', 'error_x', 'size',
+                      'lost_count' for target_id.
+
+BB writes: none
 
 Facade:
-  move_head(pan_pos, tilt_pos)  — centre head once on initialise()
-  go_step(x, y, yaw)           — one approach step per tick while RUNNING
-  stop_gait()                  — called on SUCCESS (arrived)
+  move_head(pan_pos, tilt_pos)  — park the head once on initialise()
+  go_step(x, y, yaw)            — one step per tick while RUNNING
+  stop_gait()                   — on SUCCESS (arrived)
 
-Strategy:
-  Reads tracked_objects[target_id] from the blackboard (written by
-  ObjectDetectionAdapter) and drives the robot toward the target using
-  raw pixel error and object size.  Head is physically centred once at
-  the start of each activation via move_head(), then left fixed.
+Alignment target:
+  error_x = obj['x'] - align_x        when align_x is set, else obj['error_x']
+                                      (the adapter-calibrated frame centre)
+  error_y = obj['y'] - align_y        only when align_y is set
 
-  Two alignment modes (selected by align_x):
-    • Legacy (align_x is None, default): steer on the adapter-calibrated error_x
-      and arrive on object size — unchanged historical behaviour.
-    • Explicit-target (align_x is not None): steer on obj['x'] − align_x so the
-      object is driven to a tuneable pixel column (e.g. align_x=320 for a 640-wide
-      frame = centre). When align_y is also set, fore/aft motion is driven by
-      obj['y'] − align_y (head-tilted-down geometry: object high in frame → far →
-      step forward) and arrival requires BOTH pixel axes within their thresholds
-      instead of the size gate.
+  align_x exists for deliberately off-centre alignment — e.g. placing a ball on
+  the kicking foot's column rather than the body midline. Leaving it None simply
+  targets the calibrated centre; that is a default, not a mode.
 
-  Each tick:
-    error_x = obj['x'] − align_x           (explicit-target mode), else
-              tracked_objects[target_id]['error_x']  (legacy; obj.x − image_center_x)
-    error_y = obj['y'] − align_y           (only when align_y is not None)
-    size    = tracked_objects[target_id]['size']
-              (= π*radius² for circle; width*height for rect)
+  align_y is the distance proxy. With the head tilted down at a fixed angle, an
+  object higher in the frame is further away, so error_y drives fore/aft motion
+  AND supplies the arrival gate. Without align_y there is no distance
+  information at all, so the node aligns laterally and never advances.
 
-  Horizontal steering (selected by steer_axis):
-    • 'yaw' (default, standard proportional steering):
-        yaw = −kp * error_x   (positive error_x → object right → turn right → negative yaw)
-        deadband applied before gain; result clamped to ±max_yaw_deg. Turning changes heading.
-    • 'lateral' (heading-preserving): yaw forced 0; strafe sideways instead —
-        y = −lateral_kp * error_x, deadband applied, clamped to ±max_y_speed, optional
-        min_y_speed floor. Body heading stays fixed while the object is centred in x.
-    In both modes fore/aft motion (error_y → x_step) is unchanged.
+Horizontal steering (steer_axis):
+  'yaw' (default)  — yaw = -kp * error_x; deadband, then clamp to ±max_yaw_deg.
+                     Turning changes the body heading.
+  'lateral'        — yaw forced to 0; strafe instead: y = -lateral_kp * error_x,
+                     deadband, clamp to ±max_y_speed, optional min_y_speed floor.
+                     Heading is preserved while the target is centred in x.
 
-  Termination (legacy, align_y is None):
-    size > max_size_threshold              → go_step(−x_speed, y, yaw), return RUNNING  (back up)
-    size >= size_threshold
-      AND abs(error_x) <= x_error_threshold → stop_gait(), return SUCCESS  (arrived + centred)
-    size >= size_threshold
-      AND abs(error_x) >  x_error_threshold → go_step(0, y, yaw),         return RUNNING  (steer-only)
-    size <  size_threshold                 → go_step(x_speed, y, yaw),   return RUNNING  (approach)
+Termination:
+  |error_x| <= x_error_threshold AND (align_y unset OR
+    |error_y| <= y_error_threshold)                  → stop_gait(), SUCCESS
+  size > max_size_threshold (safety, only when size is known)
+                                                     → step back, RUNNING
+  |error_y| <= y_error_threshold                     → steer only (x=0), RUNNING
+  error_y < 0  (target high in frame → far)          → step forward, RUNNING
+  error_y > 0  (target low in frame → near)          → step back, RUNNING
+  target absent or lost_count > lost_count_threshold → FAILURE, so a parent
+                                                       Selector can re-find it
 
-  Termination (explicit-target, align_y is not None):
-    size > max_size_threshold              → go_step(−x_speed, y, yaw), return RUNNING  (back up)
-    abs(error_x) <= x_error_threshold
-      AND abs(error_y) <= y_error_threshold → stop_gait(), return SUCCESS  (aligned in x AND y)
-    abs(error_y) <= y_error_threshold      → go_step(0, y, yaw),        return RUNNING  (steer-only)
-    error_y < 0 (object high → far)        → go_step(+x_speed, y, yaw), return RUNNING  (approach)
-    error_y > 0 (object low  → near)       → go_step(−x_speed, y, yaw), return RUNNING  (back off)
-
-  Object lost (no key or lost_count > lost_count_threshold) → return FAILURE
-  immediately so a parent Selector can route to a re-find branch.
-
-Returns:
-  RUNNING   — object detected; one of: backing up / steer-only / approach step issued
-  SUCCESS   — size >= size_threshold AND abs(error_x) <= x_error_threshold; gait stopped
-  FAILURE   — object not detected (lost_count > lost_count_threshold or key absent)
+Size is no longer an arrival criterion (Aug 2026). The old size>=size_threshold
+gate was replaced by pixel alignment: with the head locked at centre, error_x/
+error_y are the correct signals, whereas a pixel area threshold has to be
+retuned for every object and is undefined for shapes such as a line
+(tracked_objects reports size=None for those). Only the max_size_threshold
+"too close, back off" safety override still consults size, and it is skipped
+when size is None.
 
 CONFIG_DEFAULTS:
-  target_id:           'object'   — key to look up in tracked_objects dict
-  size_threshold:      1000.0     — lower bound for arrival: obj['size'] >= this value
-                                   (π*r² for circle; w*h for rect; tune per project)
-  x_error_threshold:   50         — max abs(error_x) in px to count as centred;
-                                   SUCCESS requires BOTH size AND centring gates
-  max_size_threshold:  250000.0   — when obj['size'] > this, back up (−x_speed);
-                                   set to None to disable backward motion
-  align_x:          None      — explicit pixel target column; None = legacy error_x path.
-                                Recommended centre for a 640×480 frame: 320.
-  align_y:          None      — explicit pixel target row; None = no vertical gate/drive.
-                                Recommended centre for a 640×480 frame: 240.
-  y_error_threshold:   50     — max abs(obj['y'] − align_y) in px to count as vertically
-                                aligned (used only when align_y is not None)
-  x_speed:          0.010     — forward step magnitude (m), range (-0.020 to 0.020)
-  y_speed:          0.0       — lateral step magnitude (m); sign tracks yaw sign
-  kp:               0.2       — error_x (px) → gait yaw (°) gain
-  max_yaw_deg:      10        — maximum absolute gait yaw (°)
-  deadband:         5         — pixel deadband on error_x (inside which yaw/lateral = 0)
-  min_yaw_deg:      0         — minimum |yaw| when outside deadband (0 = purely proportional)
-  steer_axis:       'yaw'     — horizontal steering: 'yaw' (turn on error_x, default) or
-                               'lateral' (strafe on error_x with yaw=0; heading preserved)
-  lateral_kp:       0.0       — error_x (px) → lateral step (m) gain (steer_axis='lateral')
-  max_y_speed:      0.02      — max |lateral step| (m) clamp (steer_axis='lateral')
-  min_y_speed:      0.0       — min |lateral step| (m) outside deadband (0 = purely proportional)
-  pan_default:      500       — head pan servo position set in initialise()
-  tilt_default:     500       — head tilt servo position set in initialise()
-  period_time_ms:   None      — gait cycle (ms); None = project default
-  dsp_ratio:        None      — double-support fraction (0–1); None = project default
-  y_swap_amplitude: None      — lateral body swing (m); None = project default
-  arm_swap:             None  — arm swing amplitude (°); None = project default
-  step_num:             None  — steps per tick (0 = continuous); None = project default
-  gait_param:           None  — partial WalkingParam dict; None = no override
-  init_yaw_offset:      None  — constant per-step heading bias (deg); None = controller default (0)
-  hip_pitch_offset:     None  — hip forward/back tilt (deg); None = controller default (15).
-                                Merged into gait_param as 'hip_pitch_offset'.
-  init_x_offset:        None  — initial x foot offset (m); None = controller default
-  init_y_offset:        None  — initial y foot offset (m); None = controller default
-  body_height:          None  — initial z / body height (m, → init_z_offset); None = default
-  init_roll_offset:     None  — initial roll offset (rad); None = controller default
-  init_pitch_offset:    None  — initial pitch offset (rad); None = controller default
-  step_fb_ratio:        None  — fore/aft step ratio; None = controller default
-  step_height:          None  — foot lift height (m, → z_move_amplitude); None = default
-  z_swap_amplitude:     None  — vertical body swing (m); None = controller default
-  pelvis_offset:        None  — pelvis left/right swing (rad); None = controller default
-                                (init_x/y_offset .. pelvis_offset mirror GaitManager
-                                 get_gait_param() keys; each merged into gait_param)
-  lost_count_threshold: 0     — tolerate this many consecutive missed detections
-                                before returning FAILURE (0 = fail on first miss)
+  target_id:           'object' — key to look up in tracked_objects
+  align_x:             None     — pixel column to align to; None = calibrated centre
+  align_y:             None     — pixel row to align to; None = no approach, x-align only
+  x_error_threshold:   50       — max |error_x| (px) counted as aligned
+  y_error_threshold:   50       — max |error_y| (px) counted as aligned
+  max_size_threshold:  250000.0 — size above this → back off; None disables; skipped
+                                  when the shape has no size
+  x_speed:             0.010    — forward step magnitude (m)
+  y_speed:             0.0      — lateral step magnitude (m); sign tracks yaw sign
+  kp:                  0.2      — error_x (px) → gait yaw (deg) gain
+  max_yaw_deg:         10       — maximum |gait yaw| (deg)
+  deadband:            5        — pixel deadband on error_x
+  min_yaw_deg:         0        — minimum |yaw| outside the deadband (0 = proportional)
+  steer_axis:          'yaw'    — 'yaw' or 'lateral' (see above)
+  lateral_kp:          0.0      — error_x (px) → lateral step (m) gain
+  max_y_speed:         0.0      — max |lateral step| (m)
+  min_y_speed:         0.0      — min |lateral step| (m) outside the deadband
+  pan_default:         500      — head pan parked here in initialise()
+  tilt_default:        500      — head tilt parked here in initialise()
+  lost_count_threshold: 0       — missed frames tolerated before FAILURE
+
+Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude / arm_swap /
+step_num / gait_param): inherited from XyzL2GaitActionNode — see that class's
+docstring. The former per-knob arguments (step_height=, hip_pitch_offset=,
+body_height=, …) are gone; put them in the dict.
 """
 import math
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
-class L2_Gait_VisionToObject(XyzL2ActionNode):
-    """Walk toward a detected object using pixel error_x for steering and size for arrival.
+class L2_Gait_VisionToObject(XyzL2GaitActionNode):
+    """Walk a target onto a pixel target point using error_x / error_y, then stop.
 
-    Returns RUNNING while approaching, SUCCESS on arrival, FAILURE when object is lost.
+    Returns RUNNING while approaching, SUCCESS on arrival, FAILURE when the
+    target is lost. Requires the head parked at the pan centre — see the module
+    docstring.
     """
 
     LEVEL        = 'L2'
@@ -140,7 +120,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
     FACADE_CALLS = ['move_head', 'go_step', 'stop_gait']
     CONFIG_DEFAULTS = {
         'target_id':           'object',
-        'size_threshold':      1000.0,
         'x_error_threshold':   50,       # px; abs(error_x) <= this AND size >= threshold → SUCCESS
         'max_size_threshold':  250000.0, # px²; size > this → back up (−x_speed)
         # Explicit-target alignment (opt-in; None = legacy adapter error_x / size arrival):
@@ -161,25 +140,8 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
         'pan_default':      500,
         'tilt_default':     500,
         # Gait parameter overrides (None = use project _GO_STEP_VEL / _GO_CFG defaults)
-        'period_time_ms':   None,
-        'dsp_ratio':        None,
-        'y_swap_amplitude': None,
-        'arm_swap':               None,
-        'step_num':               None,
-        'gait_param':             None,
-        'init_yaw_offset':        None,
-        'hip_pitch_offset':       None,
         # Named WalkingParam knobs (mirror GaitManager.get_gait_param() keys; merged
         # into gait_param). None = controller default. Values in metres unless noted.
-        'init_x_offset':          None,  # initial x foot offset (m)
-        'init_y_offset':          None,  # initial y foot offset (m)
-        'body_height':            None,  # initial z / body height (m) → init_z_offset
-        'init_roll_offset':       None,  # initial roll offset (rad)
-        'init_pitch_offset':      None,  # initial pitch offset (rad)
-        'step_fb_ratio':          None,  # fore/aft step ratio
-        'step_height':            None,  # foot lift height (m) → z_move_amplitude
-        'z_swap_amplitude':       None,  # vertical body swing (m)
-        'pelvis_offset':          None,  # pelvis left/right swing (rad)
         'lost_count_threshold':   0,
     }
 
@@ -188,7 +150,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
                  logger=None,
                  tick_id_getter=None,
                  target_id: str = 'object',
-                 size_threshold: float = 1000.0,
                  x_error_threshold: int = 50,
                  max_size_threshold: float = 250000.0,
                  align_x: float = None,
@@ -206,29 +167,16 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
                  min_y_speed: float = 0.0,
                  pan_default: int = 500,
                  tilt_default: int = 500,
+                 lost_count_threshold: int = 0,
                  period_time_ms: int = None,
                  dsp_ratio: float = None,
                  y_swap_amplitude: float = None,
                  arm_swap: int = None,
                  step_num: int = None,
-                 gait_param: dict = None,
-                 init_yaw_offset: float = None,
-                 hip_pitch_offset: float = None,
-                 init_x_offset: float = None,
-                 init_y_offset: float = None,
-                 body_height: float = None,
-                 init_roll_offset: float = None,
-                 init_pitch_offset: float = None,
-                 step_fb_ratio: float = None,
-                 step_height: float = None,
-                 z_swap_amplitude: float = None,
-                 pelvis_offset: float = None,
-                 lost_count_threshold: int = 0):
+                 gait_param: dict = None):
         """
         CONFIG_DEFAULTS:
             target_id:          Key to look up in tracked_objects dict.
-            size_threshold:     Lower bound for arrival: obj['size'] >= this value.
-                                π*r² for circle; w*h for rect. Tune per project.
             x_error_threshold:  Max abs(error_x) in pixels to count as "centred".
                                 SUCCESS requires BOTH size gate AND centring gate.
                                 Set large (e.g. 9999) to disable centring check.
@@ -294,9 +242,11 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
             lost_count_threshold: Tolerate this many consecutive missed detections
                                   before returning FAILURE. Default 0 (fail on first miss).
         """
-        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade)
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade,
+                         period_time_ms=period_time_ms, dsp_ratio=dsp_ratio,
+                         y_swap_amplitude=y_swap_amplitude, arm_swap=arm_swap,
+                         step_num=step_num, gait_param=gait_param)
         self._target_id          = target_id
-        self._size_threshold     = size_threshold
         self._x_error_threshold  = x_error_threshold
         self._max_size_threshold = max_size_threshold
         self._align_x            = align_x
@@ -314,23 +264,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
         self._min_y_speed      = min_y_speed
         self._pan_default      = pan_default
         self._tilt_default     = tilt_default
-        self._period_time_ms   = period_time_ms
-        self._dsp_ratio        = dsp_ratio
-        self._y_swap_amplitude = y_swap_amplitude
-        self._arm_swap         = arm_swap
-        self._step_num         = step_num
-        self._gait_param             = gait_param
-        self._init_yaw_offset        = init_yaw_offset
-        self._hip_pitch_offset       = hip_pitch_offset
-        self._init_x_offset          = init_x_offset
-        self._init_y_offset          = init_y_offset
-        self._body_height            = body_height
-        self._init_roll_offset       = init_roll_offset
-        self._init_pitch_offset      = init_pitch_offset
-        self._step_fb_ratio          = step_fb_ratio
-        self._step_height            = step_height
-        self._z_swap_amplitude       = z_swap_amplitude
-        self._pelvis_offset          = pelvis_offset
         self._lost_count_threshold   = lost_count_threshold
         self._bb                     = None
 
@@ -338,40 +271,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(name=self.name, namespace=BB.LATCHED_NS)
         self._bb.register_key(key=BB.TRACKED_OBJECTS_KEY, access=Access.READ)
-
-    def _effective_gait_param(self):
-        """Merge the named WalkingParam knobs into the partial gait_param dict.
-
-        Each named knob (init_yaw_offset, hip_pitch_offset, init_x/y offsets,
-        body_height, roll/pitch offsets, step_fb_ratio, step_height,
-        z_swap_amplitude, pelvis_offset) overrides its matching gait_param key
-        when set. Keys mirror GaitManager.get_gait_param(); _RuntimeIO merges the
-        result onto the controller's current params before GaitManager.set_step().
-        Returns None when nothing overrides (controller defaults)."""
-        gp = dict(self._gait_param) if self._gait_param else {}
-        if self._init_yaw_offset is not None:
-            gp['init_yaw_offset'] = self._init_yaw_offset   # per-step heading bias (deg)
-        if self._hip_pitch_offset is not None:
-            gp['hip_pitch_offset'] = self._hip_pitch_offset  # hip fwd/back tilt (deg)
-        if self._init_x_offset is not None:
-            gp['init_x_offset'] = self._init_x_offset        # initial x foot offset (m)
-        if self._init_y_offset is not None:
-            gp['init_y_offset'] = self._init_y_offset        # initial y foot offset (m)
-        if self._body_height is not None:
-            gp['body_height'] = self._body_height            # initial z / body height (m)
-        if self._init_roll_offset is not None:
-            gp['init_roll_offset'] = self._init_roll_offset  # initial roll offset (rad)
-        if self._init_pitch_offset is not None:
-            gp['init_pitch_offset'] = self._init_pitch_offset  # initial pitch offset (rad)
-        if self._step_fb_ratio is not None:
-            gp['step_fb_ratio'] = self._step_fb_ratio        # fore/aft step ratio
-        if self._step_height is not None:
-            gp['step_height'] = self._step_height            # foot lift height (m)
-        if self._z_swap_amplitude is not None:
-            gp['z_swap_amplitude'] = self._z_swap_amplitude  # vertical body swing (m)
-        if self._pelvis_offset is not None:
-            gp['pelvis_offset'] = self._pelvis_offset        # pelvis L/R swing (rad)
-        return gp or None
 
     def _compute_yaw(self, error_x: float) -> int:
         """Return signed gait yaw from pixel error_x.
@@ -438,7 +337,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
         self.emit_action_intent(
             action='vision_to_object',
             inputs={'target_id':          self._target_id,
-                    'size_threshold':     self._size_threshold,
                     'x_error_threshold':  self._x_error_threshold,
                     'max_size_threshold': self._max_size_threshold,
                     'align_x':            self._align_x,
@@ -447,7 +345,6 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
                     'steer_axis':         self._steer_axis,
                     'pan_default':        self._pan_default,
                     'tilt_default':       self._tilt_default,
-                    'period_time_ms':     self._period_time_ms,
                     'dsp_ratio':          self._dsp_ratio},
         )
         self.call_facade('move_head',
@@ -480,17 +377,15 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
             yaw = self._compute_yaw(error_x)
             y   = self._compute_y(yaw)
 
-        # BACKWARD: object too close (size exceeded max threshold)
-        if self._max_size_threshold is not None and size > self._max_size_threshold:
+        # BACKWARD: object too close (size exceeded max threshold).
+        # Guarded on size is not None: shapes with no meaningful area (a line)
+        # report size=None, and this safety override simply does not apply to them.
+        if (self._max_size_threshold is not None and size is not None
+                and size > self._max_size_threshold):
             self.call_facade('go_step',
                              x=-self._x_speed, y=y, yaw=yaw,
-                             period_time_ms=self._period_time_ms,
-                             dsp_ratio=self._dsp_ratio,
-                             y_swap_amplitude=self._y_swap_amplitude,
-                             arm_swap=self._arm_swap,
-                             step_num=self._step_num,
-                             gait_param=self._effective_gait_param(),
-                             semantic_source='vision_to_object_backup')
+                             semantic_source='vision_to_object_backup',
+                             **self.gait_kwargs())
             self.emit_decision(
                 inputs={'target_id':          self._target_id,
                         'error_x':            error_x,
@@ -503,71 +398,55 @@ class L2_Gait_VisionToObject(XyzL2ActionNode):
             )
             return Status.RUNNING
 
-        # ── Arrival + forward-step selection ──────────────────────────────
-        if self._align_y is not None:
-            # Explicit-target mode: gate/drive on pixel errors (error_x, error_y).
-            x_centred = abs(error_x) <= self._x_error_threshold
-            y_centred = abs(error_y) <= self._y_error_threshold
-            # SUCCESS: aligned in both pixel axes
-            if x_centred and y_centred:
-                self.call_facade('stop_gait')
-                self.emit_decision(
-                    inputs={'target_id':         self._target_id,
-                            'error_x':           round(error_x, 1),
-                            'error_y':           round(error_y, 1),
-                            'x_error_threshold': self._x_error_threshold,
-                            'y_error_threshold': self._y_error_threshold},
-                    status=Status.SUCCESS,
-                    reason='error_x <= x_thr AND error_y <= y_thr (aligned)',
-                )
-                return Status.SUCCESS
-            if y_centred:
-                x_step          = 0.0
-                approach_reason = 'steer-only: error_y aligned, waiting for x-centre'
-            elif error_y < 0:
-                x_step          = self._x_speed   # object high in frame → far → forward
-                approach_reason = 'approaching: object above target (far)'
-            else:
-                x_step          = -self._x_speed  # object low in frame → near → back off
-                approach_reason = 'backing off: object below target (near)'
-        else:
-            # Legacy mode: size-based arrival + forward step.
-            if size >= self._size_threshold and abs(error_x) <= self._x_error_threshold:
-                self.call_facade('stop_gait')
-                self.emit_decision(
-                    inputs={'target_id':         self._target_id,
-                            'error_x':           error_x,
-                            'size':              round(size, 1),
-                            'size_threshold':    self._size_threshold,
-                            'x_error_threshold': self._x_error_threshold},
-                    status=Status.SUCCESS,
-                    reason='size >= threshold AND error_x <= x_error_threshold',
-                )
-                return Status.SUCCESS
+        # ── Arrival + forward-step selection (pixel alignment only) ───────
+        # Both gates are pixel errors. There is no size-based arrival: with the
+        # head locked at the x-centre, error_x is the correct lateral signal, and
+        # error_y (when align_y is set) is the distance proxy. Size varies with
+        # the object, so it never made a transferable arrival criterion.
+        x_centred = abs(error_x) <= self._x_error_threshold
+        y_centred = (error_y is None
+                     or abs(error_y) <= self._y_error_threshold)
 
-            # Determine forward step: stop advancing when already close (avoid overshoot)
-            if size >= self._size_threshold:
-                x_step        = 0.0
-                approach_reason = 'steer-only: size >= threshold, waiting for centre'
-            else:
-                x_step        = self._x_speed
-                approach_reason = 'approaching: size < threshold'
+        if x_centred and y_centred:
+            self.call_facade('stop_gait')
+            self.emit_decision(
+                inputs={'target_id':         self._target_id,
+                        'error_x':           round(error_x, 1),
+                        'error_y':           None if error_y is None else round(error_y, 1),
+                        'x_error_threshold': self._x_error_threshold,
+                        'y_error_threshold': self._y_error_threshold},
+                status=Status.SUCCESS,
+                reason=('aligned in x and y' if error_y is not None
+                        else 'aligned in x (no align_y configured)'),
+            )
+            return Status.SUCCESS
+
+        if error_y is None:
+            # No vertical target configured → no distance information, so never
+            # advance; this node then performs pure lateral alignment.
+            x_step          = 0.0
+            approach_reason = 'steer-only: no align_y, aligning x'
+        elif y_centred:
+            x_step          = 0.0
+            approach_reason = 'steer-only: error_y aligned, waiting for x-centre'
+        elif error_y < 0:
+            x_step          = self._x_speed   # object high in frame → far → forward
+            approach_reason = 'approaching: object above target (far)'
+        else:
+            x_step          = -self._x_speed  # object low in frame → near → back off
+            approach_reason = 'backing off: object below target (near)'
 
         self.call_facade('go_step',
                          x=x_step, y=y, yaw=yaw,
-                         period_time_ms=self._period_time_ms,
-                         dsp_ratio=self._dsp_ratio,
-                         y_swap_amplitude=self._y_swap_amplitude,
-                         arm_swap=self._arm_swap,
-                         step_num=self._step_num,
-                         gait_param=self._effective_gait_param(),
-                         semantic_source='vision_to_object_approach')
+                         semantic_source='vision_to_object_approach',
+                         **self.gait_kwargs())
         self.emit_decision(
             inputs={'target_id':         self._target_id,
                     'error_x':           error_x,
-                    'size':              round(size, 1),
-                    'size_threshold':    self._size_threshold,
+                    'error_y':           error_y,
+                    'size':              None if size is None else round(size, 1),
                     'x_error_threshold': self._x_error_threshold,
+                    'y_error_threshold': self._y_error_threshold,
                     'yaw':               yaw,
                     'y':                 y,
                     'x':                 x_step},

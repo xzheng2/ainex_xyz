@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""L2 Action: stop gait motion. Always returns SUCCESS.
+"""L2_Motion_StopGait — stop gait motion. Always returns SUCCESS.
 
 Node kind: dispatch
+
+Not a gait-step node: it only halts the gait and never dispatches a step, so it
+inherits XyzL2ActionNode (no gait pass-through knobs) and lives outside the
+L2_Gait_* namespace, where the filename prefix means "inherits
+XyzL2GaitActionNode".
 
 BB reads:  none
 BB writes: none
@@ -19,7 +24,7 @@ from xyz_bt_lib.core.base_node import XyzL2ActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 
 
-class L2_Gait_Stop(XyzL2ActionNode):
+class L2_Motion_StopGait(XyzL2ActionNode):
     """Disable gait; always returns SUCCESS. No blackboard access."""
 
     LEVEL        = 'L2'
@@ -28,7 +33,7 @@ class L2_Gait_Stop(XyzL2ActionNode):
     FACADE_CALLS = ['stop_gait']
     CONFIG_DEFAULTS = {}
 
-    def __init__(self, name: str = 'L2_Gait_Stop',
+    def __init__(self, name: str = 'L2_Motion_StopGait',
                  facade: XyzBTFacade = None,
                  logger=None,
                  tick_id_getter=None):

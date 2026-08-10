@@ -9,9 +9,9 @@ factories (never raw Sequence/Selector(memory=...)):
     ├── L1_Balance_IsStanding        (guard: only patrol while standing)
     └── PrioritySelector(Patrol)
         ├── ReactiveSequence(LineFollow)
-        │   ├── L1_Vision_IsLineDetected
-        │   └── L2_Gait_FollowLine
-        └── L2_Gait_Stop             (fallback: stop if no line)
+        │   ├── L1_Vision_IsObjectDetected
+        │   └── L2_Gait_FollowTarget
+        └── L2_Motion_StopGait       (fallback: stop if no line)
 
 Nodes are imported by full module path (the behaviours/L*/__init__.py packages
 do not re-export). L2 action nodes take a facade (XyzBTFacade); a project
@@ -32,13 +32,13 @@ from xyz_bt_lib import (
 from xyz_bt_lib.behaviours.L1_perception.L1_Balance_IsStanding import (
     L1_Balance_IsStanding,
 )
-from xyz_bt_lib.behaviours.L1_perception.L1_Vision_IsLineDetected import (
-    L1_Vision_IsLineDetected,
+from xyz_bt_lib.behaviours.L1_perception.L1_Vision_IsObjectDetected import (
+    L1_Vision_IsObjectDetected,
 )
-from xyz_bt_lib.behaviours.L2_locomotion.L2_Gait_FollowLine import (
-    L2_Gait_FollowLine,
+from xyz_bt_lib.behaviours.L2_locomotion.L2_Gait_FollowTarget import (
+    L2_Gait_FollowTarget,
 )
-from xyz_bt_lib.behaviours.L2_locomotion.L2_Gait_Stop import L2_Gait_Stop
+from xyz_bt_lib.behaviours.L2_locomotion.L2_Motion_StopGait import L2_Motion_StopGait
 
 
 def build_dry_run_tree():
@@ -53,14 +53,15 @@ def build_dry_run_tree():
 def build_patrol_tree(facade, logger=None, tick_id_getter=None):
     """Full safety-patrol tree. `facade` is any XyzBTFacade (StubFacade offline)."""
     line_follow = ReactiveSequence('LineFollow', children=[
-        L1_Vision_IsLineDetected(logger=logger, tick_id_getter=tick_id_getter),
-        L2_Gait_FollowLine(facade=facade, logger=logger,
-                           tick_id_getter=tick_id_getter),
+        L1_Vision_IsObjectDetected(target_id='line', logger=logger,
+                                   tick_id_getter=tick_id_getter),
+        L2_Gait_FollowTarget(target_id='line', facade=facade, logger=logger,
+                             tick_id_getter=tick_id_getter),
     ])
 
     patrol = PrioritySelector('Patrol', children=[
         line_follow,
-        L2_Gait_Stop(facade=facade, logger=logger, tick_id_getter=tick_id_getter),
+        L2_Motion_StopGait(facade=facade, logger=logger, tick_id_getter=tick_id_getter),
     ])
 
     return ReactiveSequence('SafePatrol', children=[

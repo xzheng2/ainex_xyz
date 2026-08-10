@@ -142,6 +142,86 @@ class XyzL2ActionNode(XyzBTNode):
         return getattr(self._facade, method_name)(**kwargs)
 
 
+class XyzL2GaitActionNode(XyzL2ActionNode):
+    """Base for L2 nodes that command the gait via go_step() / turn_step().
+
+    Exists to remove a real duplication: the same block of gait pass-through
+    knobs was declared in five nodes, and ``_effective_gait_param()`` was copied
+    verbatim into three of them. Every gait node needs the same plumbing and
+    none of it is strategy, so it lives here once.
+
+    Two kinds of gait tuning, deliberately kept separate:
+
+    1. **Step kwargs** (``period_time_ms``, ``dsp_ratio``, ``y_swap_amplitude``,
+       ``arm_swap``, ``step_num``) — passed as their own arguments to
+       ``go_step()`` / ``turn_step()``. ``None`` = use the project default.
+    2. **``gait_param``** — a partial WalkingParam dict merged by ``_RuntimeIO``
+       onto the controller's current parameters. Keys mirror
+       ``GaitManager.get_gait_param()``: ``step_height``, ``hip_pitch_offset``,
+       ``init_yaw_offset``, ``init_x_offset``, ``init_y_offset``,
+       ``body_height``, ``init_roll_offset``, ``init_pitch_offset``,
+       ``step_fb_ratio``, ``z_swap_amplitude``, ``pelvis_offset``.
+
+    Subclasses declare ONLY their strategy parameters in ``CONFIG_DEFAULTS``;
+    the gait knobs above are inherited from ``GAIT_CONFIG_DEFAULTS`` and must
+    not be repeated. In a project tree, tune them by name inside the dict::
+
+        L2_Gait_StepNum('Forward', facade=f, x=0.02,
+                        gait_param={'step_height': 0.03, 'init_yaw_offset': 2})
+
+    Note (Aug 2026): the per-knob constructor arguments (``step_height=``,
+    ``init_yaw_offset=``, ``init_z_offset=`` …) that three of these nodes used
+    to accept are gone — they only ever merged into ``gait_param``, so the dict
+    is now the single way in. ``L2_Gait_FollowNavPath``'s ``init_z_offset``
+    alias for ``body_height`` is likewise gone; write ``body_height`` directly.
+
+    Subclasses build their facade call as::
+
+        self.call_facade('go_step', x=x, y=y, yaw=yaw,
+                         **self.gait_kwargs(), semantic_source='...')
+    """
+
+    GAIT_CONFIG_DEFAULTS = {
+        'period_time_ms':   None,   # gait cycle (ms); None = project default
+        'dsp_ratio':        None,   # double-support fraction (0-1)
+        'y_swap_amplitude': None,   # lateral body swing (m)
+        'arm_swap':         None,   # arm swing amplitude (deg)
+        'step_num':         None,   # steps per tick (0 = continuous)
+        'gait_param':       None,   # partial WalkingParam dict (see class docstring)
+    }
+
+    def __init__(self, name: str, logger=None, tick_id_getter=None, facade=None,
+                 period_time_ms=None, dsp_ratio=None, y_swap_amplitude=None,
+                 arm_swap=None, step_num=None, gait_param=None):
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter,
+                         facade=facade)
+        self._period_time_ms   = period_time_ms
+        self._dsp_ratio        = dsp_ratio
+        self._y_swap_amplitude = y_swap_amplitude
+        self._arm_swap         = arm_swap
+        self._step_num         = step_num
+        self._gait_param       = gait_param
+
+    def _effective_gait_param(self):
+        """Return a defensive copy of gait_param, or None when nothing overrides.
+
+        Copied rather than passed by reference so a node can never mutate the
+        dict the tree handed it (which may be shared between nodes).
+        """
+        return dict(self._gait_param) if self._gait_param else None
+
+    def gait_kwargs(self) -> dict:
+        """Return the standard gait kwargs for go_step() / turn_step()."""
+        return {
+            'period_time_ms':   self._period_time_ms,
+            'dsp_ratio':        self._dsp_ratio,
+            'y_swap_amplitude': self._y_swap_amplitude,
+            'arm_swap':         self._arm_swap,
+            'step_num':         self._step_num,
+            'gait_param':       self._effective_gait_param(),
+        }
+
+
 class XyzL3ActionNode(XyzL2ActionNode):
     """Base class for L3 system / process-orchestration nodes.
 

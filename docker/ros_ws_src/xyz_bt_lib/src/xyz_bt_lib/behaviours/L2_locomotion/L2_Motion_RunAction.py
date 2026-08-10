@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """L2 Action: execute a named stand-alone motion action (blocking).
 
-Node kind: finite_action
+Node kind: dispatch
+
+run_action() is a BLOCKING facade call: it returns only after the action group
+has finished playing, so this node completes inside a single tick and returns
+SUCCESS. It never returns RUNNING — that is what makes it a dispatch rather than
+a finite_action, despite taking real time on the robot. (The whole tree stalls
+during the call; this is why the dwell/hysteresis decorators time by tick_id
+rather than wall clock.)
 
 BB reads:  none
 BB writes: none

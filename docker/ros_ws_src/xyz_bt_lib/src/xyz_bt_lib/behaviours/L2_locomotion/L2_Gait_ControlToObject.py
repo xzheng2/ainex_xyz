@@ -3,6 +3,19 @@
 
 Node kind: dispatch
 
+Where this fits — it is the only node that steers from HEAD SERVO feedback
+rather than pixels, so it is meant to be paired with L2_Head_TrackTarget: the
+head keeps itself on the target, and this node keeps the body following wherever
+the head points (pan offset -> yaw, tilt offset -> forward/back as a distance
+proxy). The pixel-based alternatives (L2_Gait_FollowTarget,
+L2_Gait_VisionToObject) instead require the head parked at centre.
+
+Not to be confused with L2_Gait_AlignBodyToHead, which also turns the body from
+the head pan offset but is a finite action: it recentres the head and stops once
+aligned, and its yaw is never zero because it must keep turning until the head
+is back at centre. This node has a deadband and settles at yaw = 0, because it
+is meant to keep running while the robot approaches.
+
 BB reads:
   BB.SERVO_POSITIONS (/latched/servo_positions) — dict {servo_id: pos} written by
                      ServoPositionAdapter; pan_servo_id (default 23) and
@@ -49,21 +62,19 @@ CONFIG_DEFAULTS:
   head_pan_center:  500     — servo position for "centred" (pan reference)
   head_tilt_center: 450     — servo position for ideal distance (tilt reference)
   tilt_threshold:   20      — servo units — tilt offset inside which x = 0
-  period_time_ms:   None    — gait cycle (ms); None = project default (300)
-  dsp_ratio:        None    — double-support fraction (0–1); None = project default (0.2)
-  y_swap_amplitude: None    — lateral body swing (m); None = project default (0.02 m)
-  arm_swap:         None    — arm swing amplitude (°); None = project default (30°)
-  step_num:         None    — steps per tick (0 = continuous); None = project default (0)
-  gait_param:       None    — partial WalkingParam dict (e.g. {'step_height': 0.03})
-  init_yaw_offset:  None    — constant per-step heading bias (deg); None = controller default (0)
+
+Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude / arm_swap /
+step_num / gait_param): inherited from XyzL2GaitActionNode — see that class's
+docstring. A per-step heading bias goes in the dict:
+gait_param={'init_yaw_offset': deg}.
 """
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
-class L2_Gait_ControlToObject(XyzL2ActionNode):
+class L2_Gait_ControlToObject(XyzL2GaitActionNode):
     """Proportional gait step toward object using BB head positions. Always SUCCESS."""
 
     LEVEL        = 'L2'
@@ -80,14 +91,8 @@ class L2_Gait_ControlToObject(XyzL2ActionNode):
         'head_pan_center':  500,
         'head_tilt_center': 450,
         'tilt_threshold':   20,
-        # Gait parameter overrides (None = use project _GO_STEP_VEL / _GO_CFG defaults)
-        'period_time_ms':   None,   # step_vel[0]: gait cycle (ms)
-        'dsp_ratio':        None,   # step_vel[1]: double-support fraction (0–1)
-        'y_swap_amplitude': None,   # step_vel[2]: lateral body swing (m)
-        'arm_swap':         None,   # arm swing (degrees); None → _GO_CFG → 30
-        'step_num':         None,   # steps per tick; None → _GO_CFG → 0 (continuous)
-        'gait_param':       None,   # partial WalkingParam dict (e.g. {'step_height': 0.03})
-        'init_yaw_offset':  None,   # constant per-step heading bias (deg)
+        # Gait pass-through knobs are inherited from
+        # XyzL2GaitActionNode.GAIT_CONFIG_DEFAULTS — do not repeat them here.
     }
 
     def __init__(self, name: str = 'L2_Gait_ControlToObject',
@@ -108,8 +113,7 @@ class L2_Gait_ControlToObject(XyzL2ActionNode):
                  y_swap_amplitude: float = None,
                  arm_swap: int = None,
                  step_num: int = None,
-                 gait_param: dict = None,
-                 init_yaw_offset: float = None):
+                 gait_param: dict = None):
         """
         CONFIG_DEFAULTS:
             pan_servo_id:     Servo ID for pan position in BB.SERVO_POSITIONS (default 23).
@@ -121,20 +125,18 @@ class L2_Gait_ControlToObject(XyzL2ActionNode):
             head_pan_center:  Servo position for centred (pan reference, 500 = centre).
             head_tilt_center: Servo position for ideal distance (tilt reference).
             tilt_threshold:   Servo units — tilt offset inside which x = 0.
-            period_time_ms:   Gait cycle (ms). None = project default (300).
-            dsp_ratio:        Double-support fraction (0–1). None = project default (0.2).
-            y_swap_amplitude: Lateral body swing (m). None = project default (0.02 m).
-            arm_swap:         Arm swing amplitude (°). None = project default (30°).
-            step_num:         Steps per tick (0 = continuous). None = project default (0).
-            gait_param:       Partial WalkingParam dict (e.g. {'step_height': 0.03}).
-                              None = use controller default.
-            init_yaw_offset:  Constant per-step heading bias (deg). None = controller
-                              default (0). Merged into gait_param as 'init_yaw_offset';
-                              applied by the walking module as a persistent yaw offset on
-                              every step (distinct from the per-tick steering yaw). Validate
-                              sign on the robot.
+
+        Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude /
+        arm_swap / step_num / gait_param): see XyzL2GaitActionNode. A constant
+        per-step heading bias now goes in the dict as
+        ``gait_param={'init_yaw_offset': deg}`` (it used to be its own argument);
+        the walking module applies it as a persistent offset on every step,
+        distinct from the per-tick steering yaw. Validate its sign on the robot.
         """
-        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade)
+        super().__init__(name, logger=logger, tick_id_getter=tick_id_getter, facade=facade,
+                         period_time_ms=period_time_ms, dsp_ratio=dsp_ratio,
+                         y_swap_amplitude=y_swap_amplitude, arm_swap=arm_swap,
+                         step_num=step_num, gait_param=gait_param)
         self._pan_servo_id      = pan_servo_id
         self._tilt_servo_id     = tilt_servo_id
         self._x_speed           = x_speed
@@ -144,28 +146,12 @@ class L2_Gait_ControlToObject(XyzL2ActionNode):
         self._head_pan_center   = head_pan_center
         self._head_tilt_center  = head_tilt_center
         self._tilt_threshold    = tilt_threshold
-        self._period_time_ms    = period_time_ms
-        self._dsp_ratio         = dsp_ratio
-        self._y_swap_amplitude  = y_swap_amplitude
-        self._arm_swap          = arm_swap
-        self._step_num          = step_num
-        self._gait_param        = gait_param
-        self._init_yaw_offset   = init_yaw_offset
         self._bb                = None
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
         self._bb = self.attach_blackboard_client(name=self.name, namespace=BB.LATCHED_NS)
         self._bb.register_key(key=BB.SERVO_POSITIONS_KEY, access=Access.READ)
-
-    def _effective_gait_param(self):
-        """Merge the named init_yaw_offset knob into the partial gait_param dict.
-
-        Returns None when nothing overrides (controller defaults)."""
-        gp = dict(self._gait_param) if self._gait_param else {}
-        if self._init_yaw_offset is not None:
-            gp['init_yaw_offset'] = self._init_yaw_offset   # per-step heading bias (deg)
-        return gp or None
 
     def _compute_yaw(self, pan_pos: int) -> int:
         """Return signed gait yaw from head pan servo position.
@@ -224,13 +210,8 @@ class L2_Gait_ControlToObject(XyzL2ActionNode):
         tilt_offset = tilt_pos - self._head_tilt_center
 
         self.call_facade('go_step', x=x, y=0, yaw=yaw,
-                         period_time_ms=self._period_time_ms,
-                         dsp_ratio=self._dsp_ratio,
-                         y_swap_amplitude=self._y_swap_amplitude,
-                         arm_swap=self._arm_swap,
-                         step_num=self._step_num,
-                         gait_param=self._effective_gait_param(),
-                         semantic_source='control_to_object')
+                         semantic_source='control_to_object',
+                         **self.gait_kwargs())
         self.emit_decision(
             inputs={'pan_pos': pan_pos, 'pan_offset': pan_offset,
                     'tilt_pos': tilt_pos, 'tilt_offset': tilt_offset,

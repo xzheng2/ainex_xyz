@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """L2 Action: blocking fall-recovery sequence.
 
-Node kind: finite_action
+Node kind: dispatch
+
+The recovery action group is played through a BLOCKING run_action() call, so the
+whole recovery completes inside one tick and this node returns SUCCESS. It never
+returns RUNNING.
 
 BB reads:  BB.ROBOT_STATE  (/latched/robot_state) — posture: 'lie' | 'recline'
-BB writes: BB.ROBOT_STATE  = 'stand' after recovery completes
+BB writes: BB.ROBOT_STATE  = 'pending' after the stand-up action completes
+           ('pending' = action played, awaiting IMU confirmation; the IMU
+            adapter is what promotes it to 'stand' or back to 'lie'/'recline')
 Facade:    publish_buzzer(freq, on_time, off_time, repeat)
            disable_gait()
            run_action(action_name)
 Strategy:  _compute_recovery_action(robot_state) → action str
            _perform_recovery(robot_state) — map posture, run buzzer + sleep +
                                             disable_gait + run_action + sleep,
-                                            write 'stand', sync setter hook
+                                            write 'pending', sync setter hook
 
 Posture → recovery action mapping (class constant, not tunable):
   'lie'     → 'lie_to_stand'
@@ -34,7 +40,7 @@ CONFIG_DEFAULTS:
     post_action_delay_s: 0.5             — sleep after run_action before returning
 
 Constructor extras:
-    robot_state_setter: optional callable(str) — called with 'stand' after BB write,
+    robot_state_setter: optional callable(str) — called with 'pending' after BB write,
                         to sync the live ImuBalanceStateAdapter store and prevent the
                         next pre-tick latch from overwriting the BB with a stale value.
 """
@@ -46,7 +52,7 @@ from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
 class L2_Balance_RecoverFromFall(XyzL2ActionNode):
-    """Map posture state to recovery action, execute inline recovery sequence, write 'stand'."""
+    """Map posture state to recovery action, execute inline recovery, write 'pending'."""
 
     LEVEL        = 'L2'
     BB_READS     = [BB.ROBOT_STATE]
@@ -84,7 +90,7 @@ class L2_Balance_RecoverFromFall(XyzL2ActionNode):
                  post_action_delay_s: float = 0.5):
         """
         Args:
-            robot_state_setter:  optional callable(str) — called with 'stand' after
+            robot_state_setter:  optional callable(str) — called with 'pending' after
                                  BB write, to sync the live ImuBalanceStateAdapter store.
             lie_action:          action name for face-down posture.
             recline_action:      action name for face-up posture.
@@ -133,7 +139,12 @@ class L2_Balance_RecoverFromFall(XyzL2ActionNode):
         """Run the full recovery sequence inline and update BB.
 
         Sequence: buzzer alert → pre-action delay → disable gait →
-                  run stand-up action → post-action delay → write 'stand'.
+                  run stand-up action → post-action delay → write 'pending'.
+
+        'pending' (not 'stand') is deliberate: this node knows it PLAYED the
+        stand-up action, not that the robot is actually upright. Only the IMU
+        adapter can confirm that, and it clears 'pending' → 'stand' after
+        sustained upright tilt (or → 'lie'/'recline' if the recovery failed).
 
         Returns the recovery_action string for observability.
         """
@@ -147,9 +158,9 @@ class L2_Balance_RecoverFromFall(XyzL2ActionNode):
         self.call_facade('disable_gait')
         self.call_facade('run_action', action_name=recovery_action)
         time.sleep(self._post_action_delay_s)
-        self._bb.robot_state = 'stand'
+        self._bb.robot_state = 'pending'
         if self._robot_state_setter is not None:
-            self._robot_state_setter('stand')
+            self._robot_state_setter('pending')
         return recovery_action
 
     def initialise(self):
@@ -164,7 +175,7 @@ class L2_Balance_RecoverFromFall(XyzL2ActionNode):
         self.emit_decision(
             inputs={'robot_state': state, 'recovery_action': recovery_action},
             status=Status.SUCCESS,
-            reason=f'{state} → {recovery_action}, robot_state set to stand',
-            bb_writes={BB.ROBOT_STATE: 'stand'},
+            reason=f'{state} → {recovery_action}, robot_state set to pending',
+            bb_writes={BB.ROBOT_STATE: 'pending'},
         )
         return Status.SUCCESS

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""L2_Gait_PauseAfterTicks — stop gait after N consecutive active ticks; always returns RUNNING.
+"""L2_Motion_PauseAfterTicks — stop gait after N consecutive active ticks; always returns RUNNING.
 
 L2 action/strategy node.
 
 Node kind: continuous_controller
+
+Not a gait-step node: it only halts the gait and never dispatches a step, so it
+inherits XyzL2ActionNode (no gait pass-through knobs) and lives outside the
+L2_Gait_* namespace, where the filename prefix means "inherits
+XyzL2GaitActionNode".
 
 BB reads:
   none
@@ -48,7 +53,7 @@ from xyz_bt_lib.core.base_node import XyzL2ActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 
 
-class L2_Gait_PauseAfterTicks(XyzL2ActionNode):
+class L2_Motion_PauseAfterTicks(XyzL2ActionNode):
     """Stop gait after N consecutive active ticks; always returns RUNNING."""
 
     LEVEL        = 'L2'
@@ -61,7 +66,7 @@ class L2_Gait_PauseAfterTicks(XyzL2ActionNode):
     BB_LOG_KEYS = BB_READS
 
     # Param order: name, facade, then domain params, then logger, tick_id_getter.
-    def __init__(self, name: str = 'L2_Gait_PauseAfterTicks',
+    def __init__(self, name: str = 'L2_Motion_PauseAfterTicks',
                  facade: XyzBTFacade = None,
                  trigger_ticks: int = 1,
                  logger=None,

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""L2_Gait_AlignHeading - turn the body in place (or walk forward) until the heading
+"""L2_Gait_AlignImuHeading - turn the body in place (or walk forward) until the heading
 matches a target.
 
 L2 action/strategy node (shared library).
 
-Node kind: finite_action  (x_speed == 0: discrete turn → SUCCESS on arrival)
+Node kind: finite_action
+
+Returns RUNNING while steering and SUCCESS once |error| is within threshold_deg,
+on both paths (x_speed == 0 turns in place; x_speed > 0 holds forward while
+steering).
            continuous_controller-like when x_speed > 0 and wrapped in SuccessIsRunning
            (forward-hold: keeps walking straight on the target heading)
 
@@ -71,12 +75,12 @@ Observability:
 """
 import math
 from py_trees.common import Access, Status
-from xyz_bt_lib.core.base_node import XyzL2ActionNode
+from xyz_bt_lib.core.base_node import XyzL2GaitActionNode
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 
 
-class L2_Gait_AlignHeading(XyzL2ActionNode):
+class L2_Gait_AlignImuHeading(XyzL2GaitActionNode):
     """Turn/walk until abs(nav_imu_heading − target) <= threshold_deg, then SUCCESS."""
 
     LEVEL = 'L2'
@@ -93,16 +97,12 @@ class L2_Gait_AlignHeading(XyzL2ActionNode):
         'target_deg':    0,
         'target_bb_key': None,
         'x_speed':       0.0,
-        'period_time_ms': None,
-        'dsp_ratio':        None,
-        'y_swap_amplitude': None,
-        'arm_swap':         None,
-        'step_num':         None,
-        'gait_param':       None,
+        # Gait pass-through knobs are inherited from
+        # XyzL2GaitActionNode.GAIT_CONFIG_DEFAULTS — do not repeat them here.
     }
     BB_LOG_KEYS = BB_READS
 
-    def __init__(self, name: str = 'L2_Gait_AlignHeading',
+    def __init__(self, name: str = 'L2_Gait_AlignImuHeading',
                  facade: XyzBTFacade = None,
                  threshold_deg: float = 8,
                  kp: float = 0.5,
@@ -134,19 +134,23 @@ class L2_Gait_AlignHeading(XyzL2ActionNode):
             target_bb_key: BB latched short key (e.g. BB.HEADING_TARGET_KEY) to read the
                            target heading from each tick; None uses target_deg.
             x_speed:       Forward step (m) per tick. 0 = turn in place; >0 = forward-hold.
-            period_time_ms: Gait cycle duration (ms) override. None = project profile default
-                           (_GO_STEP_VEL forward-hold, _TURN_STEP_VEL turn path).
-            dsp_ratio:        Double-support fraction (0–1) override. None = profile default.
-            y_swap_amplitude: Lateral body swing (m) override. None = profile default.
-            arm_swap:         Arm swing amplitude (°). None = profile default (→ 30).
-            step_num:         Steps per command (0 = continuous). None = profile default.
-            gait_param:       Partial WalkingParam dict. None = no override.
+
+        Gait pass-through (period_time_ms / dsp_ratio / y_swap_amplitude /
+        arm_swap / step_num / gait_param): see XyzL2GaitActionNode. Profile
+        defaults differ per path: _GO_STEP_VEL on the forward-hold branch,
+        _TURN_STEP_VEL on the turn-in-place branch.
         """
         super().__init__(
             name,
             facade=facade,
             logger=logger,
             tick_id_getter=tick_id_getter,
+            period_time_ms=period_time_ms,
+            dsp_ratio=dsp_ratio,
+            y_swap_amplitude=y_swap_amplitude,
+            arm_swap=arm_swap,
+            step_num=step_num,
+            gait_param=gait_param,
         )
         self._threshold_deg = threshold_deg
         self._kp            = kp
@@ -157,12 +161,6 @@ class L2_Gait_AlignHeading(XyzL2ActionNode):
         self._target_deg    = target_deg
         self._target_bb_key = target_bb_key
         self._x_speed       = x_speed
-        self._period_time_ms = period_time_ms
-        self._dsp_ratio        = dsp_ratio
-        self._y_swap_amplitude = y_swap_amplitude
-        self._arm_swap         = arm_swap
-        self._step_num         = step_num
-        self._gait_param       = gait_param
         self._bb            = None
 
     def setup(self, **kwargs):
@@ -197,23 +195,12 @@ class L2_Gait_AlignHeading(XyzL2ActionNode):
 
     def initialise(self):
         self.emit_action_intent(
-            action='align_heading',
+            action='align_imu_heading',
             inputs={'threshold_deg': self._threshold_deg,
                     'kp': self._kp, 'yaw_sign': self._yaw_sign,
                     'x_speed': self._x_speed,
                     'target': self._resolve_target() if self._bb is not None else self._target_deg},
         )
-
-    def _gait_kwargs(self) -> dict:
-        """Common gait-parameter overrides forwarded to both go_step and turn_step."""
-        return {
-            'period_time_ms':   self._period_time_ms,
-            'dsp_ratio':        self._dsp_ratio,
-            'y_swap_amplitude': self._y_swap_amplitude,
-            'arm_swap':         self._arm_swap,
-            'step_num':         self._step_num,
-            'gait_param':       self._gait_param,
-        }
 
     def _step(self, yaw: int) -> None:
         """Issue one gait step this tick: forward+steer when x_speed>0, else turn in place.
@@ -221,13 +208,13 @@ class L2_Gait_AlignHeading(XyzL2ActionNode):
         All gait-parameter overrides default to None (= each facade profile picks its own
         default), so both go_step and turn_step accept the same kwargs unchanged.
         """
-        kw = self._gait_kwargs()
+        kw = self.gait_kwargs()
         if self._x_speed > 0:
             self.call_facade('go_step', x=self._x_speed, y=0.0, yaw=yaw,
-                             semantic_source='align_heading', **kw)
+                             semantic_source='align_imu_heading', **kw)
         else:
             self.call_facade('turn_step', x=0.0, y=0.0, yaw=yaw,
-                             semantic_source='align_heading', **kw)
+                             semantic_source='align_imu_heading', **kw)
 
     def update(self) -> Status:
         heading = float(self._bb.nav_imu_heading)
