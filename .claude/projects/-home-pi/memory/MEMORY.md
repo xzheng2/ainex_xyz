@@ -8,7 +8,7 @@
 
 - [Plan summary preference](plan-summary-preference.md) — show only the current round's changes for approval, not the whole plan file
 - [BT steady-confirm = LatchedDwellDecorator](bt-steady-confirm-memory-true.md) — wrap the pure L1 condition in BB-backed LatchedDwellDecorator; built-in node dwell + DwellDecorator removed Aug 2026
-- [Falling-edge hysteresis gap](hysteresis-falling-edge-gap.md) — old fail_dwell_ticks (1-enter/N-exit debounce) has no decorator replacement; add HysteresisDecorator only when a real tree needs it
+- [Latch vs Hysteresis gate](bt-latch-vs-hysteresis.md) — LatchedDwell (N-in/1-out, RUNNING while counting) for safety commits; HysteresisDecorator (N-in/M-out, never RUNNING) for flickering signals; state_key unique across both
 - [Extend, don't duplicate BT nodes](bt-extend-not-new-node.md) — add a tunable config param (no-op default) to an existing node instead of a near-duplicate node
 - [Docstring is the spec](docstring-is-the-spec.md) — xyz_bt_lib docs/spec.md deleted Aug 9 2026; module docstrings are the authoritative spec, never recreate a central spec doc
 
@@ -29,8 +29,8 @@
 - Servo IDs 1–12 legs (interleaved L/R, odd=L even=R, ankle→hip order), 13–22 arms, 23–24 head — **canonical table in `ainex_truth_spec.md`** (`ainex_architecture.md` servo table is WRONG)
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
 - Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
-- BT observability (input adapters, two-phase latch, JSONL logging, exec controller): full details in `ainex_bt_observability.md` — note: file paths there predate the xyz_bt_lib rename, verify against current tree before relying on them
-- ROSA agent (directory layout, tools, Dockerfile, LLM config): full details in `ainex_rosa_agent.md` — same rename caveat; `read_bt_obs` described there no longer exists, superseded by `session_digest`/`bt_tick_analysis`
+- BT observability (3 log files incl. `bb_current.json`, event schema incl. `bb_write`/`ros_topology_snapshot`, optional rosbag): full details in `ainex_bt_observability.md` (rewritten Aug 9 2026, verified current)
+- ROSA agent (directory layout, 10 current tools, LLM config): full details in `ainex_rosa_agent.md` (rewritten Aug 9 2026, verified current — some Dockerfile-level detail still unverified, flagged in the file)
 - **ROS2 REMOVED (Aug 8 2026)**: `ainex2` container + `ainex2:humble` image deleted, `/home/pi/docker/ros2_ws_src` deleted (was untracked — unrecoverable); robot is ROS1-only again
 - Event projects + hurocup2025 legacy scripts deleted Aug 8 2026 (see wipe note at top); `action_path='/home/ubuntu/ros_ws/src/ActionGroups'` for RunAction nodes
 - Simulation: `ainex_simulations/ainex_gazebo/` + `ainex_description/`, flag `gazebo_sim:=true`
@@ -72,8 +72,8 @@ Clamped to **[280, 550]** in `ainex_kinematics/config/servo_controller.yaml` (+`
 - `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
-- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table, Dockerfile notes, LLM config, build/run commands (rename caveat, see above)
-- `ainex_bt_observability.md` — BT observability system: 4 JSONL files, event schemas, module structure (rename caveat, see above)
+- `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table, LLM config, build/run commands
+- `ainex_bt_observability.md` — BT observability system: 3 log files, event schemas, module structure
 
 ## Git Repo
 - Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools)

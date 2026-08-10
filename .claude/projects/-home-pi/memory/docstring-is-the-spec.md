@@ -5,6 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: d055617e-ad8f-471b-982b-d8918d8a3d1a
+  modified: 2026-08-09T21:40:10.844Z
 ---
 
 `xyz_bt_lib/docs/spec.md` (1314 lines) was **deleted Aug 9 2026** (user decision,
@@ -24,8 +25,8 @@ and it drifted anyway.
   CONFIG_DEFAULTS. Never recreate a central spec.md.
 - Unique content was migrated, not lost: deprecated-BB-key list → comment block
   in `blackboard/blackboard_keys.py` (/locomotion/ section); falling-edge
-  hysteresis known gap → `core/latched_dwell.py` docstring "Known gap" section
-  ([[hysteresis-falling-edge-gap]]).
+  hysteresis gap note → `core/latched_dwell.py` docstring (the gap itself was
+  closed Aug 9 2026 by `core/hysteresis.py`, see [[bt-latch-vs-hysteresis]]).
 - `src/xyz_bt_lib/README.md` is the human entry point: package nav +
   docstring-as-spec pointers + build/verify commands + pseudocode templates.
 - Skills `xyz-bt-lib-node` / `xyz-bt-lib-adapter` no longer contain "update
