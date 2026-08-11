@@ -36,6 +36,16 @@ DEFAULT_RESULTS_REPO = '/home/pi/experiments/ainex_xyz_result'
 #: loaded into a table without opening every run directory, so it stays flat and small.
 _INDEX_FIELDS = ('run_id', 'body_id', 'created_utc', 'variant', 'trial', 'params', 'note')
 
+#: Fields lifted from metrics.json. Kept as a separate tuple from _INDEX_FIELDS because
+#: the two have different sources and different failure modes: run_meta always exists (a
+#: run without it is not a run), metrics only exists once someone closed the run.
+#:
+#: These are the DEPENDENT variables. Without them in the index, an ablation table means
+#: opening every run directory in turn -- 30 of them for a 3-variant x 2-body x 5-trial
+#: campaign -- which is exactly what the index exists to avoid.
+_METRIC_FIELDS = ('outcome', 'interventions', 'failure_mode',
+                  'ticks_total', 'first_success_tick')
+
 
 def discover_runs(runs_dir):
     """Return [(run_dir, meta), ...] for every run directory carrying a run_meta.json."""
@@ -62,11 +72,26 @@ def discover_runs(runs_dir):
     return found
 
 
-def index_entry(meta):
+def read_metrics(run_dir):
+    """Return this run's metrics.json, or None if it was never closed."""
+    try:
+        with open(os.path.join(run_dir, 'metrics.json'), encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def index_entry(meta, metrics=None):
     entry = {k: meta.get(k) for k in _INDEX_FIELDS}
     git = meta.get('git') or {}
     entry['git_sha'] = git.get('sha')
     entry['git_dirty'] = git.get('dirty')
+    # Present-but-null beats absent: a reader loading the shard into a table gets a
+    # uniform set of columns, and "not closed" is visible rather than inferred from a
+    # missing key.
+    for field in _METRIC_FIELDS:
+        entry[field] = (metrics or {}).get(field)
+    entry['closed'] = metrics is not None
     return entry
 
 
@@ -100,6 +125,16 @@ def publish(run_dir, meta, repo, dry_run=False, force=False):
     if already and not force:
         return 'skipped'
 
+    metrics = read_metrics(run_dir)
+    if metrics is None:
+        # Not a reason to refuse: an exploratory run is still worth keeping. But it has
+        # no dependent variables, so it cannot be a row in an ablation table.
+        sys.stderr.write(
+            'warning: {} has no metrics.json — publishing it, but it carries no outcome '
+            'and must not be used as ablation evidence. Close it first:\n'
+            '  close_run.py {} --outcome success|failure|aborted\n'
+            .format(run_id, run_dir))
+
     if dry_run:
         return 'would-publish'
 
@@ -111,7 +146,7 @@ def publish(run_dir, meta, repo, dry_run=False, force=False):
     if run_id not in published_run_ids(index_path):
         os.makedirs(os.path.dirname(index_path), exist_ok=True)
         with open(index_path, 'a', encoding='utf-8') as fh:
-            fh.write(json.dumps(index_entry(meta), sort_keys=True) + '\n')
+            fh.write(json.dumps(index_entry(meta, metrics), sort_keys=True) + '\n')
     return 'published'
 
 

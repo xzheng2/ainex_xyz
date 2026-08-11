@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f1539859-db40-4b19-9d76-a19013065b02
-  modified: 2026-08-11T07:59:38.007Z
+  modified: 2026-08-11T09:01:07.945Z
 ---
 
 Multi-body ablation experiments (set up Aug 11 2026) split across **two** repositories:
@@ -28,6 +28,13 @@ never the hostname — every stock Pi answers to `raspberrypi`. Resolution lives
 nmcli probe for the connection whose `802-11-wireless.mode` is `ap`. **The probe only
 works on the host**: nmcli exists in the ainex container but cannot reach NetworkManager's
 D-Bus, which is the whole reason the cache file exists.
+
+Per-run flow: `new_run.py` (independent variables, BEFORE the run) → robot runs →
+**`close_run.py --latest --outcome ...`** (dependent variables: machine metrics reduced by
+`bt_observability/run_metrics.py` + operator-recorded outcome/interventions/failure_mode →
+`metrics.json`) → `publish_runs.py --commit`. Skipping close does not block publishing but
+marks the run `closed: false` in the index; such runs are excluded from ablation tables
+exactly like `dirty: true` ones.
 
 `run_meta.json`'s `git.dirty` is **scoped to `docker/ros_ws_src` only** (`RUNTIME_PATHS` in
 `run_context.py`, recorded per-run in `git.dirty_scope`, schema `ainex.run_meta/2`).
