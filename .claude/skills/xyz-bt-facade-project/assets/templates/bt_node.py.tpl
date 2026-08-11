@@ -19,6 +19,7 @@ from ros_robot_controller.msg import BuzzerState
 from bt_observability.debug_event_logger import DebugEventLogger
 from bt_observability.bt_debug_visitor import BTDebugVisitor
 from bt_observability.blackboard_current_writer import BlackboardCurrentWriter
+from bt_observability.run_context import open_run_dir
 
 from {{PROJECT}}.tree.{{PROJECT}}_bt import bootstrap
 from {{PROJECT}}.runtime.runtime_facade import {{PROJECT_CLASS}}RuntimeFacade
@@ -35,6 +36,10 @@ from xyz_bt_lib import BlackboardROSBridge
 # from xyz_bt_lib.adapters.imu_balance_state_adapter import ImuBalanceStateAdapter
 
 _ACTION_GROUPS_PATH = '/home/ubuntu/ros_ws/src/ActionGroups'
+
+# How many run directories under log/runs/ survive. Older ones are deleted on startup,
+# published or not — run tools/publish_runs.py before a run you care about ages out.
+_MAX_RUNS = 10
 
 # TODO: define target specs for ObjectDetectionAdapter / YoloObjectDetectionAdapter.
 # Keys are the target_id a tree refers to; values filter detections by the
@@ -60,11 +65,19 @@ def main():
     tick_id_getter = lambda: _tick_id[0]
 
     # ── Step 2: observability logger ──────────────────────────────────────
+    # Every run gets its own directory so runs stop overwriting each other, and the
+    # legacy names in log/ become symlinks to the newest one — that is what keeps ROSA,
+    # the bt_log_read_guard hook and the diagnose skill working unchanged.
+    # Writers must target _RUN_DIR, never the symlinks: these classes finish with
+    # os.replace(), which would turn a symlink into a regular file.
+    run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)
+    rospy.loginfo('[{{PROJECT_CLASS}}] Run directory: %s', run_dir)
+
     logger = DebugEventLogger(
-        bt_lastrun_jsonl=os.path.join(_LOG_DIR, 'bt_debug_lastrun.jsonl'),
-        comm_lastrun_jsonl=os.path.join(_LOG_DIR, 'bt_ros_comm_debug_lastrun.jsonl'),
-        rolling_bt_jsonl=os.path.join(_LOG_DIR, 'bt_debug_recent.jsonl'),
-        rolling_comm_jsonl=os.path.join(_LOG_DIR, 'bt_ros_comm_debug_recent.jsonl'),
+        bt_lastrun_jsonl=os.path.join(run_dir, 'bt_debug_lastrun.jsonl'),
+        comm_lastrun_jsonl=os.path.join(run_dir, 'bt_ros_comm_debug_lastrun.jsonl'),
+        rolling_bt_jsonl=os.path.join(run_dir, 'bt_debug_recent.jsonl'),
+        rolling_comm_jsonl=os.path.join(run_dir, 'bt_ros_comm_debug_recent.jsonl'),
         tick_id_getter=tick_id_getter,
     )
 
@@ -131,7 +144,7 @@ def main():
     # Signature is (records, log_dir) — the function derives its own filename.
     # The node name must match rospy.init_node() above, since build_infra_manifest()
     # substitutes it into the '~' service/topic namespaces.
-    write_infra_manifest(build_infra_manifest('{{PROJECT}}'), _LOG_DIR)
+    write_infra_manifest(build_infra_manifest('{{PROJECT}}'), run_dir)
     rospy.loginfo('[{{PROJECT_CLASS}}] Infra manifest written')
 
     # ── Step 10: BT exec controller ───────────────────────────────────────
@@ -139,7 +152,7 @@ def main():
     exec_ctrl = BTExecController(exec_lock)
 
     # ── BB current-state snapshot writer ─────────────────────────────────
-    bb_writer = BlackboardCurrentWriter(os.path.join(_LOG_DIR, 'bb_current.json'))
+    bb_writer = BlackboardCurrentWriter(os.path.join(run_dir, 'bb_current.json'))
 
     # ── Step 11: tick loop with per-tick adapter latch ────────────────────
     rospy.loginfo('[{{PROJECT_CLASS}}] Running BT at 10 Hz')

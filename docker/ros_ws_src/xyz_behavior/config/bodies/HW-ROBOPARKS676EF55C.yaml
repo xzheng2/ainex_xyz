@@ -1,0 +1,23 @@
+# Per-body configuration — see README.md in this directory.
+#
+# The filename and body_id are this robot's WiFi access point SSID. That name already
+# encodes the unit and exists whether or not anyone configured an id; `hostname` does
+# not work, because every stock Raspberry Pi answers to `raspberrypi`.
+# Rename the AP and you must rename this file and clear log/.body_id to match.
+
+identity:
+  body_id: HW-ROBOPARKS676EF55C
+  description: AiNex 24-DOF humanoid, Raspberry Pi 5 host, Gemini 305 depth camera
+  registered: 2026-08-11
+
+# Calibration files whose contents are genuinely per-body. Listed here so a new body
+# knows what to re-measure; the files themselves stay where the drivers read them.
+calibration_sources:
+  - ainex_driver/ainex_kinematics/config/servo_controller.yaml   # servo init/min/max per joint
+  - ainex_driver/ainex_kinematics/config/walking_offset.yaml     # gait trim per speed/direction
+  - ainex_driver/ainex_kinematics/config/init_pose.yaml          # stand pose
+
+# Per-body overrides applied on top of the shared defaults.
+# Empty on this body: it is the reference body those shared defaults were tuned on.
+# A second body will typically start by filling in walking_offset deltas.
+overrides: {}

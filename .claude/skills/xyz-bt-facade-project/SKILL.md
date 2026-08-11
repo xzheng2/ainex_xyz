@@ -36,23 +36,19 @@ set up a competition BT, 新建 <name> 项目, scaffold facade project
    wrapping a CONDITION node — never an in-node dwell. See § Stability confirmation.
 10. `bb_current.json` is written only by `bt_node` via `BlackboardCurrentWriter`.
     Adapters, L1/L2 nodes, and `bb_ros_bridge` must never write it.
-11. Groot XML sync: `tree/` must always contain both `{{PROJECT}}_bt.py` and
-    `{{PROJECT}}_groot.xml`. Read the XML before editing bt.py; treat XML as source of truth
-    if they differ. Both files must be in sync at end of every session. See § Groot XML co-generation and sync.
-    A convenience tool `xyz_behavior/tools/sync_groot_xml.py` refreshes XML **param values**
-    one-way from bt.py (matches nodes by `name=`, writes a separate `{{PROJECT}}_groot.synced.xml`;
-    the panel BT Tools "Open in Groot" runs it) — it never touches the authored XML or tree
-    structure, so it does not change this policy. For it to match, **every node must carry a
-    unique `name=` present on both files**.
-12. catkin build after CMakeLists changes: every time a new script is added to
-    `catkin_install_python` or a new `install(DIRECTORY ...)` block is added,
-    catkin build MUST be run before the user is asked to `roslaunch`. ROS cannot
-    locate the node until it is installed to `devel/lib/<pkg>/`. Never skip this
-    step — it is the most common cause of "Cannot locate node of type [...]" errors.
+11. Groot XML sync: `tree/` must always contain BOTH `{{PROJECT}}_bt.py` and
+    `{{PROJECT}}_groot.xml`, in sync at the end of every session, with the XML treated as
+    source of truth when they differ. See § Groot XML co-generation and sync.
+12. catkin build after CMakeLists changes: a new `catkin_install_python` script or
+    `install(DIRECTORY ...)` block MUST be followed by a catkin build before the user is
+    asked to `roslaunch` — ROS cannot locate the node until it is installed to
+    `devel/lib/<pkg>/`. This is the most common cause of "Cannot locate node of type [...]".
+    Command in § Post-generation checklist.
 13. TreeNodesModel Control declarations: every `TreeNodesModel` must include BOTH
     `Control ID="Sequence"` and `Control ID="Fallback"` with `<input_port name="memory"/>`,
-    even when the specific tree body only uses one or neither composite type.
-    Missing entries silently hide the `memory` port in Groot.
+    even when the tree body uses only one or neither. Missing entries silently hide the
+    `memory` port in Groot. `validate_templates.py` only checks the types a tree actually
+    uses, so this one still needs a human eye.
 
 ## Template self-check
 
@@ -60,14 +56,14 @@ Before relying on these templates — and after ANY edit to a `.tpl` or to a lib
 contract they depend on (`core/base_facade.py` above all) — run:
 
 ```bash
-docker exec -u ubuntu -w /home/ubuntu/ros_ws ainex bash -lc \
-  "source devel/setup.bash && python3 <skill-dir>/validate_templates.py"
+python3 /home/pi/docker/ros_ws_src/xyz_bt_lib/tools/validate_engine.py
 ```
 
-It renders every template into a throwaway package, checks that `bt_node`'s
-construction call sites supply every required argument, that the facade's
-overrides accept every base-class parameter, and that `bootstrap()` yields a tree
-that actually ticks through both branches. Exit 0 = safe to scaffold.
+It renders every template into a throwaway package, checks `bt_node`'s
+construction call sites, the facade's signature parity with the base class, and
+that `bootstrap()` yields a tree that actually ticks through both branches — plus
+the other skills' templates and a guard sweep over the library. Exit 0 = safe to
+scaffold.
 
 This exists because five defects once shipped that each crashed a fresh project
 before its first tick, and none was visible by reading: the templates and this
@@ -90,6 +86,7 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
     "source /opt/ros/noetic/setup.bash && cd /home/ubuntu/ros_ws && catkin clean <stale_pkg> -y"
   ```
 - [ ] `_LOG_DIR = os.path.join(_PKG_PATH, 'log')` — never a project subdirectory; all projects share `xyz_behavior/log/`
+- [ ] `run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths, `BlackboardCurrentWriter`, `write_infra_manifest`. `_LOG_DIR` keeps only the symlinks `open_run_dir()` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`.
 - [ ] `_PKG_PATH` uses `rospkg.RosPack().get_path('xyz_behavior')`, not `__file__`-relative
 - [ ] `logger.close()` called on shutdown
 - [ ] `app/{{PROJECT}}_bt_node.py` has `if __name__ == '__main__': main()` at bottom
@@ -99,7 +96,7 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
 - [ ] `launch/{{PROJECT}}.launch` created (from `project.launch.tpl`): perception nodes + BT node only; never includes bringup. User runs `xyz_bringup.launch` separately before this.
 - [ ] Per-project `launch/{{PROJECT}}_bringup.launch` only if hardware differs from `xyz_bringup.launch` (e.g. an event with no camera, avoids sensor_node; most projects use `xyz_bringup.launch` as-is)
 - [ ] After any tree edit session: `_bt.py` and `_groot.xml` describe identical structures (rule #11)
-- [ ] Every node has a unique `name=` present on both `_bt.py` and `_groot.xml`; then `python3 xyz_behavior/tools/sync_groot_xml.py tree/{{PROJECT}}_groot.xml` reports **0 changes** on a fresh scaffold (warnings are expected only for list/dict-typed params such as `x_range`/`yaw_range`/`gait_param`, which the tool leaves untouched) (rule #11 sync tool)
+- [ ] `python3 xyz_behavior/tools/sync_groot_xml.py tree/{{PROJECT}}_groot.xml` reports **0 changes** on a fresh scaffold (see § Groot XML for what the tool does; warnings are expected only for list/dict-typed params such as `x_range`/`yaw_range`/`gait_param`, which it leaves untouched)
 
 ## Architecture
 
@@ -226,19 +223,16 @@ Every BT project tree/ folder contains two companion files:
 **Creation**: always generate both files together. The XML mirrors the same tree
 structure, node names, composite types, and CONFIG_DEFAULTS port values as bt.py.
 
-py_trees → XML composite mapping (the factories map through their underlying
-composite: `PrioritySelector`=`Selector(memory=False)`, `CommittedSelector`=
-`Selector(memory=True)`, `ReactiveSequence`=`Sequence(memory=False)`,
-`CommittedSequence`=`Sequence(memory=True)`, `ParallelAll`/`ParallelAny`=
-`Parallel(SuccessOnAll/SuccessOnOne)`):
-- `Selector(memory=True)`  → `<Fallback  memory="true">`
-- `Selector(memory=False)` → `<Fallback  memory="false">`
-- `Sequence(memory=True)`  → `<Sequence  memory="true">`
-- `Sequence(memory=False)` → `<Sequence  memory="false">`
-- `py_trees.composites.Parallel` → `<Parallel success_threshold="N" failure_threshold="M">`
+**Composite → XML mapping**: each semantic factory maps through its underlying
+py_trees composite (`ReactiveSequence` = `Sequence(memory=False)`, and so on — the
+full table is in `xyz_bt_lib/core/composites.py`), then to the XML tag:
+
+- `Sequence(memory=…)` → `<Sequence memory="true|false">`
+- `Selector(memory=…)` → `<Fallback memory="true|false">`
+- `Parallel` → `<Parallel success_threshold="N" failure_threshold="M">`
 - `py_trees.decorators.SuccessIsRunning` → `<Decorator ID="SuccessIsRunning">`
-- L1 condition node class → `<Condition ID="ClassName" port="value" …/>`
-- L2 action node class → `<Action ID="ClassName" port="value" …/>`
+- L1 condition class → `<Condition ID="ClassName" port="value" …/>`
+- L2 action class → `<Action ID="ClassName" port="value" …/>`
 
 **Groot port registration**: `<TreeNodesModel>` must list **every** node type used in the
 tree — not just `Sequence`/`Fallback`. Without a `TreeNodesModel` entry, Groot renders the
@@ -270,17 +264,20 @@ Before editing `{{PROJECT}}_bt.py`, always read `{{PROJECT}}_groot.xml` first.
 identical tree structures — same composites, node IDs, names, memory= attributes,
 and port values.
 
+`xyz_behavior/tools/sync_groot_xml.py` refreshes XML **param values** one-way from
+bt.py (matching nodes by `name=`, writing a separate `{{PROJECT}}_groot.synced.xml`;
+the panel's BT Tools "Open in Groot" runs it). It never touches the authored XML or
+the tree structure, so it does not replace the XML-first policy above. For it to
+match, **every node must carry a unique `name=` present on both files**.
+
 ## `robot_state` has four values, not three
 
-`/latched/robot_state` ∈ `{'stand', 'lie', 'recline', 'pending'}`.
+`/latched/robot_state` ∈ `{'stand', 'lie', 'recline', 'pending'}`. Who writes and
+who clears `'pending'`, and why it exists, is documented in
+`behaviours/L1_perception/L1_Balance_IsStanding.py`.
 
-`'pending'` means "a stand-up action was played, posture not yet confirmed". It is
-written ONLY by `L2_Balance_RecoverFromFall` (plus its `robot_state_setter` hook,
-which syncs the IMU adapter's live store); the IMU adapter is the only thing that
-clears it — to `'stand'` after sustained upright tilt, or back to `'lie'`/`'recline'`
-if the recovery failed.
-
-Consequence for tree wiring: `L1_Balance_IsStanding` and `L1_Balance_IsFallen` are
+Consequence for tree wiring — the part that only matters here:
+`L1_Balance_IsStanding` and `L1_Balance_IsFallen` are
 **no longer strict inverses** — both return FAILURE while `pending`. That is
 deliberate: during `pending` the robot is neither confirmed upright nor confirmed
 down, so a safety gate must not assume either, and recovery must not re-trigger
@@ -289,30 +286,27 @@ those two nodes; test `robot_state` explicitly if a branch really needs it.
 
 ## Stability confirmation
 
-To require a condition hold for N ticks before proceeding, wrap the CONDITION
-node in `LatchedDwellDecorator` (`xyz_bt_lib.core.latched_dwell`). It stores its
-counter in the Blackboard at `/node_state/<state_key>`, so — unlike an
-instance-state dwell — it survives the reactive re-entry that a `ReactiveSequence`
-ancestor causes. Do NOT put stability/timing state inside an L1 node: L1 nodes
-are pure predicates (SUCCESS/FAILURE only).
+Stability/timing state belongs to a **tree-layer decorator**, never inside an L1
+node — L1 nodes are pure predicates (SUCCESS/FAILURE only). Both decorators keep
+their counters in the Blackboard at `/node_state/<state_key>`, so they survive the
+reactive re-entry a `ReactiveSequence` ancestor causes.
 
-Rules:
-- **Wrap ONLY things whose status set is {SUCCESS, FAILURE}** — an L1 condition
-  node, or a composite built purely of L1 conditions (`ReactiveSequence` of L1s,
-  which never returns RUNNING). **Never wrap an L2 action.** Two ways it breaks:
-  a continuous L2 returns RUNNING every tick → treated as not-passed → `stable_ticks`
-  never climbs → the branch is unreachable; a one-shot L2 returns SUCCESS every
-  tick → the count climbs, but the decorator ticks its child once per tick, so the
-  side effect is re-dispatched N times (a 20-tick dwell = 20× `stop_gait`). L1
-  predicates are side-effect-free so re-evaluation is safe; L2 actions are not.
-- `state_key` MUST be a hardcoded string **literal** — never derived from a
-  variable, constructor arg, or rosparam. It is a state identity: it must be
-  greppable, and a duplicate must fail loudly at construction.
-- `required_ticks` (a NUMBER) is injected via a `bootstrap()` parameter; read
-  rosparam only in the app/ layer and thread it through as an argument.
-- Timing is by `tick_id` (pass `tick_id_getter`), not wall clock — a blocking
-  `run_action` stalls the tree, and tick_id (unlike wall time) does not advance
-  during the block, so an in-progress dwell is not falsely reset.
+Rules when wiring one:
+- **Wrap ONLY something whose status set is {SUCCESS, FAILURE}** — an L1 condition,
+  or a composite built purely of L1 conditions. **Never wrap an L2 action.**
+- `state_key` MUST be a hardcoded string **literal** — never from a variable,
+  constructor arg, or rosparam. Both decorators share the `/node_state/` namespace,
+  so it must be unique across BOTH.
+- `required_ticks` / `enter_ticks` / `exit_ticks` are NUMBERS injected via a
+  `bootstrap()` parameter; read rosparam only in the app/ layer and thread it
+  through as an argument.
+- Always pass `tick_id_getter` — timing is by tick, never wall clock.
+
+Why each rule exists (the RUNNING-is-not-passed choice, the re-dispatch failure
+mode of wrapping an L2, the tick-vs-wall-clock rationale, the Blackboard key
+layout) is documented once, in the module docstrings of
+`xyz_bt_lib/core/latched_dwell.py` and `xyz_bt_lib/core/hysteresis.py`. Read those
+before changing a gate; do not restate them here.
 
 ```python
 grab_confirmed = LatchedDwellDecorator(
@@ -330,23 +324,13 @@ grab_seq = CommittedSequence('GrabSeq', children=[
 
 ### Which gate: LatchedDwell or Hysteresis
 
-`LatchedDwellDecorator` is N-in / **1-out** — one failing tick unlatches it. That
-is right for a safety confirmation, wrong for a signal that flickers: a detector
-that drops one frame in twenty would tear down a branch that is still valid.
-For that, use `HysteresisDecorator` (`xyz_bt_lib.core.hysteresis`), which takes
-independent `enter_ticks` / `exit_ticks`. All the rules above (wrap only
-{SUCCESS, FAILURE}, literal `state_key`, numbers from `bootstrap()`, `tick_id`
-timing) apply identically — and both share the `/node_state/` namespace, so a
-`state_key` must be unique across BOTH.
-
-- **Latch** — "wait until the world is stable, then commit; abandon instantly if
-  it stops being true." Safety gates, alignment before a committed motion.
-- **Hysteresis** — "this measurement is noisy; hold the answer steady." Flickering
-  perception, a target hovering at a detection boundary.
-
-Unlike the latch, `HysteresisDecorator` **never returns RUNNING** — its output is
-a debounced boolean (SUCCESS engaged / FAILURE not), so it will not hold a
-`ReactiveSequence` branch RUNNING while it counts.
+- **`LatchedDwellDecorator`** (N-in / 1-out, RUNNING while counting) — "wait until
+  the world is stable, then commit; abandon instantly if it stops being true."
+  Safety gates, alignment before a committed motion.
+- **`HysteresisDecorator`** (N-in / M-out, **never RUNNING**) — "this measurement is
+  noisy; hold the answer steady." Flickering perception, a target hovering at a
+  detection boundary. Because it never returns RUNNING it will not hold a
+  `ReactiveSequence` branch open while it counts.
 
 ```python
 ball_visible = HysteresisDecorator(
@@ -359,16 +343,11 @@ ball_visible = HysteresisDecorator(
 
 ## go_cfg / turn_cfg shape
 
-`_GO_CFG` / `_TURN_CFG` hold the **static** per-profile params merged by `go_step()` / `turn_step()`:
-
-```python
-_GO_CFG = {
-    'dsp':        0.1,    # passed to set_step() for legacy compat (not used by gait_manager directly)
-    'gait_param': None,   # GaitParam msg or None (use controller default)
-    'arm_swap':   False,
-    'step_num':   0,      # 0 = continuous (non-blocking)
-}
-```
+`_GO_CFG` / `_TURN_CFG` hold the **static** per-profile params merged by
+`go_step()` / `turn_step()`. **Their values are defined in
+`assets/templates/bt_node.py.tpl`** — read them there, do not trust a copy. A copy
+lived here until Aug 2026 and had drifted (`arm_swap: False` against the
+template's `30`), which is exactly the failure mode this section now avoids.
 
 `_RuntimeIO` owns the **step velocity profile** constants that control gait speed
 (`_GO_STEP_VEL` / `_TURN_STEP_VEL`, each `[period_time_ms, dsp_ratio,

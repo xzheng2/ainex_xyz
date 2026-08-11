@@ -14,6 +14,7 @@
 
 ## Projects
 
+- [Ablation experiment layout](ablation-experiment-layout.md) — results live in a SECOND repo `/home/pi/experiments/ainex_xyz_result`; body_id = WiFi hotspot SSID; per-run log dirs behind symlinks
 - [Camera View Banding](camera-view-banding.md) — servo-24 driven upper/lower 640x640 gemini_color via gemini305_view_bridge.py + ZMQ servo state on :5555
 - [Web Data Viewer](web-data-viewer.md) — /home/pi/ros_launcher/ browser dashboard on :8090 (Launch control + /viewer/ data viewer over rosbridge:9090); 8081/web_data_viewer retired & folded in
 
@@ -78,10 +79,12 @@ Clamped to **[280, 550]** in `ainex_kinematics/config/servo_controller.yaml` (+`
 ## Git Repo
 - Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools)
 - Single repo at `/home/pi` (master branch) tracking ROS source + Claude config
-- **GitHub remote**: `origin` → `https://github.com/xzheng2/ainex_xyz.git` (private); user `xzheng2` (xzheng2@laurentian.ca); auth via credential helper `store` (`~/.git-credentials`, not tracked)
+- **GitHub remote**: `origin` → `https://github.com/xzheng2/ainex_xyz.git` — **PUBLIC** (verified via API Aug 11 2026; this entry previously said "private" and was wrong). Commits authored `pi <pi@ainex>` from **local** config
+- **Second repo**: `https://github.com/xzheng2/ainex_xyz_result.git` (public, `master`) for ablation results — working copy `/home/pi/experiments/ainex_xyz_result`, see [Ablation experiment layout](ablation-experiment-layout.md)
+- Auth: user `xzheng2`, PAT in `~/.git-credentials` (not tracked), scopes `repo, workflow`. **`credential.helper=store` is set per-repo, not globally** — a newly created repo pushes with "could not read Username" until you `git config credential.helper store` in it too. `gh` is NOT installed; create repos with `POST /user/repos` via curl + that PAT
 - Allowlist `.gitignore`: only `docker/ros_ws_src/**` and `.claude/` memory/settings are tracked
 - Excludes: `__pycache__`, `.pyc`, `.zip`, `.7z`, `.bag`, `.so`, `build/`, `core` dumps, `*_this_session.md`, `*.egg-info/`, credentials, BT session logs
-- **All new files in `ros_ws_src/` or `rosa_agent/` should be committed** — new files show as `??` (untracked, not ignored); stage with `git add` then commit + push when wrapping up
-- **Commit checklist**: before any `git commit`, run `git status --short -- docker/ros_ws_src/ docker/rosa_agent/` and stage ALL untracked files in those dirs that belong to the repo
+- **All new files in `ros_ws_src/` or `rosa-agent/` should be committed** — new files show as `??` (untracked, not ignored); stage with `git add` then commit + push when wrapping up
+- **Commit checklist**: before any `git commit`, run `git status --short -- docker/ros_ws_src/ docker/rosa-agent/` and stage ALL untracked files in those dirs that belong to the repo (note the hyphen: the dir is `rosa-agent`, matching `git_untracked_check.py`)
 - A `PostToolUse` hook (`git_untracked_check.py`) auto-warns after each commit if `??` files remain in those two dirs
 - **Claude Code hooks** (all in `~/.claude/hooks/`): `xyz_bt_lib_pre_guard.py`/`xyz_bt_lib_guard.py` (L1/L2/adapter/core files), `xyz_bt_tree_pre_guard.py` (tree wiring: bans raw composites + non-literal `state_key`), `xyz_bt_l1_running_guard.py` (L1 purity — no `Status.RUNNING`, scans behaviours + base class), `xyz_behavior_pre_guard.py`/`xyz_behavior_guard.py` (all `xyz_behavior/` project files), `bt_log_read_guard.py`, `command_explainer.py`, `git_untracked_check.py`
