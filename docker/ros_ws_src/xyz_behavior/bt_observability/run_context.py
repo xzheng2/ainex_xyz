@@ -334,6 +334,12 @@ def code_provenance():
         'sha':     _git(root, 'rev-parse', 'HEAD'),
         'branch':  _git(root, 'rev-parse', '--abbrev-ref', 'HEAD'),
         'subject': _git(root, 'log', '-1', '--format=%s'),
+        # Names the experiment baseline this run sits on, e.g. abl-20260811-gait-baseline.
+        # A bare sha is unreadable in an ablation table and states no intent; a tag does
+        # both. Falls back to the short sha when no tag is reachable.
+        # Deliberately without --dirty: git's own dirty notion is whole-repo and would
+        # contradict the scoped `dirty` below.
+        'describe': _git(root, 'describe', '--tags', '--always'),
         'dirty':       bool(paths),
         'dirty_count': len(paths),
         # What `dirty` actually covers. Recorded rather than assumed: a reader years from

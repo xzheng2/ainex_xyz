@@ -144,3 +144,19 @@ Only `_RuntimeIO` publishes to ROS — tree logic is decoupled from the robot's 
 
 When creating or extending BT nodes in `xyz_bt_lib`, use the `xyz-bt-lib-node` skill (input adapters: `xyz-bt-lib-adapter`).
 When scaffolding a new `xyz_behavior` project, use the `xyz-bt-facade-project` skill.
+
+## Git workflow
+
+- **Monorepo, and it must stay one.** `.claude/` and `docker/ros_ws_src/` reference each other
+  by hardcoded path in both directions (`xyz_bt_lib/tools/validate_engine.py` → `.claude/skills`,
+  `.claude/hooks/*` → `xyz_bt_lib/src/...` path patterns). Splitting it breaks both sides at once —
+  never propose it.
+- **Trunk-based**: commit straight to `master`. No Git Flow, no release branches. A short-lived
+  branch is only for multi-session risky work, or to freeze `master` while an experiment campaign
+  runs; delete it after merging.
+- **Experiment baselines are annotated tags, not branches** (`abl-<YYYYMMDD>-<campaign>`).
+- **`package.xml` version numbers are decorative** — nothing reads them, there is no CI or release
+  process. Don't "fix" them or start bumping them.
+
+Operational detail (the pre-push gate, tag commands, staging checklist) is injected by
+`.claude/hooks/git_workflow_guard.py` when a git command actually runs — it is not repeated here.

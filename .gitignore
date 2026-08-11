@@ -7,6 +7,11 @@
 # Allow the project rulebook (authoritative CLAUDE.md, tracked in place alongside skills)
 !CLAUDE.md
 
+# Allow git hooks. Tracked, and reached via a RELATIVE core.hooksPath, so a clone on a
+# second robot body gets the same pre-push gate instead of silently having none.
+!.githooks/
+!.githooks/**
+
 # Allow ROS workspace source
 !docker/
 !docker/ros_ws_src/

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Trunk-based development's safety comes entirely from a fast, reliable gate. This is it.
+#
+# Runs xyz_bt_lib/tools/validate_engine.py before anything leaves this machine: the guard
+# sweep over every node and adapter, all three skills' seed-closure validators, and the
+# library demos. Measured at ~4 s on this Pi, which is why it sits on push rather than on
+# commit — local commits stay free, and only the act that affects other people is gated.
+#
+# Container unavailable is NOT a code problem. If the ainex container cannot be inspected
+# the run degrades to --skip-container (host-side static sweep only) and says so loudly,
+# rather than locking you out of pushing because the robot happens to be off.
+#
+# Escape hatch: `git push --no-verify`. It exists, and using it means pushing code that
+# nothing has checked — fix the failure instead. A Claude Code hook blocks the agent from
+# reaching for it (.claude/hooks/git_workflow_guard.py); a human can always run it.
+#
+# Installed via `git config core.hooksPath .githooks` — relative on purpose, so a clone on
+# another robot body picks it up too.
+#
+# Test overrides: XYZ_CONTAINER (container name), XYZ_VALIDATE_ARGS (extra args).
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+VALIDATOR="$REPO_ROOT/docker/ros_ws_src/xyz_bt_lib/tools/validate_engine.py"
+CONTAINER="${XYZ_CONTAINER:-ainex}"
+
+# git feeds the hook a list of refs on stdin. We gate the whole tree regardless of which
+# refs are being pushed, but the pipe must still be drained or git may see EPIPE.
+cat >/dev/null
+
+if [ ! -f "$VALIDATOR" ]; then
+    echo "pre-push: $VALIDATOR not found — skipping validation" >&2
+    exit 0
+fi
+
+ARGS=("--container" "$CONTAINER")
+if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+    echo "pre-push: container '$CONTAINER' unavailable — running the host-side sweep only." >&2
+    echo "pre-push: seed closure and the demos were NOT checked this time." >&2
+    ARGS+=("--skip-container")
+fi
+# shellcheck disable=SC2206
+[ -n "${XYZ_VALIDATE_ARGS:-}" ] && ARGS+=(${XYZ_VALIDATE_ARGS})
+
+echo "pre-push: validating the engine before pushing…" >&2
+python3 "$VALIDATOR" "${ARGS[@]}"
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo "" >&2
+    echo "pre-push: REJECTED — validate_engine.py failed (exit $STATUS)." >&2
+    echo "pre-push: fix the failures above; do not push unchecked code." >&2
+fi
+exit $STATUS
