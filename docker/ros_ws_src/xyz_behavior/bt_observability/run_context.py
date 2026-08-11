@@ -44,6 +44,13 @@ WHY BODY ID COMES FROM THE WIFI HOTSPOT
     container but cannot connect to its D-Bus. So the host probes once and caches the
     answer in ``log/.body_id``, which is inside the bind mount and therefore readable by
     the containerised node.
+
+WHY ``dirty`` HAS A SCOPE
+    ``run_meta.json``'s ``git.dirty`` answers one question: can this run's code be
+    recovered from a commit? It is therefore computed over ``RUNTIME_PATHS`` only, not
+    the whole repository -- the repo root is ``/home/pi`` and also holds Claude Code
+    hooks, skills and templates that no running BT node ever loads. See ``RUNTIME_PATHS``
+    for the reasoning; ``repo_dirty`` keeps the unscoped signal as information.
 """
 import hashlib
 import json
@@ -76,6 +83,21 @@ LEGACY_LINKS = (
 #: reads as an empty run rather than a missing file. The two JSON state files are left to
 #: their writers: an empty file is not valid JSON, which would be worse than absent.
 _PRECREATED = tuple(n for n in LEGACY_LINKS if n.endswith('.jsonl'))
+
+#: Repository paths whose state can change what the robot does, and therefore the only
+#: ones that decide whether a run is reproducible. Everything else in this repository --
+#: .claude/ hooks, skills, templates and memory, and docker/rosa-agent -- is development-
+#: or analysis-time only: none of it is loaded by a running BT node.
+#:
+#: Scoping matters because `dirty` has a job: stopping irreproducible data from reaching
+#: an ablation table. Computed over the whole repo, editing one hook would light it up
+#: for every run afterwards, and a warning that is always on is a warning nobody reads.
+#:
+#: Templates are not a hole in this. Edit a .tpl AND regenerate a project, and the
+#: generated files land under docker/ros_ws_src/ where they are caught anyway; edit a
+#: .tpl without regenerating, and the robot is running the old code, which is exactly
+#: the case that should not be flagged.
+RUNTIME_PATHS = ('docker/ros_ws_src',)
 
 #: How many dirty paths to keep in run_meta.json before truncating.
 _DIRTY_SAMPLE = 20
@@ -289,6 +311,9 @@ def _git(repo, *args):
 def code_provenance():
     """Describe the code repository this workspace belongs to.
 
+    `dirty` is scoped to RUNTIME_PATHS, not the whole repository -- see that constant for
+    why. `repo_dirty` keeps the whole-repository signal as information only.
+
     Inside the ROS container this reports unavailable: only the workspace source is
     bind-mounted, not the repository. That is why a run is normally opened on the host
     (tools/new_run.py) and its id handed over through AINEX_RUN_ID.
@@ -298,24 +323,33 @@ def code_provenance():
         return {'available': False,
                 'reason': 'workspace is not inside a git repository (expected inside the '
                           'ROS container: only the source tree is mounted, not the repo)'}
-    status = _git(root, 'status', '--porcelain') or ''
+    # Untracked files are included (git status reports them by default): a node file that
+    # was never committed changes behaviour just as much as an edited one.
+    status = _git(root, 'status', '--porcelain', '--', *RUNTIME_PATHS) or ''
     paths = status.splitlines()
+    repo_paths = (_git(root, 'status', '--porcelain') or '').splitlines()
     return {
         'available': True,
         'root':    root,
         'sha':     _git(root, 'rev-parse', 'HEAD'),
         'branch':  _git(root, 'rev-parse', '--abbrev-ref', 'HEAD'),
         'subject': _git(root, 'log', '-1', '--format=%s'),
-        # Untracked files count: a node file that was never committed changes behaviour
-        # just as much as an edited one.
         'dirty':       bool(paths),
         'dirty_count': len(paths),
-        # A digest of the whole status, so two dirty runs can be told apart -- equal
-        # digests mean the same uncommitted tree state.
+        # What `dirty` actually covers. Recorded rather than assumed: a reader years from
+        # now must not have to guess which paths a `dirty: false` was claiming about.
+        'dirty_scope': list(RUNTIME_PATHS),
+        # A digest of the scoped status, so two dirty runs can be told apart -- equal
+        # digests mean the same uncommitted state.
         'dirty_digest': hashlib.sha256(status.encode('utf-8')).hexdigest() if paths else None,
-        # A sample only: the full list runs to hundreds of lines and would drown the
-        # fields that matter. The digest above is the identity; this is for eyeballing.
+        # A sample only: the full list can run long and would drown the fields that
+        # matter. The digest above is the identity; this is for eyeballing.
         'dirty_sample': paths[:_DIRTY_SAMPLE],
+        # Whole-repository state, informational. Deliberately no path list: this repo is
+        # published to a PUBLIC results repository, and paths outside RUNTIME_PATHS are
+        # local working notes rather than something to broadcast.
+        'repo_dirty':       bool(repo_paths),
+        'repo_dirty_count': len(repo_paths),
     }
 
 
@@ -348,8 +382,11 @@ def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note=''):
 
     Written at the START of a run, before anything can drift.
     """
+    # schema/2: git.dirty became scoped to RUNTIME_PATHS (it covered the whole repository
+    # in /1) and gained dirty_scope / repo_dirty. The meaning of an existing field
+    # changed, which is what a schema version is for.
     meta = {
-        'schema':      'ainex.run_meta/1',
+        'schema':      'ainex.run_meta/2',
         'run_id':      os.path.basename(run_dir.rstrip(os.sep)),
         'body_id':     body_id,
         'created_utc': time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()),

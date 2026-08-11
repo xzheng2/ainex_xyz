@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f1539859-db40-4b19-9d76-a19013065b02
-  modified: 2026-08-11T07:46:36.957Z
+  modified: 2026-08-11T07:59:38.007Z
 ---
 
 Multi-body ablation experiments (set up Aug 11 2026) split across **two** repositories:
@@ -28,6 +28,12 @@ never the hostname — every stock Pi answers to `raspberrypi`. Resolution lives
 nmcli probe for the connection whose `802-11-wireless.mode` is `ap`. **The probe only
 works on the host**: nmcli exists in the ainex container but cannot reach NetworkManager's
 D-Bus, which is the whole reason the cache file exists.
+
+`run_meta.json`'s `git.dirty` is **scoped to `docker/ros_ws_src` only** (`RUNTIME_PATHS` in
+`run_context.py`, recorded per-run in `git.dirty_scope`, schema `ainex.run_meta/2`).
+Editing `.claude/` hooks, skills or templates does NOT mark a run irreproducible — none of
+it is loaded by a running node, and counting it would leave the flag permanently on.
+`git.repo_dirty` keeps the whole-repo signal as information, without paths.
 
 Each run gets `xyz_behavior/log/runs/<run_id>/`; the legacy fixed filenames in `log/`
 become **relative** symlinks to the newest run, which is what keeps ROSA
