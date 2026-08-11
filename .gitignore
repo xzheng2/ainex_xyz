@@ -54,6 +54,17 @@ docker/ros_ws_src/**/core
 !docker/ros_ws_src/**/core/
 docker/ros_ws_src/**/build/
 
+# Exclude experiment results and robot-written runtime state.
+# The allowlist rule `!docker/ros_ws_src/**` above re-includes these by default, which
+# would commit every BT run's output as source and leave every robot body with a
+# permanently dirty working tree. Results belong in the ainex_xyz_results repo
+# (results/<body_id>/<run_id>/), never here.
+# Note: the contents are excluded rather than the directory itself — git cannot
+# re-include .gitkeep if its parent directory is excluded.
+docker/ros_ws_src/xyz_behavior/log/*
+!docker/ros_ws_src/xyz_behavior/log/.gitkeep
+docker/ros_ws_src/**/battery.txt
+
 # Exclude session-specific notes
 docker/ros_ws_src/**/*_this_session.md
 

@@ -3,6 +3,7 @@
 # @Author: Aiden
 # @Date: 2023/09/18
 # stm32 ros package
+import os
 import time
 import math
 import rospy
@@ -13,6 +14,12 @@ from sensor_msgs.msg import Imu, Joy, MagneticField
 from ros_robot_controller.ros_robot_controller_sdk import Board
 from ros_robot_controller.srv import GetBusServoState, GetPWMServoState, GetBusServosPosition
 from ros_robot_controller.msg import ButtonState, BuzzerState, LedState, MotorsState, BusServoState, SetBusServoState, SetBusServosPosition, SetPWMServoState, Sbus, OLEDState, RGBsState, BusServoPosition
+
+# Battery voltage snapshot, rewritten every 5 s. It lives in the ROS home dir, NOT in
+# the package source tree: the source tree is version-controlled and shared across
+# robot bodies, so a per-body runtime value written into it leaves every checkout
+# permanently dirty and conflicting. Host path: /home/pi/docker/ros_log/battery.txt
+BATTERY_STATE_FILE = os.path.expanduser('~/.ros/battery.txt')
 
 class ROSRobotController:
     gravity = 9.80665
@@ -263,7 +270,8 @@ class ROSRobotController:
         if data is not None:
             current_time = time.time()
             if current_time > self.last_time:
-                with open('/home/ubuntu/ros_ws/src/ainex_driver/ros_robot_controller/scripts/battery.txt', 'w') as f:
+                os.makedirs(os.path.dirname(BATTERY_STATE_FILE), exist_ok=True)
+                with open(BATTERY_STATE_FILE, 'w') as f:
                     f.write(str(data))
                 self.last_time = current_time + 5
             pub.publish(data)
