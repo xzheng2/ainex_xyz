@@ -7,7 +7,7 @@
     <arg name="image_topic"             default="image_raw"/>
 
     <arg name="detect_color"            default="blue"/>
-    <arg name="detect_type"             default="circle"/>   <!-- circle | rect -->
+    <arg name="detect_type"             default="circle"/>   <!-- circle | rect | line -->
     <arg name="min_area"                default="300"/>
     <arg name="max_area"                default="250000"/>
     <arg name="enable_display"          default="false"/>
@@ -41,5 +41,11 @@
         <param name="max_aspect_ratio"      value="$(arg max_aspect_ratio)"/>
         <param name="min_solidity"          value="$(arg min_solidity)"/>
         <param name="detection_hz"          value="$(arg detection_hz)"/>
+        <!-- line-only: three scan bands [y_min, y_max, x_min, x_max] in
+             PROCESSING space (image_process_width x image_process_height, not
+             camera pixels). Searched in order; the first band with a hit wins,
+             so list them near-to-far. Edit here rather than overriding on the
+             command line — this file owns the tuning. -->
+        <rosparam param="line_roi">[[20, 30, 40, 120], [40, 50, 40, 120], [60, 70, 40, 120]]</rosparam>
     </node>
 </launch>

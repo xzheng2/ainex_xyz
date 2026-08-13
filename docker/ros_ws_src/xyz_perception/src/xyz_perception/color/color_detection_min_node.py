@@ -14,7 +14,7 @@ from sensor_msgs.msg import Image
 from ainex_interfaces.msg import ObjectInfo, ObjectsInfo
 from ainex_sdk import common
 
-from xyz_perception.color.color_detection_min import ColorDetectionMin
+from xyz_perception.color.color_detection_min import ColorDetectionMin, DEFAULT_LINE_ROI
 
 LAB_CONFIG_PATH = '/home/ubuntu/software/lab_tool/lab_config.yaml'
 
@@ -35,6 +35,16 @@ class ColorDetectionMinNode:
         max_aspect_ratio = rospy.get_param('~max_aspect_ratio', 4.0)
         min_solidity = rospy.get_param('~min_solidity', 0.6)
         self._detection_hz = rospy.get_param('~detection_hz', 30)
+
+        # line-only: three [y_min, y_max, x_min, x_max] bands in processing space
+        line_roi = rospy.get_param('~line_roi', None)
+        if line_roi is None:
+            line_roi = DEFAULT_LINE_ROI
+        elif len(line_roi) != 3 or any(len(b) != 4 for b in line_roi):
+            rospy.logerr('ColorDetectionMinNode: line_roi must be 3 bands of '
+                         '[y_min, y_max, x_min, x_max], got: %s', line_roi)
+            rospy.signal_shutdown('bad line_roi')
+            return
 
         # --- LAB config ---
         if not os.path.exists(LAB_CONFIG_PATH):
@@ -69,6 +79,7 @@ class ColorDetectionMinNode:
             min_aspect_ratio=min_aspect_ratio,
             max_aspect_ratio=max_aspect_ratio,
             min_solidity=min_solidity,
+            line_roi=line_roi,
         )
 
         # --- Camera topic ---
@@ -102,6 +113,8 @@ class ColorDetectionMinNode:
             common.loginfo('  min_aspect_ratio: %.1f' % min_aspect_ratio)
             common.loginfo('  max_aspect_ratio: %.1f' % max_aspect_ratio)
             common.loginfo('  min_solidity    : %.2f' % min_solidity)
+        if self.detect_type == 'line':
+            common.loginfo('  line_roi        : %s' % (list(line_roi),))
 
     # ------------------------------------------------------------------
 
