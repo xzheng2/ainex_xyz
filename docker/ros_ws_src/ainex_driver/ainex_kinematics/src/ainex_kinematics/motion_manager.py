@@ -13,7 +13,11 @@ class MotionManager:
     runningAction = False
     stopRunning = False
     
-    def __init__(self, action_path='/home/ubuntu/software/ainex_controller/ActionGroups'):
+    # 动作组目录是 ros_ws/src/ActionGroups —— 它是 bind mount 且进了 git；
+    # 旧的默认值 software/ainex_controller/ActionGroups 只存在于容器镜像里，
+    # 容器重建就没了(the ActionGroups directory is ros_ws/src/ActionGroups — it is
+    # bind-mounted and tracked in git; the old default lived only in the container image)
+    def __init__(self, action_path='/home/ubuntu/ros_ws/src/ActionGroups'):
         self.servo_position = {}
         self.action_path = action_path
         self.get_servo_position_srv = rospy.ServiceProxy('ros_robot_controller/bus_servo/get_position', GetBusServosPosition)
@@ -99,7 +103,7 @@ class MotionManager:
             print('can not find aciton file')
 
 if __name__ == '__main__':
-    motion_manager = MotionManager(action_path='/home/ubuntu/software/ainex_controller/ActionGroups')
+    motion_manager = MotionManager(action_path='/home/ubuntu/ros_ws/src/ActionGroups')
     rospy.init_node('test')
     # 单个舵机运行(run a single servo)
     motion_manager.set_servos_position(500, [[23, 300]])
