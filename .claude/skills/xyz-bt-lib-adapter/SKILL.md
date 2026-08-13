@@ -337,21 +337,15 @@ sees a consistent frozen view of all sensor inputs per tick.
 
 New L2 nodes should call existing `XyzBTFacade` methods.
 
-Currently available facade methods (full public contract):
+The authoritative contract is `xyz_bt_lib/src/xyz_bt_lib/core/base_facade.py`, which defines
+10 abstract methods — the gait / motion / buzzer primitives, plus the `go_step`, `turn_step`
+and `move_head` convenience wrappers — plus 2 concrete process-control methods that a project
+facade may override. Read the signatures and their Args docstrings there.
 
-Primitives:
-- `disable_gait(bt_node, tick_id)` — shut down gait controller (needs enable_gait to restart)
-- `enable_gait(bt_node, tick_id)` — start/restart gait controller
-- `stop_gait(bt_node, tick_id)` — stop current motion; controller stays up
-- `set_step(dsp, x, y, yaw, gait_param, arm_swap, step_num, ...)` — fully-resolved gait step
-- `run_action(action_name, bt_node, tick_id)` — named stand-alone motion action
-- `set_servos_position(duration_ms, positions, bt_node, tick_id)` — direct servo command
-- `publish_buzzer(freq, on_time, off_time, repeat, bt_node, tick_id)` — buzzer pattern (scalars only)
-
-Convenience wrappers:
-- `go_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — go profile step
-- `turn_step(x, y, yaw, step_num=0, bt_node, tick_id, semantic_source)` — turn profile step
-- `move_head(pan_pos, bt_node, tick_id)` — head servo position
+**Do not restate the signatures here.** A copy that lived in this file drifted against
+`base_facade.py` — it dropped `move_head`'s `tilt_pos` and all five `go_step` / `turn_step`
+override params (`period_time_ms`, `dsp_ratio`, `y_swap_amplitude`, `gait_param`, `arm_swap`),
+so an L2 node written from it could not reach half the gait tuning surface.
 
 Removed from contract (do not call):
 - `stop_walking` — replaced by `stop_gait`

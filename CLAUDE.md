@@ -29,18 +29,17 @@ which can't see them — use `docker exec -u ubuntu ainex` to check runtime deps
 - Never assume a Python package is missing until verified inside the container:
   `docker exec ainex python3 -c "import <module>"`
 - **Never execute `roslaunch` or `rosrun` commands** (directly or via `docker exec`) to run the robot. Instead, show the command and ask the user to run it themselves. Example: _"Run this to start the node:"_ followed by the command in a code block.
-- **Change the persistent file, not the invocation.** A configuration change (detect colour,
-  shape, area threshold, gait tuning) belongs in the `.launch` default, the YAML config or the
-  Python constant that owns it — not in a command-line override. One-off args are for a
-  deliberately temporary run, and only when the user says so.
 
 ## Architecture
 
 Four packages under `docker/ros_ws_src/`:
 
-- `xyz_bt_lib/` — portable BT library, no robot-specific code. `src/xyz_bt_lib/` holds
-  `core/` (node/adapter/facade bases, composite factories, `latched_dwell` + `hysteresis` gates),
-  `behaviours/L1_perception|L2_locomotion|L3_system/`, `adapters/` and `blackboard/`.
+- `xyz_bt_lib/` — portable BT library, no robot-specific code. Under `src/xyz_bt_lib/` each
+  kind of module has exactly one home, and a subdirectory is created when its first module
+  arrives: shared machinery (node/adapter/facade bases, composite factories, `latched_dwell` +
+  `hysteresis` gates) in `core/`; blackboard keys and state in `blackboard/`; the tree's ROS
+  subscribers in `adapters/`; every behaviour in `behaviours/` under its layer —
+  `L1_perception`, `L2_locomotion` or `L3_system`.
 - `xyz_perception/` — standalone detection / nav-planning nodes (apriltag / color /
   depth_nav / yolo) plus `DepthNavState.msg` and their launch + config.
 - `xyz_run_lab/` — run bookkeeping: `run_lab/run_context.py` (run identity, per-run log
