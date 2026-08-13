@@ -21,10 +21,9 @@ Registry
 `registry` maps a stable target name to the argv list used to launch it, e.g.::
 
     ProcessManager({
-        'serial_servo_move': [
+        'servo_sweep': [
             'python3',
-            '/home/ubuntu/ros_ws/src/ainex_tutorial/'
-            'scripts/serial_servo/serial_servo_move_demo.py',
+            '/home/ubuntu/share/src/servo_sweep.py',
         ],
     })
 
