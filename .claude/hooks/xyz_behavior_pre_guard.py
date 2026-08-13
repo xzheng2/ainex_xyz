@@ -7,6 +7,8 @@ import json
 import re
 import sys
 
+_HOOK = 'xyz_behavior_pre_guard'
+
 _PATTERN = re.compile(r'xyz_behavior/(?!log/).+\.(py|launch|xml)$')
 
 _FILE_TYPE_HINTS = {
@@ -49,7 +51,9 @@ _FILE_TYPE_HINTS = {
         '[xyz_behavior guard · infra/*.py]\n'
         '  infra_manifest.py — must define build_infra_manifest() and write_infra_manifest()\n'
         '  bb_ros_bridge.py  — must define XXXBBBridge class with start(rate_hz) method\n'
-        '  bt_exec_controller.py / tree_publisher.py — standard copies; see an existing project for reference\n'
+        '  Those two are the ONLY files infra/ should contain. bt_exec_controller.py and\n'
+        '  tree_publisher.py are shared modules in xyz_behavior/bt_observability/ — import\n'
+        '  them, do not copy them in (they hold nothing project-specific).\n'
     ),
     'launch/': (
         '[xyz_behavior guard · launch/*.launch]\n'
@@ -74,6 +78,16 @@ _FILE_TYPE_HINTS = {
 }
 
 
+def _log(file_path, rule, data):
+    """Record that guidance was injected. Not a `pass`: this guard evaluates no
+    content, so calling it a passed check would claim a check that never ran."""
+    try:
+        import guard_log
+        guard_log.log_reminder(_HOOK, file_path, rule, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -90,9 +104,11 @@ def main() -> None:
 
     # Find best matching hint
     hint = None
+    matched_key = None
     for pattern_key, message in _FILE_TYPE_HINTS.items():
         if pattern_key in file_path:
             hint = message
+            matched_key = pattern_key
             break
 
     if hint is None:
@@ -103,8 +119,11 @@ def main() -> None:
             'Consult the skill templates if in doubt.'
         )
 
+    # The _FILE_TYPE_HINTS key is already a stable identifier for which reminder fired.
+    _log(file_path, 'behavior_pre.' + (matched_key or '<default>'), data)
     print(json.dumps({"additionalContext": hint}))
     sys.exit(0)
 
 
-main()
+if __name__ == '__main__':
+    main()

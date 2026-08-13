@@ -73,34 +73,32 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
         # TODO: 'go_step', 'turn_step', 'move_head', ...
     ]
     CONFIG_DEFAULTS = {
-        'speed': 0.015,             # example: linear speed (m/step)
-        'yaw_limit': 8,             # example: maximum yaw angle (deg)
-        'head_pan_center': 500,     # example: head servo center position
-        # TODO: add all strategy/tuning constants here.
-        # These must match __init__ default args. No hard-coded literals in update().
+        # TODO: declare every strategy/tuning constant this node uses. Each entry
+        # needs a matching __init__ arg stored on self._<name>; update() and
+        # _select_action() read those fields, never literals.
+        # An empty dict is legitimate for a node that only dispatches.
+        #
+        # Gait pass-through knobs (period_time_ms, dsp_ratio, y_swap_amplitude,
+        # arm_swap, step_num, gait_param) never go here — they belong to
+        # XyzL2GaitActionNode. See the gait variant at the bottom of this file.
     }
     BB_LOG_KEYS = BB_READS
 
     # Param order: name, facade, then domain params, then logger, tick_id_getter.
     def __init__(self, name: str = {{DEFAULT_NAME}},
                  facade: XyzBTFacade = None,
-                 speed: float = 0.015,
-                 yaw_limit: int = 8,
-                 head_pan_center: int = 500,
                  logger=None,
                  tick_id_getter=None):
         """
         Args:
             name: BT node name.
             facade: Project semantic facade implementing XyzBTFacade.
-            speed: Linear speed (m/step). Project trees may override.
-            yaw_limit: Maximum yaw angle (deg). Project trees may override.
-            head_pan_center: Head servo center position.
             logger: DebugEventLogger-compatible object, or None.
             tick_id_getter: Callable returning current tick_id.
 
-        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
-        Runtime logic must use self._ fields, not raw literals.
+        TODO: add one keyword arg per CONFIG_DEFAULTS entry, after facade and
+        before logger, with the same default, and document it here. Store each on
+        self._<name>. Runtime logic must use self._ fields, not raw literals.
         """
         super().__init__(
             name,
@@ -109,9 +107,6 @@ class {{CLASS_NAME}}(XyzL2ActionNode):
             tick_id_getter=tick_id_getter,
         )
         self._bb = None
-        self._speed = speed
-        self._yaw_limit = yaw_limit
-        self._head_pan_center = head_pan_center
 
     def setup(self, **kwargs):
         super().setup(**kwargs)

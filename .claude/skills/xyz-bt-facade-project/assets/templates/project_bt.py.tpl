@@ -10,12 +10,25 @@ ReactiveSequence / CommittedSequence / PrioritySelector / CommittedSelector.
 NEVER write raw py_trees.composites.Sequence(memory=...) / Selector(memory=...):
 the factory name states the contract, and a typo becomes a NameError.
 
+WHAT THIS TEMPLATE TEACHES — the WIRING PATTERN, not the node choice:
+semantic composite factories, CONFIG_DEFAULTS expanded as explicit kwargs at the
+call site, decorators (not nodes) carrying stability state, and a Groot XML that
+mirrors the structure one-for-one.
+
+The example tree below imports SIX CONCRETE NODES from xyz_bt_lib.behaviours.
+That is a real dependency, not decoration: on a robot whose node library differs
+(or has not been built yet), this file will not import. Substitute the nodes that
+exist there and keep the pattern identical. `validate_templates.py` pins this —
+it asserts the rendered file fails to import when behaviours/ is absent, so the
+dependency stays a tested fact rather than a silent assumption.
+
 Tree structure (a generic "find a target, then approach it" task — replace the
 target and the task branch with your event's own behaviour):
   ReactiveSequence({{PROJECT_CLASS}}BT)
       PrioritySelector(SafetyGate)          <- recovery may preempt at any tick
-          --> L1_Balance_IsStanding
-          ReactiveSequence(Recovery)
+          LatchedDwell(StandConfirmed, 5)   <- posture confirmed for N ticks
+              --> L1_Balance_IsStanding          (stability lives in the TREE,
+          ReactiveSequence(Recovery)                not inside the L1 node)
               --> L2_Motion_StopGait
               --> L2_Balance_RecoverFromFall
       PrioritySelector(TaskControl)
@@ -34,17 +47,17 @@ behaviour in this shape — the tree is the layer humans and agents read.
 import py_trees
 
 # Semantic composite factories (NEVER raw Sequence/Selector/Parallel).
-# For Parallel use ParallelAll (SuccessOnAll) / ParallelAny (SuccessOnOne).
-from xyz_bt_lib.core.composites import (
-    ReactiveSequence, CommittedSequence, PrioritySelector, CommittedSelector,
-    ParallelAll, ParallelAny,
-)
-# Reactive-safe stability gate (BB-backed dwell); wrap a CONDITION node with it
-# when a tree needs "condition stable for N ticks".
+# Import only what this tree uses. The full set —
+#   ReactiveSequence / CommittedSequence / PrioritySelector / CommittedSelector /
+#   ParallelAll (SuccessOnAll) / ParallelAny (SuccessOnOne)
+# — is documented in xyz_bt_lib/core/composites.py; add an import when a branch
+# needs one.
+from xyz_bt_lib.core.composites import ReactiveSequence, PrioritySelector
+# Reactive-safe stability gate (BB-backed dwell); wraps a CONDITION node when a
+# tree needs "condition stable for N ticks" — see SafetyGate below.
+# For a FLICKERING signal that must be held steady instead, use
+# xyz_bt_lib.core.hysteresis.HysteresisDecorator (N-in / M-out, never RUNNING).
 from xyz_bt_lib.core.latched_dwell import LatchedDwellDecorator
-# Reactive-safe asymmetric debounce (N-in / M-out); wrap a CONDITION node with it
-# when a signal FLICKERS and the answer must be held steady. Never returns RUNNING.
-from xyz_bt_lib.core.hysteresis import HysteresisDecorator
 
 # xyz_bt_lib standard library nodes
 from xyz_bt_lib.behaviours.L1_perception.L1_Balance_IsStanding import L1_Balance_IsStanding
@@ -147,25 +160,28 @@ def bootstrap(runtime_facade, robot_state_setter=None,
     recovery_seq = ReactiveSequence('Recovery',
                                     children=[gait_stop_recovery, recover_from_fall])
 
+    # Stability confirmation belongs to the TREE, never inside an L1 node: wrap
+    # the CONDITION (never an action) in LatchedDwellDecorator. It is BB-backed,
+    # so it survives the reactive re-entry that would reset an instance counter.
+    # Two rules the wiring below demonstrates — state_key is a hardcoded string
+    # LITERAL (a state identity: greppable, and a duplicate must fail loudly at
+    # construction), and required_ticks is a NUMBER from a bootstrap() parameter.
+    # Why each rule exists: see the docstring of xyz_bt_lib/core/latched_dwell.py.
+    stand_confirmed = LatchedDwellDecorator(
+        is_standing,
+        required_ticks=stand_confirm_ticks,
+        state_key='safety_stand_confirmed',
+        name='StandConfirmed',
+        tick_id_getter=tick_id_getter,
+    )
+
     # SafetyGate: recovery may preempt the task at any tick → PrioritySelector.
-    #
-    # If you need "confirm the robot is stably standing for N ticks" before
-    # proceeding, wrap the CONDITION (not an action) in LatchedDwellDecorator.
-    # It is BB-backed, so it survives the reactive re-entry that would reset an
-    # instance-counter dwell. Rules:
-    #   - state_key MUST be a hardcoded string LITERAL — never from a variable,
-    #     constructor arg, or rosparam. It is a state identity: it must be
-    #     greppable, and a duplicate must fail loudly at construction.
-    #   - required_ticks (a NUMBER) comes from a bootstrap() parameter.
-    #
-    #   stand_confirmed = LatchedDwellDecorator(
-    #       is_standing, required_ticks=stand_confirm_ticks,
-    #       state_key='safety_stand_confirmed',   # hardcoded literal
-    #       tick_id_getter=tick_id_getter)
-    #   safety_gate = PrioritySelector('SafetyGate',
-    #                                  children=[stand_confirmed, recovery_seq])
+    # While the dwell is still counting it returns RUNNING, so the task branch
+    # waits rather than acting on an unconfirmed posture. A genuinely fallen
+    # robot fails the condition instead, which resets the count to 0 and falls
+    # straight through to recovery — the gate never delays a real recovery.
     safety_gate = PrioritySelector('SafetyGate',
-                                   children=[is_standing, recovery_seq])
+                                   children=[stand_confirmed, recovery_seq])
 
     approach_seq = ReactiveSequence('Approach',
                                     children=[is_object_detected, approach_object])

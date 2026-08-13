@@ -5,7 +5,7 @@
 WHAT IS BEING CLAIMED
     The l1/l2/l3 templates plus the Tier A seed (xyz_bt_lib/core + blackboard
     keys, see tools/seed_kit.py) are sufficient to build a real BT node on a
-    machine where behaviours/, adapters/ and sensors/ do not exist -- a fresh
+    machine where behaviours/, adapters/ and xyz_perception do not exist -- a fresh
     robot, or this repo stripped to its engine layer.
 
 HOW IT IS PROVED, NOT INSPECTED
@@ -217,14 +217,14 @@ def main(argv=None):
                     raise AssertionError(
                         'real xyz_bt_lib still on sys.path: %s' % visible)
                 for forbidden in ('xyz_bt_lib.behaviours', 'xyz_bt_lib.adapters',
-                                  'xyz_bt_lib.sensors', 'rospy'):
+                                  'xyz_perception', 'rospy'):
                     try:
                         importlib.import_module(forbidden)
                     except ModuleNotFoundError:
                         continue
                     raise AssertionError('%s was importable inside the seed'
                                          % forbidden)
-            return ('behaviours/ adapters/ sensors/ rospy all unreachable; '
+            return ('behaviours/ adapters/ xyz_perception rospy all unreachable; '
                     'sys.path holds no real library')
         check('node library is out of reach', isolation_holds)
 

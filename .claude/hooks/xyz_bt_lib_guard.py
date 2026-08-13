@@ -4,8 +4,10 @@ import json
 import re
 import sys
 
-_NODE_PATTERN    = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L[123]_\w+/[^/]+\.py$')
-_ADAPTER_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/adapters/[^/]+\.py$')
+_HOOK = 'xyz_bt_lib_guard'
+
+_NODE_PATTERN    = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L[123]_\w+/(?!__init__\.py$)[^/]+\.py$')
+_ADAPTER_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/adapters/(?!__init__\.py$)[^/]+\.py$')
 _BB_KEYS_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/blackboard/blackboard_keys\.py$')
 
 _COMMENT_RE = re.compile(r'#[^\n]*')
@@ -108,6 +110,18 @@ def check_bb_keys(content: str) -> list:
     ]
 
 
+def _log(action, file_path, violations, data):
+    """Record the event. Advisory only, and the record must never affect the advice."""
+    try:
+        import guard_log
+        if violations:
+            guard_log.log_violations(_HOOK, action, file_path, violations, data)
+        else:
+            guard_log.log_clean(_HOOK, file_path, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -139,7 +153,10 @@ def main() -> None:
         violations = check_bb_keys(content)
 
     if not violations:
+        _log('pass', file_path, (), data)
         sys.exit(0)
+
+    _log('warned', file_path, violations, data)
 
     lines = "\n".join(f"  {v}" for v in violations)
     if is_bb_keys:
@@ -156,4 +173,5 @@ def main() -> None:
     sys.exit(0)
 
 
-main()
+if __name__ == '__main__':
+    main()

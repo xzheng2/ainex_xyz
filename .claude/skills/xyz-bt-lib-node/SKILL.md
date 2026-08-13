@@ -1,3 +1,8 @@
+---
+name: xyz-bt-lib-node
+description: Add or modify L1 condition, L2 action, or L3 system nodes in the xyz_bt_lib shared BT library (xyz_bt_lib/src/xyz_bt_lib/behaviours/). Use when creating a BT node, changing a node's CONFIG_DEFAULTS or Blackboard reads/writes, or choosing between LatchedDwellDecorator and HysteresisDecorator for stability confirmation. 加 L1 条件节点, 加 L2 动作节点, add BT node.
+---
+
 # Skill: `xyz-bt-lib-node`
 
 Extend the **xyz_bt_lib** shared BT library by adding L1 condition nodes,

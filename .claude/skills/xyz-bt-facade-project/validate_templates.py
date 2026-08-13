@@ -117,7 +117,15 @@ class FakePub:
         self.msgs.append(msg)
 
 
-def main():
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument('--lib-root', default='/home/pi/docker/ros_ws_src/xyz_bt_lib',
+                    help='xyz_bt_lib package root; used to locate tools/seed_kit.py')
+    ap.add_argument('--hooks-dir', default='/home/pi/.claude/hooks',
+                    help='accepted for symmetry with the other skill validators')
+    args = ap.parse_args(argv)
+
     tmp = tempfile.mkdtemp(prefix='tplcheck_')
     try:
         check('render all templates (no leftover placeholders)',
@@ -258,7 +266,26 @@ def main():
                 'bootstrap() must return a BehaviourTree — do not re-wrap it in bt_node')
             tree.setup(timeout=15)
 
-            for _ in range(4):                      # target absent -> Search branch
+            # The SafetyGate wraps IsStanding in a LatchedDwellDecorator, which
+            # returns RUNNING while it counts. Tick past the dwell first,
+            # otherwise the task branches are never reached and this check would
+            # silently stop demonstrating what its name claims.
+            storage = py_trees.blackboard.Blackboard.storage
+            latch_path = '/node_state/safety_stand_confirmed'
+            for _ in range(12):                     # target absent -> Search branch
+                tick['n'] += 1
+                tree.tick()
+                if (storage.get(latch_path) or {}).get('latched'):
+                    break
+            latch = storage.get(latch_path)
+            assert latch is not None, (
+                'the SafetyGate dwell wrote no {} state — is the '
+                'LatchedDwellDecorator still wired in bootstrap()?'.format(latch_path))
+            assert latch.get('latched'), (
+                'dwell never latched after 12 ticks with robot_state=stand: '
+                '{}'.format(latch))
+
+            for _ in range(2):                      # settle on the Search branch
                 tick['n'] += 1
                 tree.tick()
             searching = tree.root.status
@@ -269,8 +296,9 @@ def main():
                                'displacement': 0.0}})
             tick['n'] += 1
             tree.tick()                             # target visible -> Approach branch
-            return 'ticked search ({}) then approach ({})'.format(
-                searching.name, tree.root.status.name)
+            return ('dwell latched after {} ticks, then search ({}) / approach ({})'
+                    .format(latch.get('stable_ticks'), searching.name,
+                            tree.root.status.name))
         check('bootstrap() builds a tickable tree (both branches)', build_and_tick)
 
         # ── Groot XML parity with the .py wiring ──────────────────────────
@@ -303,6 +331,125 @@ def main():
             return '{} node instances match bt.py; {} node types modelled'.format(
                 len(names), len(modelled))
         check('Groot XML <-> bt.py name parity', groot_parity)
+
+        # ── the whole rendered project imports, with nothing stubbed ──────
+        # Compiling is not importing. bt_node.py.tpl spent months importing
+        # {{PROJECT}}.infra.tree_publisher and .bt_exec_controller, for which no
+        # template existed and no project file was generated -- every scaffold died
+        # on its first import. Eight checks were green throughout, because the only
+        # ones that touched app/*_bt_node.py were compile() and ast.parse(), and
+        # neither resolves an import.
+        #
+        # Deliberately NOT inside seed_isolation() and with no install_ros_stubs():
+        # a stub would re-create exactly the blind spot this check exists to close.
+        # It therefore needs the real container environment (rospy, py_trees,
+        # rospkg, xyz_bt_lib, ros_robot_controller.msg) plus whatever sys.path
+        # surgery the rendered entry point performs on its own behalf.
+        # Derived from LAYOUT, never hand-listed: a hand-written list would omit the
+        # next template added, which is precisely the drift that produced the gap this
+        # check exists to catch.
+        _RENDERED_MODULES = tuple(
+            'demoproj.' + rel[:-len('.py')].replace('/', '.')
+            for rel in LAYOUT.values() if rel.endswith('.py'))
+
+        def _purge_demoproj():
+            """Drop every demoproj module so an import is actually exercised.
+
+            Checks 3, 6 and 7 already imported several of these; without this the
+            new check would re-read sys.modules and prove nothing about them.
+            """
+            for name in [m for m in sys.modules if m == 'demoproj'
+                         or m.startswith('demoproj.')]:
+                del sys.modules[name]
+
+        def rendered_imports():
+            import importlib
+            _purge_demoproj()
+            for name in _RENDERED_MODULES:
+                importlib.import_module(name)
+            return '{} rendered modules import unstubbed'.format(len(_RENDERED_MODULES))
+        check('rendered project imports with no stubs', rendered_imports)
+
+        # ── counter-test: the check above must be able to fail ────────────
+        # An import check that cannot go red is indistinguishable from no check at
+        # all -- which is the failure mode that let the missing modules survive.
+        # Block one shared dependency and require the entry point to break.
+        def missing_shared_module_breaks_import():
+            import importlib
+            sys.path.insert(0, os.path.join(args.lib_root, 'tools'))
+            import seed_kit
+
+            blocked = 'bt_observability.tree_publisher'
+            _purge_demoproj()
+            for name in [m for m in sys.modules if m == 'bt_observability'
+                         or m.startswith('bt_observability.')]:
+                del sys.modules[name]
+
+            finder = seed_kit._BlockingFinder([blocked])
+            sys.meta_path.insert(0, finder)
+            try:
+                importlib.import_module('demoproj.app.demoproj_bt_node')
+            except ModuleNotFoundError:
+                return 'blocking {} breaks the entry point, as it must'.format(blocked)
+            finally:
+                sys.meta_path.remove(finder)
+                _purge_demoproj()
+            raise AssertionError(
+                'the entry point imported with {} blocked — either it no longer '
+                'depends on the shared module, or the block is not in effect, and '
+                'in both cases the import check above proves nothing'.format(blocked))
+        check('counter-test: a missing shared infra module breaks the import',
+              missing_shared_module_breaks_import)
+
+        # ── the example tree's dependency on the node library ─────────────
+        # project_bt.py.tpl imports concrete behaviours/ classes. That is a real
+        # dependency: on a robot whose node library differs, the rendered file
+        # will not import. Both template headers say so; this check makes it a
+        # tested fact instead of a claim, mirroring the adapter skill's
+        # "Tier B is a real boundary" assertion.
+        def example_tree_dependency():
+            import xml.etree.ElementTree as ET
+            py_path = os.path.join(tmp, 'demoproj', 'tree', 'demoproj_bt.py')
+            py_src = open(py_path, encoding='utf-8').read()
+
+            # Derived, never hardcoded — a second copy of the node list is
+            # exactly the kind of thing that drifts.
+            imported = set(re.findall(
+                r'from\s+xyz_bt_lib\.behaviours\.[\w.]+\s+import\s+(\w+)', py_src))
+            assert imported, ('project_bt.py.tpl no longer imports any '
+                              'xyz_bt_lib.behaviours node — update this check and '
+                              'both template headers')
+
+            xml_path = os.path.join(tmp, 'demoproj', 'tree', 'demoproj_groot.xml')
+            bt = ET.parse(xml_path).getroot().find('BehaviorTree')
+            xml_types = {e.get('ID') for e in bt.iter()
+                         if (e.get('ID') or '').startswith(('L1_', 'L2_', 'L3_'))}
+            if xml_types != imported:
+                raise AssertionError(
+                    'tree templates disagree on library nodes — bt.py imports {}, '
+                    'Groot XML uses {}'.format(sorted(imported), sorted(xml_types)))
+
+            # Now prove the dependency is real: with behaviours/ unreachable the
+            # rendered module MUST fail to import.
+            sys.path.insert(0, os.path.join(args.lib_root, 'tools'))
+            import seed_kit
+            seed_dir = seed_kit.build_seed_tree(
+                os.path.join(tmp, 'seed'), tier='A',
+                lib_src=os.path.join(args.lib_root, 'src'))
+            shutil.copyfile(py_path, os.path.join(seed_dir, 'demoproj_bt_probe.py'))
+            with seed_kit.seed_isolation(seed_dir, tier='A'):
+                try:
+                    __import__('demoproj_bt_probe')
+                except ModuleNotFoundError as exc:
+                    return ('{} library nodes, consistent across bt.py and Groot; '
+                            'without behaviours/ the tree fails to import ({})'
+                            .format(len(imported), exc))
+            raise AssertionError(
+                'the rendered tree imported with behaviours/ blocked — either it '
+                'no longer depends on the node library, or the isolation is not '
+                'in effect')
+        check('example tree declares its node-library dependency',
+              example_tree_dependency)
 
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -4,8 +4,10 @@ import json
 import re
 import sys
 
-_NODE_PATTERN    = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L[123]_\w+/[^/]+\.py$')
-_ADAPTER_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/adapters/[^/]+\.py$')
+_HOOK = 'xyz_bt_lib_pre_guard'
+
+_NODE_PATTERN    = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L[123]_\w+/(?!__init__\.py$)[^/]+\.py$')
+_ADAPTER_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/adapters/(?!__init__\.py$)[^/]+\.py$')
 
 _NODE_REMINDER = (
     "[xyz_bt_lib node guard · pre-write reminder]\n"
@@ -31,6 +33,16 @@ _ADAPTER_REMINDER = (
 )
 
 
+def _log(file_path, rule, data):
+    """Record that guidance was injected. Not a `pass`: this guard evaluates no
+    content, so calling it a passed check would claim a check that never ran."""
+    try:
+        import guard_log
+        guard_log.log_reminder(_HOOK, file_path, rule, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -43,11 +55,14 @@ def main() -> None:
     file_path = data.get("tool_input", {}).get("file_path", "")
 
     if _NODE_PATTERN.search(file_path):
+        _log(file_path, 'bt_lib_pre.node_reminder', data)
         print(json.dumps({"additionalContext": _NODE_REMINDER}))
     elif _ADAPTER_PATTERN.search(file_path):
+        _log(file_path, 'bt_lib_pre.adapter_reminder', data)
         print(json.dumps({"additionalContext": _ADAPTER_REMINDER}))
 
     sys.exit(0)
 
 
-main()
+if __name__ == '__main__':
+    main()

@@ -6,6 +6,12 @@
   nodes by name=), which writes {{PROJECT}}_groot.synced.xml — do not hand-tune params here;
   every node must carry a unique name= matching its bt.py instance so the sync can match it.
 
+  The scaffold tree below names SIX CONCRETE NODE TYPES from xyz_bt_lib.behaviours,
+  the same six that project_bt.py.tpl imports. On a robot whose node library differs,
+  substitute the node types that exist there — in BOTH files, together. What the
+  template teaches is the structure (ID= type + name= label, TreeNodesModel port
+  schema, one-for-one correspondence with bt.py), not the node selection.
+
   Three-part structure:
     <BehaviorTree>   — tree instances: each leaf uses ID="ClassName" (type) + name="label"
                        Attribute values are the CONFIG_DEFAULTS overrides from _bt.py.
@@ -21,8 +27,11 @@
   <BehaviorTree ID="{{PROJECT}}">
     <Sequence name="{{PROJECT_CLASS}}BT" memory="false">
       <Fallback name="SafetyGate" memory="false">
-        <Condition ID="L1_Balance_IsStanding" name="IsStanding"
-          expected_stand_label="stand"/>
+        <Decorator ID="LatchedDwellDecorator" name="StandConfirmed"
+          required_ticks="5" state_key="safety_stand_confirmed">
+          <Condition ID="L1_Balance_IsStanding" name="IsStanding"
+            expected_stand_label="stand"/>
+        </Decorator>
         <Sequence name="Recovery" memory="false">
           <Action ID="L2_Motion_StopGait" name="StopGait_recovery"/>
           <Action ID="L2_Balance_RecoverFromFall" name="RecoverFromFall"
@@ -69,6 +78,11 @@
     <Control ID="Fallback">
       <input_port name="memory"/>
     </Control>
+    <!-- Decorators need a model entry too, or Groot hides their ports. -->
+    <Decorator ID="LatchedDwellDecorator">
+      <input_port name="required_ticks"/>
+      <input_port name="state_key"/>
+    </Decorator>
     <Condition ID="L1_Balance_IsStanding">
       <input_port name="expected_stand_label"/>
     </Condition>

@@ -30,17 +30,20 @@ def build_infra_manifest(node_name: str) -> list:
         List of interface record dicts.
     """
     def _abs(name):
-        return name.replace('~', node_name)
+        # '~bt/run' -> '/<node_name>/bt/run'. The leading slash is not cosmetic: without
+        # it the value is a RELATIVE name, which resolves against the caller's namespace
+        # rather than naming the node's own interface. Every target here was missing it.
+        return '/' + node_name + '/' + name.lstrip('~').lstrip('/')
 
     return [
         # ── BT execution controller ──────────────────────────────────────
         {
             'component':  'BTExecController',
             'layer':      'infra',
-            'file':       'infra/bt_exec_controller.py',
+            'file':       'bt_observability/bt_exec_controller.py',
             'comm_type':  'service_server',
             'direction':  'in',
-            'target':     _abs('~/bt/run'),
+            'target':     _abs('~bt/run'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'Set BT mode to RUN',
@@ -48,10 +51,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'BTExecController',
             'layer':      'infra',
-            'file':       'infra/bt_exec_controller.py',
+            'file':       'bt_observability/bt_exec_controller.py',
             'comm_type':  'service_server',
             'direction':  'in',
-            'target':     _abs('~/bt/pause'),
+            'target':     _abs('~bt/pause'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'Set BT mode to PAUSE',
@@ -59,10 +62,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'BTExecController',
             'layer':      'infra',
-            'file':       'infra/bt_exec_controller.py',
+            'file':       'bt_observability/bt_exec_controller.py',
             'comm_type':  'service_server',
             'direction':  'in',
-            'target':     _abs('~/bt/step'),
+            'target':     _abs('~bt/step'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'Queue one tick then PAUSE',
@@ -70,10 +73,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'BTExecController',
             'layer':      'infra',
-            'file':       'infra/bt_exec_controller.py',
+            'file':       'bt_observability/bt_exec_controller.py',
             'comm_type':  'topic_publish',
             'direction':  'out',
-            'target':     _abs('~/bt/mode'),
+            'target':     _abs('~bt/mode'),
             'ros_node':   node_name,
             'payload':    {'mode': '<RUN|PAUSE|STEP>'},
             'summary':    'Current BT execution mode (latched)',
@@ -106,10 +109,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'TreeROSPublisher',
             'layer':      'infra',
-            'file':       'infra/tree_publisher.py',
+            'file':       'bt_observability/tree_publisher.py',
             'comm_type':  'topic_publish',
             'direction':  'out',
-            'target':     _abs('~/log/tree'),
+            'target':     _abs('~log/tree'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'py_trees_msgs BehaviourTree for rqt_py_trees',
@@ -117,10 +120,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'TreeROSPublisher',
             'layer':      'infra',
-            'file':       'infra/tree_publisher.py',
+            'file':       'bt_observability/tree_publisher.py',
             'comm_type':  'topic_publish',
             'direction':  'out',
-            'target':     _abs('~/ascii/snapshot'),
+            'target':     _abs('~ascii/snapshot'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'unicode ascii tree display after each tick (std_msgs/String)',
@@ -128,10 +131,10 @@ def build_infra_manifest(node_name: str) -> list:
         {
             'component':  'TreeROSPublisher',
             'layer':      'infra',
-            'file':       'infra/tree_publisher.py',
+            'file':       'bt_observability/tree_publisher.py',
             'comm_type':  'topic_publish',
             'direction':  'out',
-            'target':     _abs('~/tip'),
+            'target':     _abs('~tip'),
             'ros_node':   node_name,
             'payload':    {},
             'summary':    'currently executing tip node after each tick (py_trees_msgs/Behaviour)',

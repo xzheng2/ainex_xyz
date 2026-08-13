@@ -1,3 +1,8 @@
+---
+name: xyz-bt-lib-adapter
+description: Add or modify input adapters in xyz_bt_lib (xyz_bt_lib/src/xyz_bt_lib/adapters/) — the only place a rospy.Subscriber may appear inside the BT process. Use when subscribing to a new ROS topic, feeding new sensor data onto the Blackboard, or adding keys to blackboard_keys.py. 加 input adapter, 新传感器, subscribe to topic.
+---
+
 # Skill: `xyz-bt-lib-adapter`
 
 Extend the **xyz_bt_lib** shared BT library by adding standard input adapters.

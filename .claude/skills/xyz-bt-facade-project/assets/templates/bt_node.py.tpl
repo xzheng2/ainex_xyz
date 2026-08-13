@@ -10,6 +10,11 @@ import rospkg as _rospkg
 _PKG_PATH = _rospkg.RosPack().get_path('xyz_behavior')
 sys.path.insert(0, _PKG_PATH)
 
+# The experiment instrumentation lives in its own package so a run stays recordable
+# whether or not bt_observability is present. Same sys.path mechanism, second root.
+_RUN_LAB_PATH = _rospkg.RosPack().get_path('xyz_run_lab')
+sys.path.insert(0, _RUN_LAB_PATH)
+
 _LOG_DIR = os.path.join(_PKG_PATH, 'log')
 
 import rospy
@@ -19,14 +24,16 @@ from ros_robot_controller.msg import BuzzerState
 from bt_observability.debug_event_logger import DebugEventLogger
 from bt_observability.bt_debug_visitor import BTDebugVisitor
 from bt_observability.blackboard_current_writer import BlackboardCurrentWriter
-from bt_observability.run_context import open_run_dir
+# Shared, not per-project: neither takes a project name, a topic or a node name, and
+# both scope themselves through the node's `~` private namespace at runtime.
+from bt_observability.tree_publisher import TreeROSPublisher
+from bt_observability.bt_exec_controller import BTExecController
+from run_lab.run_context import open_run_dir
 
 from {{PROJECT}}.tree.{{PROJECT}}_bt import bootstrap
 from {{PROJECT}}.runtime.runtime_facade import {{PROJECT_CLASS}}RuntimeFacade
 from {{PROJECT}}.runtime._runtime_io import _RuntimeIO
-from {{PROJECT}}.infra.tree_publisher import TreeROSPublisher
 from {{PROJECT}}.infra.bb_ros_bridge import {{PROJECT_CLASS}}BBBridge
-from {{PROJECT}}.infra.bt_exec_controller import BTExecController
 from {{PROJECT}}.infra.infra_manifest import build_infra_manifest, write_infra_manifest
 from xyz_bt_lib import BlackboardROSBridge
 # TODO: import the appropriate detection adapter:
@@ -168,7 +175,7 @@ def main():
             # adapter.write_snapshot(snap, _tick_id[0])
             tree.tick()
             bb_writer.write_current(_tick_id[0], str(tree.root.status))
-            if root.status == py_trees.common.Status.SUCCESS:
+            if tree.root.status == py_trees.common.Status.SUCCESS:
                 rospy.loginfo('[{{PROJECT_CLASS}}] Done — shutting down')
                 break
 

@@ -14,7 +14,9 @@ import json
 import re
 import sys
 
-_L1_PATTERN   = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_\w+/[^/]+\.py$')
+_HOOK = 'xyz_bt_l1_running_guard'
+
+_L1_PATTERN   = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_\w+/(?!__init__\.py$)[^/]+\.py$')
 _BASE_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/core/base_node\.py$')
 
 _STRING_RE  = re.compile(r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"[^"\n]*"|\'[^\'\n]*\')')
@@ -40,6 +42,47 @@ def _l1_class_slice(src: str) -> str:
     return rest[:nxt.start()] if nxt else rest
 
 
+def applies_to(file_path: str) -> bool:
+    """True if `file_path` is L1 territory this guard is responsible for."""
+    return bool(_L1_PATTERN.search(file_path) or _BASE_PATTERN.search(file_path))
+
+
+def check_l1_running(content: str, file_path: str = '') -> list:
+    """Return violation strings for L1 purity. Empty list means clean.
+
+    Exposed as a function (mirroring xyz_bt_lib_guard.check_node) so the same
+    rule can run outside the hook path — hooks only fire when the AGENT writes,
+    so a human edit is otherwise unchecked. tools/validate_engine.py sweeps the
+    whole library through this.
+    """
+    # For base_node.py, only the XyzL1ConditionNode class body is L1 territory;
+    # L2/L3 base classes may legitimately reference RUNNING.
+    scan = (_l1_class_slice(content)
+            if _BASE_PATTERN.search(file_path) else content)
+    if not _RUNNING_RE.search(_strip_noise(scan)):
+        return []
+    return [
+        "❌ L1 condition nodes are PURE PREDICATES: SUCCESS/FAILURE only, never "
+        "RUNNING, no cross-tick state.",
+        "→  Remove the RUNNING path. For \"condition stable for N ticks\", wrap "
+        "this node at the tree layer in "
+        "xyz_bt_lib.core.latched_dwell.LatchedDwellDecorator (BB-backed, "
+        "reactive-safe) — do not dwell inside the L1 node.",
+    ]
+
+
+def _log(action, file_path, violations, data):
+    try:
+        import guard_log
+        if violations:
+            guard_log.log_violations(_HOOK, action, file_path, violations, data,
+                                     collapse=True)
+        else:
+            guard_log.log_clean(_HOOK, file_path, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -50,9 +93,7 @@ def main() -> None:
         sys.exit(0)
 
     file_path = data.get("tool_input", {}).get("file_path", "")
-    is_l1_node = _L1_PATTERN.search(file_path)
-    is_base    = _BASE_PATTERN.search(file_path)
-    if not is_l1_node and not is_base:
+    if not applies_to(file_path):
         sys.exit(0)
 
     try:
@@ -61,25 +102,23 @@ def main() -> None:
     except Exception:
         sys.exit(0)
 
-    # For base_node.py, only the XyzL1ConditionNode class body is L1 territory;
-    # L2/L3 base classes may legitimately reference RUNNING.
-    scan = _l1_class_slice(content) if is_base else content
-
-    if not _RUNNING_RE.search(_strip_noise(scan)):
+    violations = check_l1_running(content, file_path)
+    if not violations:
+        _log('pass', file_path, (), data)
         sys.exit(0)
 
+    # collapse=True: check_l1_running returns two strings (diagnosis + "→" remedy) for
+    # the single rule it has, so one event, not two.
+    _log('warned', file_path, violations, data)
+
+    body = "\n".join(f"  {v}" for v in violations)
     context = (
         f"[xyz_bt_lib L1 guard · compliance check] {file_path} returns/uses "
-        "Status.RUNNING.\n"
-        "  ❌ L1 condition nodes are PURE PREDICATES: SUCCESS/FAILURE only, never "
-        "RUNNING, no cross-tick state.\n"
-        "  →  Remove the RUNNING path. For \"condition stable for N ticks\", wrap this "
-        "node at the tree layer in\n"
-        "     xyz_bt_lib.core.latched_dwell.LatchedDwellDecorator (BB-backed, "
-        "reactive-safe) — do not dwell inside the L1 node."
+        f"Status.RUNNING.\n{body}"
     )
     print(json.dumps({"additionalContext": context}))
     sys.exit(0)
 
 
-main()
+if __name__ == '__main__':
+    main()

@@ -1,3 +1,8 @@
+---
+name: xyz-bt-facade-project
+description: Scaffold or modify a competition behavior project under xyz_behavior/ — tree wiring (tree/*_bt.py plus the matching *_groot.xml), RuntimeFacade and _RuntimeIO, the app entry point, and launch files. Use when creating a new BT project, wiring composites and gate decorators, or changing the runtime/facade layer. 新建BT项目, 创建比赛行为树, scaffold bt project.
+---
+
 # xyz-bt-facade-project skill
 
 **This is the only active project template skill.**
@@ -27,6 +32,9 @@ set up a competition BT, 新建 <name> 项目, scaffold facade project
 8. Node naming: launch file must use `name="{{PROJECT}}"` (not `{{PROJECT}}_bt_node`).
    BTExecController, TreeROSPublisher, and BBBridge all use `~` (private namespace);
    ROS resolves `~bt/pause` → `/{node-name}/bt/pause`. Wrong name = services unreachable.
+   That runtime resolution is exactly why the first two are shared modules rather than
+   per-project copies — the launch file's `name=`, not a template substitution, is what
+   scopes them to a project.
 9. Composites: use ONLY the semantic factories from `xyz_bt_lib.core.composites` —
    `ReactiveSequence` / `CommittedSequence` / `PrioritySelector` / `CommittedSelector`
    and, for Parallel, `ParallelAll` (SuccessOnAll) / `ParallelAny` (SuccessOnOne).
@@ -88,6 +96,8 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
 - [ ] `_LOG_DIR = os.path.join(_PKG_PATH, 'log')` — never a project subdirectory; all projects share `xyz_behavior/log/`
 - [ ] `run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths, `BlackboardCurrentWriter`, `write_infra_manifest`. `_LOG_DIR` keeps only the symlinks `open_run_dir()` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`.
 - [ ] `_PKG_PATH` uses `rospkg.RosPack().get_path('xyz_behavior')`, not `__file__`-relative
+- [ ] a second `sys.path` root, `_RUN_LAB_PATH = rospkg.RosPack().get_path('xyz_run_lab')`, backs `from run_lab.run_context import open_run_dir`. The three observability imports (`debug_event_logger`, `bt_debug_visitor`, `blackboard_current_writer`) still come from `bt_observability` under `_PKG_PATH` — the split is deliberate: instrumentation is present in every experiment lane, the observability architecture is not
+- [ ] `infra/` contains exactly `infra_manifest.py` + `bb_ros_bridge.py`. `TreeROSPublisher` / `BTExecController` are imported from `bt_observability`, never copied into the project
 - [ ] `logger.close()` called on shutdown
 - [ ] `app/{{PROJECT}}_bt_node.py` has `if __name__ == '__main__': main()` at bottom
 - [ ] `tree/{{PROJECT}}_groot.xml` created alongside `tree/{{PROJECT}}_bt.py` — use `project_bt_groot.xml.tpl`; must mirror tree structure, composite types, node IDs, and CONFIG_DEFAULTS port values
@@ -157,10 +167,8 @@ Facts that live nowhere else, so they stay here:
   behaviours/
     actions.py           ← project-specific L2 nodes (if needed)
   infra/
-    infra_manifest.py
-    bb_ros_bridge.py
-    bt_exec_controller.py
-    tree_publisher.py
+    infra_manifest.py    ← from infra_manifest.py.tpl
+    bb_ros_bridge.py     ← from bb_ros_bridge.py.tpl
 log/                     ← shared runtime log dir (xyz_behavior/log/); all projects write here
   bb_current.json        ← current BB state mirror (latest tick only; not a history log)
 
@@ -169,6 +177,13 @@ launch/                  ← inside xyz_behavior/launch/, shared across all proj
   {{PROJECT}}.launch     ← behavior launch: perception nodes + BT node only; never includes bringup
   {{PROJECT}}_bringup.launch  ← ONLY when project needs non-default hardware (e.g. an event with no camera + avoids sensor_node)
 ```
+
+**`infra/` holds only the two project-specific modules.** `TreeROSPublisher` and
+`BTExecController` used to be copied in here as well; they are now shared modules in
+`xyz_behavior/bt_observability/` and are **not** generated — a scaffold imports them, it
+does not create them. Neither takes a project name, a topic or a node name, so a per-project
+copy was byte-identical every time except for what the copying lost. Do not re-add them as
+templates; there is nothing to substitute.
 
 Templates: `project.launch.tpl` → `launch/{{PROJECT}}.launch` (perception nodes + BT node; never includes bringup; TODO block offers Option A (colour detection) or Option B (YOLO detection via `YoloObjectDetectionAdapter`); uncomment the correct block when scaffolding) · `infra_manifest.py.tpl` → `infra/infra_manifest.py`
 

@@ -79,24 +79,23 @@ class {{CLASS_NAME}}(XyzInputAdapter):
     ]
     FACADE_CALLS = []
     CONFIG_DEFAULTS = {
-        'threshold': 0,             # example: sensor-level detection threshold
-        'center_x_offset': 0,      # example: camera center x offset (pixels)
-        # TODO: add all thresholds and calibration values here.
-        # These must match __init__ default args. No hard-coded constants in helpers.
+        # TODO: declare every threshold and calibration value this adapter uses.
+        # Each entry needs a matching __init__ arg stored on self._<name>; the
+        # classification helpers read those fields, never literals.
+        # A project passes its calibration in at construction time, e.g.
+        # ObjectDetectionAdapter(..., center_x_offset=66) — there is no
+        # xyz_bt_lib/config/ directory to read from.
     }
 
-    def __init__(self, lock: threading.Lock, logger=None, tick_id_getter=None,
-                 threshold: int = 0,
-                 center_x_offset: int = 0):
+    def __init__(self, lock: threading.Lock, logger=None, tick_id_getter=None):
         """
         Args:
             lock: Shared threading.Lock (same object as bt_node.lock).
             logger: DebugEventLogger-compatible object, or None.
             tick_id_getter: Callable returning current tick_id.
-            threshold: Sensor-level detection threshold.
-            center_x_offset: Camera center x offset (pixels).
 
-        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
+        TODO: add one keyword arg per CONFIG_DEFAULTS entry, with the same
+        default, and document it here. Store each on self._<name>.
         Classification helpers must use self._ fields, not raw literals.
         """
         super().__init__(
@@ -104,8 +103,6 @@ class {{CLASS_NAME}}(XyzInputAdapter):
             logger=logger,
             tick_id_getter=tick_id_getter,
         )
-        self._threshold = threshold
-        self._center_x_offset = center_x_offset
 
         # Live async state, written only by _callback under self._lock.
         {{BB_KEY_INITS}}
@@ -133,8 +130,8 @@ class {{CLASS_NAME}}(XyzInputAdapter):
         """Apply documented sensor-level rules/thresholds.
 
         No BT decisions or action strategy here.
-        Use self._ instance fields (self._threshold, self._center_x_offset, etc.),
-        not raw literals. Hard-coded thresholds are a conformance violation.
+        Use the self._ fields set from CONFIG_DEFAULTS, not raw literals.
+        Hard-coded thresholds are a conformance violation.
         """
         raise NotImplementedError("Fill in sensor-level classification")
 

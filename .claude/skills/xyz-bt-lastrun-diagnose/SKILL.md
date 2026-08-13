@@ -1,3 +1,8 @@
+---
+name: xyz-bt-lastrun-diagnose
+description: Diagnose a completed Behavior-Tree run from the full-session lastrun observability logs under xyz_behavior/log/runs/. Use for post-mortem questions — "why did it never grab the ball", "what happened during that run", "where did it go wrong" — especially when the relevant ticks fall outside ROSA's rolling 30-tick live window.
+---
+
 # Skill: `xyz-bt-lastrun-diagnose`
 
 Diagnose a **completed** Behavior-Tree run from the full-session *lastrun* observability

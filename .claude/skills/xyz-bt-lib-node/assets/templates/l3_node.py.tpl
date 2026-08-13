@@ -62,11 +62,13 @@ class {{CLASS_NAME}}(XyzL3ActionNode):
         # TODO: 'start_process', 'stop_process', ...
     ]
     CONFIG_DEFAULTS = {
-        'target': '',        # example: registry key of the program to control
-        'action': 'start',   # example: which operation to perform
-        # TODO: replace with this node's real orchestration params.
-        # These must match __init__ default args. No hard-coded literals in update().
-        # NOTE: gait/servo tuning knobs (speed, yaw_limit, head_pan_center, ...)
+        # target/action below are the REAL params of process orchestration (see
+        # L3_Process_Control), not invented examples — keep them if this node
+        # controls a registered program, and add any further orchestration
+        # params the same way: one __init__ arg each, stored on self._<name>.
+        'target': '',        # registry key of the program to control
+        'action': 'start',   # which operation to perform (see _ACTIONS)
+        # NOTE: motion tuning knobs (step magnitude, yaw limit, servo centre, …)
         # do NOT belong here — those are L2 concerns.
     }
 

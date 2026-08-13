@@ -17,6 +17,8 @@ import os
 import re
 import sys
 
+_HOOK = 'xyz_behavior_guard'
+
 _PATTERN = re.compile(r'xyz_behavior/(?!log/).+\.(py|launch|xml)$')
 
 _COMMENT_RE = re.compile(r'#[^\n]*')
@@ -233,6 +235,17 @@ _CHECK_MAP = [
 ]
 
 
+def _log(action, file_path, violations, data):
+    try:
+        import guard_log
+        if violations:
+            guard_log.log_violations(_HOOK, action, file_path, violations, data)
+        else:
+            guard_log.log_clean(_HOOK, file_path, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -263,7 +276,10 @@ def main() -> None:
         sys.exit(0)
 
     if not all_violations:
+        _log('pass', file_path, (), data)
         sys.exit(0)
+
+    _log('warned', file_path, all_violations, data)
 
     lines = "\n".join(f"  {v}" for v in all_violations)
     context = (
@@ -275,4 +291,5 @@ def main() -> None:
     sys.exit(0)
 
 
-main()
+if __name__ == '__main__':
+    main()

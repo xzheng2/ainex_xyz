@@ -19,6 +19,8 @@ import json
 import re
 import sys
 
+_HOOK = 'xyz_bt_tree_pre_guard'
+
 _TREE_PATTERN = re.compile(r'/tree/[^/]*_bt\.py$')
 
 # bare Sequence(/Selector(/Parallel( not preceded by an identifier char (so the
@@ -76,6 +78,19 @@ def _violations(content: str) -> list:
     return out
 
 
+def _log(action, file_path, violations, data):
+    """Record the event. Import is local and failure is swallowed: the block/allow
+    decision above must not depend on the log being writable."""
+    try:
+        import guard_log
+        if violations:
+            guard_log.log_violations(_HOOK, action, file_path, violations, data)
+        else:
+            guard_log.log_clean(_HOOK, file_path, data)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -97,7 +112,10 @@ def main() -> None:
 
     violations = _violations(content)
     if not violations:
+        _log('pass', file_path, (), data)
         sys.exit(0)
+
+    _log('blocked', file_path, violations, data)
 
     body = "\n".join(f"  - {v}" for v in violations)
     sys.stderr.write(
@@ -105,4 +123,5 @@ def main() -> None:
     sys.exit(2)
 
 
-main()
+if __name__ == '__main__':
+    main()

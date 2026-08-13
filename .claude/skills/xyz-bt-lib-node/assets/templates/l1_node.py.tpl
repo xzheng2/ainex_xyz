@@ -41,10 +41,11 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
     BB_WRITES = []
     FACADE_CALLS = []
     CONFIG_DEFAULTS = {
-        'expected_state': 'stand',      # example: expected robot state or label
-        'threshold': 0,                 # example: numeric threshold for condition
-        # TODO: add all judgement thresholds, expected states/labels, centres,
-        # tolerances here. These must match __init__ defaults.
+        # TODO: declare every judgement threshold, expected state/label, centre
+        # and tolerance this node uses. Each entry needs a matching __init__ arg
+        # stored on self._<name>; _evaluate() reads those fields, never literals.
+        # An empty dict is legitimate for a node that judges a BB value directly.
+        #
         # Do NOT add dwell/hysteresis knobs: L1 is a pure predicate. For
         # "condition stable for N ticks", wrap this node at the TREE layer in
         # xyz_bt_lib.core.latched_dwell.LatchedDwellDecorator.
@@ -53,24 +54,19 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
 
     # Param order: name first, then domain params, then logger, tick_id_getter.
     def __init__(self, name: str = {{DEFAULT_NAME}},
-                 expected_state: str = 'stand',
-                 threshold: int = 0,
                  logger=None, tick_id_getter=None):
         """
         Args:
             name: BT node name.
-            expected_state: Expected robot state or label for condition.
-            threshold: Numeric threshold for condition judgement.
             logger: DebugEventLogger-compatible object, or None.
             tick_id_getter: Callable returning current tick_id.
 
-        Every CONFIG_DEFAULTS entry must have a matching __init__ arg stored on self._.
+        TODO: add one keyword arg per CONFIG_DEFAULTS entry, BEFORE logger, with
+        the same default, and document it here. Store each on self._<name>.
         Runtime logic must use self._ fields, not raw literals.
         """
         super().__init__(name, logger=logger, tick_id_getter=tick_id_getter)
         self._bb = None
-        self._expected_state = expected_state
-        self._threshold = threshold
 
     def setup(self, **kwargs):
         super().setup(**kwargs)
@@ -91,8 +87,8 @@ class {{CLASS_NAME}}(XyzL1ConditionNode):
         - no ROS calls
         - no logger calls
 
-        Use self._ instance fields (self._threshold, self._expected_state, etc.),
-        not raw literals. Hard-coded literals are a conformance violation.
+        Use the self._ fields set from CONFIG_DEFAULTS, not raw literals.
+        Hard-coded literals are a conformance violation.
         """
         # TODO(REPLACE): compute the real judgement. Placeholder keeps the
         # unedited template syntactically complete and every name defined.

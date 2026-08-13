@@ -4,7 +4,7 @@
   <node pkg="ainex_example" type="color_detection_node.py"
         name="color_detection_node" output="screen"/>
        Option B — YOLO detection:
-  <node pkg="xyz_bt_lib" type="yolo_detection_node.py"
+  <node pkg="xyz_perception" type="yolo_detection_node.py"
         name="yolo_detection" output="screen">
     <param name="zmq_host" value="localhost"/>
     <param name="zmq_port" value="5551"/>
