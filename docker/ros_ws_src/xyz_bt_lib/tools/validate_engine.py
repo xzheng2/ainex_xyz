@@ -67,12 +67,14 @@ SKILL_VALIDATORS = (
 )
 
 #: SKILL.md files that make checkable claims about the facade contract. None of
-#: them restates the signatures (a copy in xyz-bt-lib-adapter did, drifted, and was
-#: deleted Aug 2026 still missing move_head's tilt_pos) — but they do state the
-#: abstract/concrete counts and a "removed from contract" list, and those drift
-#: just as silently.
+#: them restates the signatures — the copy in xyz-bt-lib-adapter that did was only
+#: actually deleted Aug 13 2026, having drifted to the point of missing move_head's
+#: tilt_pos and every go_step/turn_step override param. This list had excluded that
+#: file, so neither its counts nor its "removed from contract" list were ever checked;
+#: it is included now. Those two claims drift just as silently as signatures did.
 FACADE_CLAIM_SKILLS = (
     'xyz-bt-lib-node',
+    'xyz-bt-lib-adapter',
     'xyz-bt-facade-project',
 )
 
@@ -164,7 +166,8 @@ def all_py_files(root):
 #: How many checks library_sweep() must record. A sweep that silently stops
 #: happening is indistinguishable from a clean run in the report, so the count
 #: is asserted rather than trusted.
-EXPECTED_SWEEPS = 4
+#: 4 -> 5 when path_table_agrees() joined the sweep (the xyz_paths drift check).
+EXPECTED_SWEEPS = 5
 
 
 def _call_name(call):
@@ -210,6 +213,54 @@ def hooks_import_safe(hooks_dir):
         record('FAIL', label, '\n'.join(offenders))
     else:
         record('PASS', label, '{} hooks clean'.format(count))
+
+
+def path_table_agrees(hooks_dir):
+    """xyz_paths.py's copies of the guards' path patterns must be byte-identical.
+
+    xyz_paths deliberately COPIES rather than imports (a guard that imports another
+    guard fails open together with it). Two copies of a regex are two answers to
+    "is this a node?" the moment one is edited -- and the coverage guard would then
+    report UNKNOWN for files a content guard is in fact checking, or worse, stay
+    silent for files nothing checks. This assertion is the only thing preventing
+    that; deleting it silently converts xyz_paths from a map into a liability.
+    """
+    label = 'sweep: xyz_paths mirrors guard patterns'
+    try:
+        import xyz_paths
+        import xyz_bt_lib_guard as libguard
+        import xyz_behavior_guard as behguard
+        import xyz_bt_tree_pre_guard as treeguard
+    except Exception as exc:                      # noqa: BLE001
+        record('FAIL', label, 'cannot import: {}: {}'.format(type(exc).__name__, exc))
+        return
+
+    checks = (
+        ('_NODE_PATTERN',     xyz_paths._NODE_PATTERN,     libguard._NODE_PATTERN),
+        ('_ADAPTER_PATTERN',  xyz_paths._ADAPTER_PATTERN,  libguard._ADAPTER_PATTERN),
+        ('_BB_KEYS_PATTERN',  xyz_paths._BB_KEYS_PATTERN,  libguard._BB_KEYS_PATTERN),
+        ('_TREE_PATTERN',     xyz_paths._TREE_PATTERN,     treeguard._TREE_PATTERN),
+        ('_BEHAVIOR_PATTERN', xyz_paths._BEHAVIOR_PATTERN, behguard._PATTERN),
+    )
+    problems = []
+    for name, mine, theirs in checks:
+        if mine.pattern != theirs.pattern:
+            problems.append(
+                '{}: xyz_paths has {!r}, the guard has {!r}'
+                .format(name, mine.pattern, theirs.pattern))
+
+    real_prefixes = tuple(p for p, _ in behguard._CHECK_MAP)
+    if xyz_paths._CHECK_PREFIX_STRINGS != real_prefixes:
+        problems.append(
+            '_CHECK_MAP prefixes: xyz_paths has {}, xyz_behavior_guard has {}'
+            .format(list(xyz_paths._CHECK_PREFIX_STRINGS), list(real_prefixes)))
+
+    if problems:
+        record('FAIL', label, '\n'.join(problems))
+    else:
+        record('PASS', label,
+               '{} patterns + {} _CHECK_MAP prefixes identical'
+               .format(len(checks), len(real_prefixes)))
 
 
 def library_sweep(hooks_dir):
@@ -267,6 +318,8 @@ def library_sweep(hooks_dir):
                    '\n'.join(offenders))
         else:
             record('PASS', label, '{} files clean'.format(count))
+
+    path_table_agrees(hooks_dir)
 
     sweep('sweep: node conformance (check_node)', node_files,
           lambda c, p: check_node(c, p))

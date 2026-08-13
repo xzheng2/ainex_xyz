@@ -93,6 +93,9 @@ _RULES_BY_HOOK = {
     'xyz_bt_l1_running_guard': (
         (re.compile(r'L1 condition nodes are PURE PREDICATES'), 'l1.status_running'),
     ),
+    'xyz_coverage_guard': (
+        (re.compile(r'^Unclassified'),                          'coverage.unclassified'),
+    ),
     'xyz_behavior_guard': (
         # check_runtime_io
         (re.compile(r'BuzzerState imported from ainex_interfaces'), 'behavior.runtime_io.wrong_import'),
@@ -214,9 +217,15 @@ def log_violations(hook, action, file_path, violations, data=None, collapse=Fals
         log_event(hook, action, file_path, message=v, **ctx)
 
 
-def log_clean(hook, file_path, data=None):
-    """Log that this guard's pattern matched and the content was clean."""
-    log_event(hook, 'pass', file_path, rule=None, message='', **_context(data))
+def log_clean(hook, file_path, data=None, rule=None):
+    """Log that this guard's pattern matched and the content was clean.
+
+    `rule` is optional and defaults to the historical None. xyz_coverage_guard passes
+    the category it resolved ('coverage.build', 'coverage.lib.node', ...) so a pass can
+    be attributed: a coverage matrix needs to show "build: claimed, 0 rules", and an
+    unlabelled pass is indistinguishable from every other pass.
+    """
+    log_event(hook, 'pass', file_path, rule=rule, message='', **_context(data))
 
 
 def log_reminder(hook, file_path, rule, data=None):

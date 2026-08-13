@@ -16,7 +16,18 @@ import sys
 
 _HOOK = 'xyz_bt_l1_running_guard'
 
-_L1_PATTERN   = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_\w+/(?!__init__\.py$)[^/]+\.py$')
+#: The project-level behaviours file. The scaffold defines it as L2 territory
+#: (actions.py.tpl: "Must inherit XyzL2ActionNode"), and an L2 node returning
+#: RUNNING is correct — 8 of the library's 15 L2 nodes do. But nothing stops an
+#: L1 condition being written here too, and that one would otherwise be checked
+#: by nobody. So the file is in scope while only its L1_* classes are scanned:
+#: scanning it whole would fire this guard on correct L2 code, and a guard that
+#: cries wolf on the canonical content of a file gets ignored on the day it is right.
+_PROJECT_SRC     = r'xyz_behavior/.+/behaviours/actions\.py$'
+_PROJECT_PATTERN = re.compile(_PROJECT_SRC)
+
+_L1_PATTERN   = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_\w+/(?!__init__\.py$)[^/]+\.py$'
+                           r'|' + _PROJECT_SRC)
 _BASE_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/core/base_node\.py$')
 
 _STRING_RE  = re.compile(r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"[^"\n]*"|\'[^\'\n]*\')')
@@ -42,6 +53,43 @@ def _l1_class_slice(src: str) -> str:
     return rest[:nxt.start()] if nxt else rest
 
 
+#: What makes a class L1 is its declared LEVEL, not its name. The other guards agree:
+#: both xyz_bt_lib_guard and xyz_behavior_guard locate the tier with `^\s{4}LEVEL\s*=`,
+#: so this matches the same declaration and only narrows it to the L1 value. Slicing by
+#: class name instead would skip a node called CheckBallVisible(XyzL1ConditionNode) --
+#: correctly declared LEVEL = 'L1', wrong prefix -- which is precisely the sloppily-named
+#: node most likely to have an L2 dwell smuggled into it.
+_LEVEL_L1_RE = re.compile(r'^\s{4}LEVEL\s*=\s*[\'"]?L?1[\'"]?\s*$', re.MULTILINE)
+
+
+def _l1_classes(src: str) -> str:
+    """Return the bodies of top-level classes declaring LEVEL = 'L1', concatenated.
+
+    Applied to a file that mixes tiers: a project actions.py holds L2 nodes by
+    design, so everything outside an L1-declared class is out of jurisdiction.
+    Each block runs from its `^class` to the next one at column 0.
+    """
+    starts = [m.start() for m in re.finditer(r'^class\s+\w+', src, re.MULTILINE)]
+    out = []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(src)
+        block = src[start:end]
+        if _LEVEL_L1_RE.search(block):
+            out.append(block)
+    return '\n'.join(out)
+
+
+def _l1_scope(src: str, file_path: str) -> str:
+    """The slice of `src` this guard is entitled to judge."""
+    if _BASE_PATTERN.search(file_path):
+        # L2/L3 base classes may legitimately reference RUNNING.
+        return _l1_class_slice(src)
+    if _PROJECT_PATTERN.search(file_path):
+        return _l1_classes(src)
+    # A file under behaviours/L1_*/ is L1 all the way down.
+    return src
+
+
 def applies_to(file_path: str) -> bool:
     """True if `file_path` is L1 territory this guard is responsible for."""
     return bool(_L1_PATTERN.search(file_path) or _BASE_PATTERN.search(file_path))
@@ -55,10 +103,7 @@ def check_l1_running(content: str, file_path: str = '') -> list:
     so a human edit is otherwise unchecked. tools/validate_engine.py sweeps the
     whole library through this.
     """
-    # For base_node.py, only the XyzL1ConditionNode class body is L1 territory;
-    # L2/L3 base classes may legitimately reference RUNNING.
-    scan = (_l1_class_slice(content)
-            if _BASE_PATTERN.search(file_path) else content)
+    scan = _l1_scope(content, file_path)
     if not _RUNNING_RE.search(_strip_noise(scan)):
         return []
     return [
