@@ -5,11 +5,10 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   sensor_msgs
-  ainex_interfaces
-  ainex_example)
+  ainex_interfaces)
 
 catkin_package(
-  CATKIN_DEPENDS rospy std_msgs sensor_msgs ainex_interfaces ainex_example)
+  CATKIN_DEPENDS rospy std_msgs sensor_msgs ainex_interfaces)
 
 # Per-project entry nodes are added here as projects are (re)built, e.g.:
 # catkin_install_python(PROGRAMS

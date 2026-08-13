@@ -24,7 +24,6 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>ainex_interfaces</exec_depend>
-  <exec_depend>ainex_example</exec_depend>
   <exec_depend>ainex_kinematics</exec_depend>
   <exec_depend>ros_robot_controller</exec_depend>
   <exec_depend>message_runtime</exec_depend>

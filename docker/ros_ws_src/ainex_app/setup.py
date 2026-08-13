@@ -3,9 +3,6 @@
 from distutils.core import setup
 from catkin_pkg.python_setup import generate_distutils_setup
 
-d = generate_distutils_setup(
-    packages=['ainex_app'],
-    package_dir={'': 'src'},
-)
-
-setup(**d)
+# No Python package under src/ any more — button_node.py is a standalone script
+# installed by CMakeLists.txt, so there is nothing to declare here.
+setup(**generate_distutils_setup())

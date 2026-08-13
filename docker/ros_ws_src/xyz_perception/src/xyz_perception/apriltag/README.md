@@ -1,7 +1,7 @@
 # xyz_perception/apriltag
 
 AprilTag detection node + configuration.
-Independent of `ainex_example` — all settings live here.
+Self-contained — all settings live here.
 
 ## What it does
 
