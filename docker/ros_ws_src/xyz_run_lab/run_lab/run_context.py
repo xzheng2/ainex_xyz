@@ -119,6 +119,28 @@ _CALIBRATION_FILES = (
     'ainex_driver/ainex_kinematics/config/init_pose.yaml',
 )
 
+#: Directories skipped by tree_digest(): build artifacts and VCS metadata, neither of
+#: which is part of what a lane ships. __pycache__ in particular is written by whichever
+#: Python happens to import first, so hashing it would make the fingerprint depend on
+#: run order rather than on content.
+_DIGEST_SKIP_DIRS = frozenset(('__pycache__', '.git'))
+
+#: The trees that must be byte-identical across all four lanes, each fingerprinted into
+#: every run. Two are packages the lanes share (xyz_run_lab is the measuring apparatus
+#: itself; xyz_perception feeds every tree), and two are the agent's own configuration --
+#: the variable actually under study, so a silent edit to it during a campaign would
+#: invalidate the comparison it is meant to support.
+#:
+#: ActionGroups is deliberately NOT here. The motion assets are hand-tuned and expected
+#: to change during a campaign; fingerprinting them would flag ordinary work as drift,
+#: and a constant that is not actually constant teaches everyone to ignore the field.
+_CONSTANT_TREES = (
+    ('xyz_run_lab',    os.path.join(_WS_SRC, 'xyz_run_lab')),
+    ('xyz_perception', os.path.join(_WS_SRC, 'xyz_perception')),
+    ('claude_hooks',   os.path.expanduser('~/.claude/hooks')),
+    ('claude_skills',  os.path.expanduser('~/.claude/skills')),
+)
+
 BODY_ID_CACHE = '.body_id'
 
 #: Experiment arm ("swim lane"). Four SD cards give the coding agent four different
@@ -511,6 +533,55 @@ def calibration_digest(body_cfg=None):
     return digest
 
 
+def tree_digest(root):
+    """One hexdigest over every file under `root`, or None if `root` does not exist.
+
+    Order is forced (`dirnames.sort()`, `sorted(filenames)`) because os.walk yields
+    directory entries in filesystem order, which differs between two cards holding
+    identical bytes -- an unordered walk would produce a digest that changes for no
+    reason, which is worse than no digest at all.
+
+    Each file contributes its relative path AND its content hash, so renaming a file
+    changes the tree digest even though no byte of content moved.
+    """
+    if not os.path.isdir(root):
+        return None
+    h = hashlib.sha256()
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        dirnames[:] = [d for d in dirnames if d not in _DIGEST_SKIP_DIRS]
+        for name in sorted(filenames):
+            if name.endswith('.pyc'):
+                continue
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, root).replace(os.sep, '/')
+            content = sha256(full)
+            # An unreadable file still counts as present: hashing a marker rather than
+            # skipping it keeps a file that loses its read permission from looking
+            # identical to a file that was deleted.
+            h.update(rel.encode('utf-8') + b'\0'
+                     + (content.encode('ascii') if content else b'<unreadable>'))
+    return h.hexdigest()
+
+
+def constants_digest():
+    """Fingerprint of everything that is supposed to be IDENTICAL across the four lanes.
+
+    The experiment only compares lanes if the instrument is the same in all of them.
+    These five trees are the instrument: two packages plus the hand-tuned motion assets
+    that the robot replays, and the agent's own hooks and skills. Recording their
+    digests does not prevent an edit -- it makes one visible afterwards, in the run's own
+    metadata, which is the only check that still works once the data is in the results
+    repository and the working tree has moved on.
+
+    The two `.claude/` entries resolve under the invoking user's home, so inside the
+    `ainex` container (home /home/ubuntu) they simply do not exist and come back None.
+    That is expected, not an error: a run started in the container legitimately cannot
+    see the host's agent configuration.
+    """
+    return {name: tree_digest(path) for name, path in _CONSTANT_TREES}
+
+
 def body_config_path(body_id):
     return os.path.join(_PKG_DIR, 'config', 'bodies', body_id + '.yaml')
 
@@ -529,6 +600,11 @@ def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note='',
     # are purely additive and no existing field changed meaning. Nor is there anything to
     # tell apart -- not one /2 run had been published when they landed, so a "/2 without
     # study/lane" does not exist in any results repo.
+    #
+    # `constants_sha256` was added the same way and for the same reason: it is a new key
+    # that no existing field's meaning depends on. Unlike study/lane, /2 runs WITHOUT it
+    # do exist, so a reader must treat a missing key as "not recorded" -- which is what
+    # absence already means, and is why this still does not need a version.
     meta = {
         'schema':      'ainex.run_meta/2',
         'run_id':      os.path.basename(run_dir.rstrip(os.sep)),
@@ -542,6 +618,7 @@ def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note='',
         'note':        note,
         'git':         code_provenance(),
         'calibration_sha256': calibration_digest(body_config_path(body_id)),
+        'constants_sha256':   constants_digest(),
     }
     path = os.path.join(run_dir, 'run_meta.json')
     with open(path, 'w', encoding='utf-8') as fh:
