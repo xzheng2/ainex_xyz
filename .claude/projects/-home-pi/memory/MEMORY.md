@@ -2,7 +2,7 @@
 
 > **Package renamed Aug 8 2026**: `xyz_bt_edu` → `xyz_bt_lib` (dir, python module, imports, launch refs, hooks `xyz_bt_lib_guard.py`/`xyz_bt_lib_pre_guard.py`, skills `/xyz-bt-lib-node` + `/xyz-bt-lib-adapter`). Older entries below saying `xyz_bt_edu`/`ainex_bt_edu` refer to the same package pre-rename; topic file `ainex_bt_edu.md` removed Aug 9 2026 (was historical; content fully superseded by xyz_bt_lib docstrings, see [[docstring-is-the-spec]]).
 
-> **Competition events WIPED Aug 8 2026** for clean agent rebuild: all `xyz_behavior` project dirs, event launch files, hurocup2025 legacy scripts, event memories/docs deleted; git history squashed to a single clean-baseline commit. **When rebuilding events, do NOT consult old designs, the backup bundle, or any git history** — rebuild from the `xyz_bt_lib` framework only. Kept: xyz_behavior skeleton, bt_observability, ActionGroups motions (hand-tuned assets), hurocup2025/scripts/tools calibration utilities.
+> **Competition events WIPED Aug 8 2026** for clean agent rebuild: all `xyz_behavior` project dirs, event launch files, hurocup2025 legacy scripts, event memories/docs deleted; git history squashed to a single clean-baseline commit. **When rebuilding events, do NOT consult old designs, the backup bundle, or any git history** — rebuild from the `xyz_bt_lib` framework only. (The bundle is `/home/pi/ainex_xyz_pre_reset.bundle`, 29 MB, verified complete history at head `1e2d146` — named here so it is recognised and left alone, not so it is opened. Deleted project code also survives in `~/.local/share/Trash/files/{basketball02,xyz-bt-project}/`, same rule.) Kept: xyz_behavior skeleton, bt_observability, ActionGroups motions (hand-tuned assets), hurocup2025/scripts/tools calibration utilities.
 
 ## Working preferences
 
@@ -14,7 +14,7 @@
 
 ## Projects
 
-- [Ablation experiment layout](ablation-experiment-layout.md) — results live in a SECOND repo `/home/pi/experiments/ainex_xyz_result`; body_id = WiFi hotspot SSID; per-run log dirs behind symlinks
+- [Ablation experiment layout](ablation-experiment-layout.md) — results live in a SECOND repo `/home/pi/experiments/ainex_xyz_result`, partitioned by body_id **AND study AND lane** (`exp1`/`exp2` × `a`–`d`); four lanes share one robot; parallel session-transcript pipeline for agent process data
 - [Camera View Banding](camera-view-banding.md) — servo-24 driven upper/lower 640x640 gemini_color via gemini305_view_bridge.py + ZMQ servo state on :5555
 - [Web Data Viewer](web-data-viewer.md) — /home/pi/ros_launcher/ browser dashboard on :8090 (Launch control + /viewer/ data viewer over rosbridge:9090); 8081/web_data_viewer retired & folded in
 

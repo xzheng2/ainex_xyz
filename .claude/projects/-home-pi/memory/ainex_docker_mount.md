@@ -72,6 +72,25 @@ docker run \
 Note: `DISPLAY=:1` because the desktop is Wayland/Wayfire with XWayland on `:1` (not `:0`).
 Note: `LIBGL_ALWAYS_SOFTWARE=1` because the container's Mesa is too old to support the Pi 5's v3d GPU driver.
 
+### Required post-create step: ActionGroups symlink (Aug 12 2026)
+
+The controller GUI resolves its action directory from its own script location
+(`main.py` `self.path`, `action_group_controller.py` `os.path.realpath(__file__)`), so it
+always writes to `software/ainex_controller/ActionGroups` — which is **not** bind-mounted
+and **not** in git. `MotionManager`'s default `action_path` now points at the tracked
+`ros_ws/src/ActionGroups` instead, so the GUI directory must be redirected to the same
+place or GUI-authored actions become invisible to every ROS node again:
+
+```bash
+docker exec -u ubuntu ainex bash -lc '
+  cd /home/ubuntu/software/ainex_controller
+  [ -L ActionGroups ] || mv ActionGroups ActionGroups.preunify
+  ln -sfn /home/ubuntu/ros_ws/src/ActionGroups ActionGroups'
+```
+
+The symlink lives in the writable layer, so **redo it on every recreation** (until a newer
+`docker commit` bakes it in).
+
 ## software/lab_tool bind mount (Jun 30 2026)
 
 `/home/ubuntu/software/lab_tool` is now bind-mounted from host
@@ -103,7 +122,16 @@ docker exec ainex apt-get install -y python3-pygraphviz python3-termcolor
 ```
 **Diagnostic gotcha:** `docker exec ainex …` runs as **root**, which does NOT see
 ubuntu's `~/.local` user-site pip packages (zmq, scipy, py_trees, …). Always check
-robot-runtime deps with `docker exec -u ubuntu ainex …`. After any future
+robot-runtime deps with `docker exec -u ubuntu ainex …`.
+
+**Corollary — never `catkin build` as root.** A root-run build leaves root-owned files
+in `build/`/`devel/`, and the next build as `ubuntu` dies with a misleading
+`atomic_configure_file.cmake … cmake.lock creation failed (check permissions)`.
+Found Aug 12 2026: 881 root-owned artifacts (from an Aug 11 root build) blocked
+`ainex_peripherals` and abandoned 13 packages. Fix — artifacts are all regenerable:
+```bash
+docker exec -u root ainex chown -R ubuntu:ubuntu /home/ubuntu/ros_ws/{build,devel,logs}
+``` After any future
 significant in-container change, `docker commit ainex ainex-backup:<date>` and bump
 the recreation tag so it isn't lost.
 

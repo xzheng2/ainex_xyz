@@ -3,9 +3,13 @@
 **Host**: Raspberry Pi 5, Linux 6.12 rpi-2712, user `pi`, home `/home/pi`, shell `zsh`
 
 ### ROS1 Container (`ainex`)
-**Image**: `ainex-backup:20260630`, user `ubuntu`, home `/home/ubuntu`
+**Image**: recreate from `ainex-backup:20260630` (the container currently running may be on an
+older tag — check with `docker ps`), user `ubuntu`, home `/home/ubuntu`
 
-**User**: robot runs as `ubuntu` (pip `--user` pkgs — py_trees, zmq, scipy — live in `/home/ubuntu/.local`); `docker exec ainex` defaults to **root** which can't see them — use `docker exec -u ubuntu ainex` to check runtime deps.
+**User**: robot runs as `ubuntu` (pip `--user` pkgs — py_trees **2.1.6**, zmq, scipy — live in
+`/home/ubuntu/.local`; py_trees is pinned via pip, not apt, and `rqt_py_trees` carries a local
+patch for it — see `docker/ros_ws_src/VENDORED.md`); `docker exec ainex` defaults to **root**
+which can't see them — use `docker exec -u ubuntu ainex` to check runtime deps.
 
 **Bind mounts (host → container)**:
 - `/home/pi/docker/ros_ws_src` → `/home/ubuntu/ros_ws/src` (ROS1 workspace source)
@@ -25,125 +29,42 @@
 - Never assume a Python package is missing until verified inside the container:
   `docker exec ainex python3 -c "import <module>"`
 - **Never execute `roslaunch` or `rosrun` commands** (directly or via `docker exec`) to run the robot. Instead, show the command and ask the user to run it themselves. Example: _"Run this to start the node:"_ followed by the command in a code block.
+- **Change the persistent file, not the invocation.** A configuration change (detect colour,
+  shape, area threshold, gait tuning) belongs in the `.launch` default, the YAML config or the
+  Python constant that owns it — not in a command-line override. One-off args are for a
+  deliberately temporary run, and only when the user says so.
 
-## Learner Scaffolding
+## Architecture
 
-Users of `xyz_bt_lib`, `xyz_behavior`, and ROSA may be beginners with no prior BT or ROS
-knowledge. When helping these users:
+Four packages under `docker/ros_ws_src/`:
 
-- Assume no BT or ROS knowledge unless the user demonstrates it
-- **BT concepts are the default priority** — always scaffold BT first
-- **ROS concepts only when triggered**: explain ROS communication, topics, input adapters,
-  or message payloads only when the user explicitly mentions ROS comm, input from a ROS node,
-  output/publish, or payload — not for general BT questions
-- Introduce concepts as they arise naturally — do not front-load everything
-- **Prefer persistent file edits over one-time args**: when        
-  suggesting a configuration change (e.g. detect colour, shape, area threshold), 
-  edit the relevant file (`.launch` default, YAML config, Python constant) rather than passing command-line overrides. 
-  One-time args are only appropriate when the user explicitly wants a temporary/test run.      
-- Calibrate depth to the active project (see detection table below)
+- `xyz_bt_lib/` — portable BT library, no robot-specific code. `src/xyz_bt_lib/` holds
+  `core/` (node/adapter/facade bases, composite factories, `latched_dwell` + `hysteresis` gates),
+  `behaviours/L1_perception|L2_locomotion|L3_system/`, `adapters/` and `blackboard/`.
+- `xyz_perception/` — standalone detection / nav-planning nodes (apriltag / color /
+  depth_nav / yolo) plus `DepthNavState.msg` and their launch + config.
+- `xyz_run_lab/` — run bookkeeping: `run_lab/run_context.py` (run identity, per-run log
+  directories, `run_meta.json` provenance) and `run_lab/run_metrics.py` (metric reduction),
+  plus `config/bodies/` (per-robot calibration).
+- `xyz_behavior/` — competition projects, plus the shared `launch/`, `log/`,
+  `bt_observability/` and `tools/` they all use.
 
-### Active project detection
+**Why four and not two.** Every package must be shippable without its former host.
+Dependencies therefore run one way only: `xyz_bt_lib → xyz_perception`,
+`xyz_behavior → {xyz_bt_lib, xyz_perception, xyz_run_lab}`. Nothing points back.
 
-| Files / names in conversation | User is working on |
-|---|---|
-| `xyz_bt_lib`, `L1_*`, `L2_*`, `XyzBTNode`, `input_adapters` | Shared BT library (educational) |
-| `xyz_behavior`, `RuntimeFacade`, `_RuntimeIO` | Competition behavior project |
-| ROSA, `bt_debug_*.jsonl`, `bb_current.json`, `bt_observability` | Runtime debug / observability |
+`xyz_perception` nodes are **separate ROS processes**, launched alongside the BT node.
+Inside the BT process itself there is exactly one ROS ingress and one egress:
 
-### Behavior tree concepts
+    ROS topic → adapters/ → Blackboard → L1 (pure predicate) / L2 (action)
+              → RuntimeFacade → _RuntimeIO → ROS topic → robot
 
-A behavior tree is ticked from the root downward on every cycle. Each node
-returns one of three statuses: SUCCESS, FAILURE, or RUNNING.
+`adapters/` holds the only `rospy.Subscriber` in the tree process; `_RuntimeIO` is the only
+publisher. L1 and L2 nodes never touch ROS directly — that decoupling is what lets the tree
+run against `core/stub_facade.py` with no robot attached.
 
-**Sequence** (→) — "do each step in order; stop if any step fails"
-All children must succeed for the Sequence to succeed.
-Think of it as a recipe: chop → mix → bake. If chopping fails, don't bake.
-
-**Selector** (also called Fallback) (?) — "try each option until one works"
-Succeeds as soon as one child succeeds; only moves to the next child on failure.
-Think of it as a backup plan: try door → try window → try alarm.
-
-**Parallel** — ticks all children on every tick simultaneously.
-Succeeds or fails based on a policy (e.g. succeed when all succeed, or when one succeeds).
-Think of it as doing multiple things at the same time and deciding when the group is done.
-
-**Condition leaf (L1 node)** — asks a yes/no question about the world.
-Reads from the Blackboard; returns SUCCESS or FAILURE instantly; **never RUNNING**,
-no side effects, no cross-tick state (a pure predicate).
-Example: "Is the target visible in the camera frame?"
-Stability confirmation ("condition held for N ticks") is NOT done inside the L1
-node — wrap the condition at the tree layer in `LatchedDwellDecorator`
-(`xyz_bt_lib.core.latched_dwell`), which stores its counter in the Blackboard so
-it survives a reactive parent's per-tick re-entry.
-
-**Action leaf (L2 node)** — does something that takes time.
-May return RUNNING across many ticks while the work is in progress.
-Example: "Walk toward the target until close enough."
-
-**Blackboard (BB)** — a shared in-memory key-value store inside the BT process.
-Input adapters write sensor data here. L1 nodes read from here. Not ROS.
-
-Robot example — a generic "approach target and act" tree:
-```
-Selector('MainSel')             ← try each child until one succeeds
-  IsTaskDone()                  ← option 1: already done? → exit immediately
-  Sequence('ApproachAct')       ← option 2: approach + act sequence
-    L1_IsTargetDetected         ←   step 1: target in frame? (gate condition)
-    L2_WalkToTarget             ←   step 2: walk toward target (RUNNING while walking)
-    LatchedDwell(               ←   step 3: confirm positioned for 5 ticks —
-      L1_IsTargetPositioned, 5)      the dwell decorator wraps the pure L1 condition
-                                     (L1 itself stays SUCCESS/FAILURE only)
-    L2_RunAction('Act')         ←   step 4: execute the task motion
-    L2_RunAction('Stand')       ←   step 5: recover to standing
-    MarkTaskDone()              ←   step 6: set done flag → Sequence SUCCESS
-  L2_PauseAfterTicks('Stop')    ← option 3: no target → stop gait, keep looping
-```
-Reading: MainSel checks option 1 first. If the task isn't done yet, tries option 2.
-Inside option 2, if step 1 fails (target not visible), the whole Sequence fails
-and MainSel falls through to option 3 (stop gait). When the target appears, option 2
-runs all steps in order.
-
-### ROS basics (explain only when user mentions ROS comm, topics, input/output, or payload)
-
-A ROS **node** is a running program. Nodes communicate via **topics** — named
-message channels using publish/subscribe. Any node can publish; any node can subscribe.
-
-A **launch file** starts multiple nodes together with their parameters.
-
-How ROS connects to the BT in this project:
-```
-Hardware/sensors → ROS topic → Input adapter (xyz_bt_lib/input_adapters/)
-  → Blackboard → L1 node → L2 node → RuntimeFacade → _RuntimeIO → ROS topic → Robot
-```
-Key insight: BT nodes (L1, L2) never touch ROS directly. Input adapter is the sole
-ROS subscriber feeding the tree; `_RuntimeIO` is the sole publisher sending commands out.
-
-### Project structure
-
-```
-xyz_bt_lib/                    ← portable shared library (no robot-specific code)
-  behaviours/L1_*/             ← condition nodes: read BB → SUCCESS/FAILURE
-  behaviours/L2_*/             ← action nodes: call facade → SUCCESS/FAILURE/RUNNING
-  input_adapters/              ← ROS topic → BB fact writers
-  blackboard_keys.py           ← all BB key constants (single source of truth)
-
-xyz_behavior/<proj>/           ← robot-specific competition project
-  tree/<proj>_bt.py            ← BT wiring only (Selector/Sequence + node instances)
-  app/<proj>_bt_node.py        ← ROS node entry point (starts tree + adapters)
-  runtime/runtime_facade.py    ← abstract interface L2 nodes call
-  runtime/_RuntimeIO.py        ← sole ROS publisher (all ROS egress here)
-  behaviours/                  ← project-specific L2 nodes (calls facade)
-  log/                         ← runtime logs: bt_debug_*.jsonl, bb_current.json
-```
-
-Why the facade exists: L2 nodes call abstract methods (`go_step()`, `run_action()`, etc.).
-Only `_RuntimeIO` publishes to ROS — tree logic is decoupled from the robot's ROS interface.
-
-### Implementation skills
-
-When creating or extending BT nodes in `xyz_bt_lib`, use the `xyz-bt-lib-node` skill (input adapters: `xyz-bt-lib-adapter`).
-When scaffolding a new `xyz_behavior` project, use the `xyz-bt-facade-project` skill.
+File-level detail is deliberately not restated here. The component-layer authority is
+`xyz_bt_lib/src/xyz_bt_lib/README.md` plus each module's docstring ("docstring 即规格").
 
 ## Git workflow
 
@@ -151,12 +72,8 @@ When scaffolding a new `xyz_behavior` project, use the `xyz-bt-facade-project` s
   by hardcoded path in both directions (`xyz_bt_lib/tools/validate_engine.py` → `.claude/skills`,
   `.claude/hooks/*` → `xyz_bt_lib/src/...` path patterns). Splitting it breaks both sides at once —
   never propose it.
-- **Trunk-based**: commit straight to `master`. No Git Flow, no release branches. A short-lived
-  branch is only for multi-session risky work, or to freeze `master` while an experiment campaign
-  runs; delete it after merging.
-- **Experiment baselines are annotated tags, not branches** (`abl-<YYYYMMDD>-<campaign>`).
-- **`package.xml` version numbers are decorative** — nothing reads them, there is no CI or release
-  process. Don't "fix" them or start bumping them.
+- **Trunk-based**: commit straight to `master`. No Git Flow, no release branches.
 
-Operational detail (the pre-push gate, tag commands, staging checklist) is injected by
-`.claude/hooks/git_workflow_guard.py` when a git command actually runs — it is not repeated here.
+Everything operational — the pre-push gate, branch/tag conventions, `package.xml` versioning,
+the staging checklist — is injected by `.claude/hooks/git_workflow_guard.py` when a git command
+actually runs, and is not repeated here.
