@@ -79,7 +79,7 @@ Clamped to **[280, 550]** in `ainex_kinematics/config/servo_controller.yaml` (+`
 ## Git Repo
 - **Workflow rules live in `CLAUDE.md` § Git workflow** (invariants: monorepo must stay one, trunk-based, tags not branches, package.xml versions decorative) + `.claude/hooks/git_workflow_guard.py` (operational detail, injected on git commands; blocks `git push --no-verify`)
 - **`core.hooksPath = .githooks`** (relative, tracked) → `.githooks/pre-push` runs `validate_engine.py` before every push, degrading to `--skip-container` if the ainex container is down. A fresh clone must run `git config core.hooksPath .githooks` once
-- Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools)
+- Build system: **`catkin build`** (NOT `catkin_make` — workspace uses catkin_tools); [clean rebuild needs ROS sourced explicitly](catkin-build-needs-ros-sourced.md) — `bash -lc` gives no ROS env
 - Single repo at `/home/pi` (master branch) tracking ROS source + Claude config
 - **GitHub remote**: `origin` → `https://github.com/xzheng2/ainex_xyz.git` — **PUBLIC** (verified via API Aug 11 2026; this entry previously said "private" and was wrong). Commits authored `pi <pi@ainex>` from **local** config
 - **Second repo**: `https://github.com/xzheng2/ainex_xyz_result.git` (public, `master`) for ablation results — working copy `/home/pi/experiments/ainex_xyz_result`, see [Ablation experiment layout](ablation-experiment-layout.md)
