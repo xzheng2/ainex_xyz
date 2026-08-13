@@ -1,0 +1,18 @@
+#!/bin/bash
+# NOTE: udev lives on the HOST (/home/pi), not in the `ainex` container -- the container
+# has no udev daemon, so running this inside it copies files nowhere useful and the
+# service restart below silently does nothing. But `rospack find` only resolves inside
+# the container, so as written this script cannot work anywhere. The rules are in fact
+# installed by hand into the host's /etc/udev/rules.d/.
+# To revive it: drop the `rospack find` and hardcode the host path
+# /home/pi/docker/ros_ws_src/ainex_peripherals/scripts, then run it on the host.
+# Also note it copies scripts/*.rules -- now just 99-serial.rules, since the obsolete
+# 99-usb-cam.rules was archived here alongside this script. That is the intended set.
+
+sudo cp `rospack find ainex_peripherals`/scripts/*.rules  /etc/udev/rules.d
+echo " "
+echo "Restarting udev"
+echo ""
+sudo service udev reload
+sudo service udev restart
+echo "finish "

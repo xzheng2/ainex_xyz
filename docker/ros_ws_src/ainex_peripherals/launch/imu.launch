@@ -16,6 +16,8 @@
         <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
+        <!-- tf_broadcaster_imu.py lives in scripts/unused/ (debug-only; roslaunch finds
+             it by recursive search, so `type` needs no path). See that dir's README. -->
         <node name="tf_broadcaster_imu" pkg="ainex_peripherals" type="tf_broadcaster_imu.py" output="screen">
             <param name="imu_topic" value="$(arg imu_topic)"/>
             <param name="imu_frame" value="$(arg imu_frame)"/>
