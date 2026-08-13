@@ -90,6 +90,10 @@
           {
             "type": "command",
             "command": "python3 /home/pi/.claude/hooks/xyz_bt_l1_running_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_coverage_guard.py"
           }
         ]
       },
@@ -107,6 +111,10 @@
           {
             "type": "command",
             "command": "python3 /home/pi/.claude/hooks/xyz_bt_l1_running_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/pi/.claude/hooks/xyz_coverage_guard.py"
           }
         ]
       },
@@ -123,5 +131,13 @@
   },
   "tui": "fullscreen",
   "theme": "dark",
-  "model": "opus"
+  "model": "opus",
+  "permissions": {
+    "deny": [
+      "Write(//home/pi/docker/ros_ws_src/xyz_run_lab/**)",
+      "Edit(//home/pi/docker/ros_ws_src/xyz_run_lab/**)",
+      "Write(//home/pi/docker/ros_ws_src/xyz_perception/**)",
+      "Edit(//home/pi/docker/ros_ws_src/xyz_perception/**)"
+    ]
+  }
 }
