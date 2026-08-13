@@ -22,7 +22,7 @@
     </node>
 
     <!-- YOLO detections + annotated image are provided by yolo_detection_node.py
-         (xyz_bt_lib), started by the project launch.
+         (xyz_perception), started by the project launch.
          It is the single ZMQ PULL consumer of the host worker's PUSH on :5551 —
          do NOT start a second consumer here or ZMQ round-robins detections. -->
 

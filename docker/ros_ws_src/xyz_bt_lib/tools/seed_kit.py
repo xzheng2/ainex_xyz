@@ -5,8 +5,8 @@
 WHAT THE SEED IS
     The "seed" is the minimum set of xyz_bt_lib files that must travel with the
     skill templates so that the templates remain usable when the node library
-    (behaviours/, adapters/, sensors/) does not exist -- a fresh robot, or this
-    repository stripped back to its engine layer.
+    (behaviours/, adapters/) and the perception package (xyz_perception) do not
+    exist -- a fresh robot, or this repository stripped back to its engine layer.
 
     Templates REFERENCE these base classes; they never copy them. That is why
     the seed and the templates are one deployable unit.
@@ -126,12 +126,15 @@ TIER_B_TEMPLATES = (
 )
 
 #: Never importable inside a seed test, at any tier. These are exactly the
-#: parts of xyz_bt_lib that a portable template must not depend on.
+#: parts of the stack that a portable template must not depend on -- the
+#: non-engine halves of xyz_bt_lib, plus the whole perception package (it moved
+#: out of xyz_bt_lib.sensors into its own package, and is no more importable
+#: from a template than it was before).
 _ALWAYS_BLOCKED = (
     'xyz_bt_lib.behaviours',
     'xyz_bt_lib.adapters',
-    'xyz_bt_lib.sensors',
     'xyz_bt_lib.msg',
+    'xyz_perception',
 )
 
 #: Additionally blocked at Tier A, to prove import-time ROS independence.

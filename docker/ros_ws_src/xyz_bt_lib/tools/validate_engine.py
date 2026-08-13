@@ -3,6 +3,11 @@
 """validate_engine.py - one command that checks the whole BT engine.
 
 WHAT THIS COVERS
+    0. HOOK IMPORT SAFETY (host)      The sweep below imports the hooks. Any
+       hook that calls main() at module scope runs on import and sys.exit()s,
+       which killed this whole process before it printed anything -- and
+       .githooks/pre-push then passed on exit 0. Checked first, statically.
+
     1. LIBRARY SWEEP (host, static)   Every L1/L2/L3 node, every adapter and
        blackboard_keys.py run through the SAME rule functions the Claude Code
        hooks use. This is the point: hooks only fire when the AGENT writes a
@@ -38,6 +43,7 @@ Exit code 0 = everything passed; 1 = at least one failure. Advisory findings
 (blackboard_keys ROSA mirroring) are reported as WARN and do not fail the run.
 """
 import argparse
+import ast
 import os
 import re
 import shutil
@@ -155,6 +161,57 @@ def all_py_files(root):
                 yield os.path.join(dirpath, fn)
 
 
+#: How many checks library_sweep() must record. A sweep that silently stops
+#: happening is indistinguishable from a clean run in the report, so the count
+#: is asserted rather than trusted.
+EXPECTED_SWEEPS = 4
+
+
+def _call_name(call):
+    return getattr(call.func, 'id', None) or getattr(call.func, 'attr', '?')
+
+
+def hooks_import_safe(hooks_dir):
+    """Every hook must be importable without executing its body.
+
+    This sweep imports the hooks to reuse their path patterns and check
+    functions. A hook that calls main() at module scope therefore RUNS on
+    import: json.load(sys.stdin) fails on non-hook stdin, the except branch
+    calls sys.exit(0), and SystemExit is not an Exception -- so it tore the
+    whole validator down before it printed anything, and .githooks/pre-push
+    gated on exit 0. That is exactly what happened; this makes the next
+    reintroduction name the file instead of taking the gate down with it.
+    """
+    label = 'sweep: hooks are import-safe'
+    offenders = []
+    count = 0
+    for fn in sorted(os.listdir(hooks_dir)):
+        if not fn.endswith('.py'):
+            continue
+        count += 1
+        path = os.path.join(hooks_dir, fn)
+        try:
+            module = ast.parse(open(path, encoding='utf-8').read(), path)
+        except Exception as exc:                  # noqa: BLE001
+            offenders.append('{}: unparseable ({})'.format(fn, exc))
+            continue
+        # A bare call statement at column 0 -- `main()`. Module-level
+        # assignments (_NODE_PATTERN = re.compile(...)) are not statements of
+        # this shape and are left alone.
+        for node in module.body:
+            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+                offenders.append(
+                    '{}:{}: calls {}() at module scope -- importing this hook '
+                    'executes it. Wrap it in `if __name__ == "__main__":`.'
+                    .format(fn, node.lineno, _call_name(node.value)))
+    if not count:
+        record('FAIL', label, 'no .py files found in {}'.format(hooks_dir))
+    elif offenders:
+        record('FAIL', label, '\n'.join(offenders))
+    else:
+        record('PASS', label, '{} hooks clean'.format(count))
+
+
 def library_sweep(hooks_dir):
     sys.path.insert(0, hooks_dir)
     try:
@@ -162,6 +219,14 @@ def library_sweep(hooks_dir):
         import xyz_bt_l1_running_guard as l1guard
         from xyz_bt_lib_guard import check_node, check_adapter, check_bb_keys
         from xyz_bt_l1_running_guard import check_l1_running
+    except SystemExit as exc:
+        # Not an Exception, so `except Exception` never saw it: a hook that runs
+        # main() at import calls sys.exit() and kills this process silently.
+        record('FAIL', 'library sweep: import guards',
+               'a hook module called sys.exit({}) while being imported -- it '
+               'executes its body at module scope. See the import-safe sweep '
+               'above for which one.'.format(exc.code))
+        return
     except Exception as exc:                      # noqa: BLE001
         record('FAIL', 'library sweep: import guards',
                '{}: {}'.format(type(exc).__name__, exc))
@@ -191,7 +256,12 @@ def library_sweep(hooks_dir):
                 offenders.append('{}\n    {}'.format(
                     os.path.relpath(path, LIB_ROOT), v))
         if not count:
-            record('WARN', label, 'no files matched -- check the path pattern')
+            # Not advisory even for an advisory sweep: `advisory` means the
+            # findings do not block, not that the sweep may quietly vanish. A
+            # pattern matching nothing reads exactly like a clean run.
+            record('FAIL', label,
+                   'no files matched -- the path pattern selects nothing, so '
+                   'this check swept an empty set')
         elif offenders:
             record('WARN' if advisory else 'FAIL', label,
                    '\n'.join(offenders))
@@ -393,7 +463,15 @@ def main(argv=None):
                     help='run only the host-side static sweep')
     args = ap.parse_args(argv)
 
+    hooks_import_safe(args.hooks_dir)
+
+    before = len(results)
     library_sweep(args.hooks_dir)
+    swept = results[before:]
+    if len(swept) != EXPECTED_SWEEPS and not any(r[0] == 'FAIL' for r in swept):
+        record('FAIL', 'library sweep completeness',
+               'recorded {} checks, expected {} -- a sweep stopped running '
+               'without failing'.format(len(swept), EXPECTED_SWEEPS))
 
     if not args.skip_container:
         try:
@@ -408,6 +486,13 @@ def main(argv=None):
 
 def report():
     print('\n=== xyz_bt_lib engine validation ===')
+    if not results:
+        # "0 passed, 0 failed" used to exit 0 and read like success. Nothing
+        # having run is the worst outcome this tool can have, not the best.
+        print('  FAIL no checks were recorded -- the validator never ran a '
+              'single check')
+        print('\n0 passed, 1 failed, 0 warnings')
+        return 1
     for state, name, detail in results:
         print('  {:4} {}'.format(state, name))
         if detail:

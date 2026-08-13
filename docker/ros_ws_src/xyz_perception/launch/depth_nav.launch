@@ -79,7 +79,7 @@
   <!-- Drop the midpoint after this many consecutive ticks with no obstacle (YOLO+depth). -->
   <arg name="midpoint_deactivate_ticks" default="15"/>
 
-  <node pkg="xyz_bt_lib" type="depth_nav_node.py"
+  <node pkg="xyz_perception" type="depth_nav_node.py"
         name="depth_nav_node" output="screen">
     <param name="depth_topic"        value="/camera/depth/image_raw"/>
     <param name="camera_info_topic"  value="/camera/depth/camera_info"/>

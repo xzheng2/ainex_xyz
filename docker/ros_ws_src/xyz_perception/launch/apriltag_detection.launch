@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!-- AprilTag detection using apriltag_ros.
      Config (tag family, IDs, sizes) in:
-       xyz_bt_lib/src/xyz_bt_lib/sensors/apriltag/config/tags.yaml
+       xyz_perception/config/apriltag/tags.yaml
      Publishes: /tag_detections (apriltag_ros/AprilTagDetectionArray)
 
      enable_camera: set to false if the camera is already started elsewhere
@@ -26,12 +26,12 @@
     <node if="$(arg enable_web_video)" name="web_video_server" pkg="web_video_server"
           respawn="true" respawn_delay="2" type="web_video_server" output="screen"/>
 
-    <!-- Load detector settings and tag database from sensors/apriltag -->
+    <!-- Load detector settings and tag database from config/apriltag -->
     <rosparam command="load"
-              file="$(find xyz_bt_lib)/src/xyz_bt_lib/sensors/apriltag/config/settings.yaml"
+              file="$(find xyz_perception)/config/apriltag/settings.yaml"
               ns="$(arg node_namespace)"/>
     <rosparam command="load"
-              file="$(find xyz_bt_lib)/src/xyz_bt_lib/sensors/apriltag/config/tags.yaml"
+              file="$(find xyz_perception)/config/apriltag/tags.yaml"
               ns="$(arg node_namespace)"/>
 
     <!-- AprilTag continuous detector -->

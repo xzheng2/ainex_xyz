@@ -11,7 +11,7 @@ ROS topics subscribed:
   /yolo/detections           (ainex_interfaces/ObjectsInfo — optional obstacles)
 
 ROS topic published:
-  /depth_nav/state           (xyz_bt_lib/DepthNavState — nav_yaw, has_path, obstacle_near)
+  /depth_nav/state           (xyz_perception/DepthNavState — nav_yaw, has_path, obstacle_near)
 
 Obstacle sources:
   depth threshold  — ALWAYS active (blocks nearer than ~obstacle_dist mm)
@@ -115,9 +115,9 @@ from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 from std_msgs.msg import Float64
 from ainex_interfaces.msg import ObjectsInfo
 
-from xyz_bt_lib.msg import DepthNavState
-import xyz_bt_lib.sensors.depth_nav.planning as planning
-from xyz_bt_lib.sensors.depth_nav import debug_view
+from xyz_perception.msg import DepthNavState
+import xyz_perception.depth_nav.planning as planning
+from xyz_perception.depth_nav import debug_view
 
 
 # ── tunable config ────────────────────────────────────────────────────────────

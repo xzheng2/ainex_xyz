@@ -20,7 +20,7 @@ from std_msgs.msg import Int32MultiArray
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
-from xyz_bt_lib.sensors.apriltag.apriltag_detection import AprilTagDetector
+from xyz_perception.apriltag.apriltag_detection import AprilTagDetector
 
 
 def main():

@@ -17,10 +17,14 @@ core/          基类 / facade / 组合工厂 / latched_dwell / 渲染 / runner
 behaviours/    L1 条件（纯谓词） / L2 动作 / L3 编排
 adapters/      传感器输入适配器（唯一 rospy.Subscriber 位置）
 blackboard/    BB 键常量 + BB->ROS 只读桥
-sensors/       检测节点（apriltag / color / depth_nav / yolo）
 ../examples/   demo（memory 规则 / latched_dwell 9 场景 / 工厂树）
 ../tools/      dump_tree.py 离线渲染
 ```
+
+检测节点**不在本包内**：apriltag / color / depth_nav / yolo 住在同级的独立包
+`xyz_perception`（`DepthNavState.msg` 也在那里）。它们是各自独立的 ROS 进程，只经
+topic 与本包相遇——`adapters/` 订阅，本包从不 import 它们。反向依赖也不存在，所以
+`xyz_perception` 可以在没有 `xyz_bt_lib` 的工作区里单独 build。
 
 ## 构建与验证（容器内）
 

@@ -14,7 +14,7 @@ from sensor_msgs.msg import Image
 from ainex_interfaces.msg import ObjectInfo, ObjectsInfo
 from ainex_sdk import common
 
-from xyz_bt_lib.sensors.color.color_detection_min import ColorDetectionMin
+from xyz_perception.color.color_detection_min import ColorDetectionMin
 
 LAB_CONFIG_PATH = '/home/ubuntu/software/lab_tool/lab_config.yaml'
 

@@ -1,4 +1,4 @@
-# sensors/apriltag/config/settings.yaml
+# xyz_perception/config/apriltag/settings.yaml
 # apriltag_ros_continuous_node detector parameters.
 # These are loaded into the detector node namespace at launch.
 # Change tag_family if you are using a different AprilTag family.

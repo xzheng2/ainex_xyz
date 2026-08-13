@@ -29,7 +29,7 @@
           respawn="true" respawn_delay="2" type="web_video_server" output="screen"/>
 
     <!-- Minimal color detection node -->
-    <node pkg="xyz_bt_lib" type="color_detection_min_node.py" name="color_detection_min" output="screen">
+    <node pkg="xyz_perception" type="color_detection_min_node.py" name="color_detection_min" output="screen">
         <param name="detect_color"          value="$(arg detect_color)"/>
         <param name="detect_type"           value="$(arg detect_type)"/>
         <param name="min_area"              value="$(arg min_area)"/>

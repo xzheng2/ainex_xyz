@@ -18,7 +18,7 @@ is deliberately not used: every stock Raspberry Pi answers to `raspberrypi`, and
 bodies sharing an id would silently merge their results under one
 `results/<body_id>/` prefix — discoverable only long after the experiment.
 
-`bt_observability/run_context.py: resolve_body_id()` resolves in this order:
+`xyz_run_lab/run_lab/run_context.py: resolve_body_id()` resolves in this order:
 
 1. environment variable `AINEX_BODY_ID`
 2. the cache file `xyz_behavior/log/.body_id`
@@ -42,7 +42,7 @@ echo 'export AINEX_BODY_ID=HW-ROBOPARKS676EF55C' >> ~/.zshrc
 
 ## Adding a body
 
-1. On the new robot, read its AP name: `python3 …/bt_observability/run_context.py`
+1. On the new robot, read its AP name: `python3 …/xyz_run_lab/run_lab/run_context.py`
 2. Copy an existing `<body_id>.yaml` to `<that SSID>.yaml`.
 3. Fill in the identity block and whatever genuinely differs on that body.
 4. Commit the file — every body gets it, which is the point: calibration becomes

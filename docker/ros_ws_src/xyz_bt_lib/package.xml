@@ -2,7 +2,8 @@
 <package format="2">
   <name>xyz_bt_lib</name>
   <version>2.0.0</version>
-  <description>BT framework library + perception/nav nodes for the Ainex humanoid</description>
+  <description>BT framework library for the Ainex humanoid. The perception/nav nodes it
+  consumes live in the separate xyz_perception package.</description>
 
   <maintainer email="xzheng2@laurentian.ca">xzheng2</maintainer>
   <license>BSD</license>
@@ -14,6 +15,10 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>ainex_interfaces</build_depend>
   <build_depend>message_generation</build_depend>
+  <!-- depth_nav_adapter subscribes to xyz_perception/DepthNavState, so the message
+       headers must be generated before this package builds. The dependency runs one
+       way only: nothing in xyz_perception imports xyz_bt_lib. -->
+  <depend>xyz_perception</depend>
 
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>

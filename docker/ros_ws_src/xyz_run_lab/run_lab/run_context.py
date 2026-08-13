@@ -55,13 +55,21 @@ WHY ``dirty`` HAS A SCOPE
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
 
-_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # xyz_behavior
+_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # xyz_run_lab
 _WS_SRC = os.path.dirname(_PKG_DIR)                                      # ros_ws_src
+
+#: The project package. This module owns run identity and body calibration, but not the
+#: log tree: `log/` stays in xyz_behavior because ROSA's /opt/ainex_bt_log mount, the
+#: bt_log_read_guard hook and the diagnose skill all address it by that path. Every
+#: caller passes log_dir explicitly; this constant only backs the __main__ self-report
+#: and error messages that point at tools living over there.
+_BEHAVIOR_DIR = os.path.join(_WS_SRC, 'xyz_behavior')
 
 #: Default number of run directories kept. Older ones are deleted unconditionally --
 #: publish runs you care about (tools/publish_runs.py) before they age out.
@@ -112,6 +120,27 @@ _CALIBRATION_FILES = (
 )
 
 BODY_ID_CACHE = '.body_id'
+
+#: Experiment arm ("swim lane"). Four SD cards give the coding agent four different
+#: asset mixes, and all four run on the SAME robot -- so body_id is identical across
+#: them and cannot separate the arms. Without this field every run lands in one
+#: undifferentiated partition and the ablation is unanalysable.
+LANE_CACHE = '.lane'
+VALID_LANES = ('a', 'b', 'c', 'd')
+
+#: Which experiment a run belongs to (exp1, exp2, ...). One level above lane: a lane is
+#: fixed for the life of an SD card, but the same card takes part in successive studies,
+#: so this one legitimately changes over time -- which is exactly why the two cannot be
+#: the same field. Pooling two studies under one prefix would silently average across
+#: experiments that were never meant to be compared.
+STUDY_CACHE = '.study'
+
+#: Deliberately a shape, not a fixed set. A closed tuple would mean editing xyz_run_lab
+#: to start a third experiment -- and this package has to stay byte-identical across all
+#: four lanes, so changing it mid-campaign is worse than the typo risk an open set
+#: carries. The pattern still rejects anything that would misbehave as a path component;
+#: use `new_run.py --print-study` to confirm what a card is set to.
+STUDY_RE = re.compile(r'^[a-z0-9][a-z0-9_-]*$')
 
 
 # --------------------------------------------------------------------------- #
@@ -191,7 +220,110 @@ def resolve_body_id(log_dir, probe=True, cache=True):
         "  NetworkManager's D-Bus).\n"
         "  Fix on the HOST:  python3 {}/tools/new_run.py --print-body-id\n"
         "  or set it by hand: export AINEX_BODY_ID=<hotspot-ssid>".format(
-            cache_path, _PKG_DIR))
+            cache_path, _BEHAVIOR_DIR))
+
+
+# --------------------------------------------------------------------------- #
+# Experiment identity: study, then arm
+# --------------------------------------------------------------------------- #
+
+class StudyError(RuntimeError):
+    """Raised when the experiment a run belongs to is unknown. Never guessed around."""
+
+
+def resolve_study(log_dir, study=None, cache=True):
+    """Identify which experiment this card is currently running.
+
+    Order: explicit argument -> ``AINEX_STUDY`` -> ``<log_dir>/.study`` cache, same shape
+    as resolve_lane. Unlike the lane, this one is expected to be re-set: a card finishes
+    exp1 and is handed to exp2, and ``--study exp2`` rewrites the cache.
+
+    Hard-fails rather than defaulting to the most recent study. Silently filing exp2 runs
+    under exp1 pools two experiments into one partition, and the resulting table averages
+    across a boundary nobody can see afterwards.
+    """
+    for value, source in ((study, 'argument'),
+                          (os.environ.get('AINEX_STUDY'), 'AINEX_STUDY'),
+                          (_read_cache(log_dir, STUDY_CACHE), 'cache')):
+        value = (value or '').strip().lower()
+        if not value:
+            continue
+        if not STUDY_RE.match(value):
+            raise StudyError(
+                'study {!r} (from {}) is not a usable name: lowercase letters, digits, '
+                '"_" and "-" only, starting with a letter or digit'.format(value, source))
+        if cache and source == 'argument':
+            _write_cache(log_dir, STUDY_CACHE, value)
+        return value
+
+    raise StudyError(
+        'cannot identify which experiment this run belongs to.\n'
+        '  AINEX_STUDY is unset and {} holds nothing.\n'
+        '  Set it when a card starts a study:  python3 .../xyz_behavior/tools/new_run.py '
+        '--study exp1\n'
+        '  or by hand:                         export AINEX_STUDY=exp1'.format(
+            os.path.join(log_dir, STUDY_CACHE)))
+
+
+class LaneError(RuntimeError):
+    """Raised when this card's experiment arm is unknown. Never guessed around."""
+
+
+def resolve_lane(log_dir, lane=None, cache=True):
+    """Identify which experiment arm this SD card is.
+
+    Order: explicit argument -> ``AINEX_LANE`` -> ``<log_dir>/.lane`` cache. Mirrors
+    resolve_body_id deliberately, minus the probe step: there is nothing to probe.
+    All four cards boot the same robot, so nothing about the running system reveals
+    which arm it is -- the answer has to be written down once when the card is imaged.
+
+    The cache lives in ``log/`` next to ``.body_id``, NOT in this package: xyz_run_lab
+    is the instrumentation every arm shares byte-for-byte, and a file that differs per
+    card cannot live inside it. ``log/`` is gitignored machine state, which is also
+    why writing it does not make every subsequent run read as dirty.
+
+    Hard-fails rather than defaulting. A run that cannot be attributed to an arm is
+    not evidence, and silently filing it under a guessed arm corrupts the table it
+    lands in.
+    """
+    for value, source in ((lane, 'argument'),
+                          (os.environ.get('AINEX_LANE'), 'AINEX_LANE'),
+                          (_read_cache(log_dir, LANE_CACHE), 'cache')):
+        value = (value or '').strip().lower()
+        if not value:
+            continue
+        if value not in VALID_LANES:
+            raise LaneError(
+                'lane {!r} (from {}) is not one of {}'.format(
+                    value, source, '/'.join(VALID_LANES)))
+        if cache and source == 'argument':
+            _write_cache(log_dir, LANE_CACHE, value)
+        return value
+
+    raise LaneError(
+        "cannot identify this card's experiment lane.\n"
+        "  AINEX_LANE is unset and {} holds nothing.\n"
+        "  Set it once per card:  python3 .../xyz_behavior/tools/new_run.py --lane <{}>\n"
+        "  or by hand:            export AINEX_LANE=<{}>".format(
+            os.path.join(log_dir, LANE_CACHE),
+            '|'.join(VALID_LANES), '|'.join(VALID_LANES)))
+
+
+def _read_cache(log_dir, name):
+    try:
+        with open(os.path.join(log_dir, name), encoding='utf-8') as fh:
+            return fh.read().strip()
+    except OSError:
+        return None
+
+
+def _write_cache(log_dir, name, value):
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, name), 'w', encoding='utf-8') as fh:
+            fh.write(value + '\n')
+    except OSError:
+        pass                          # a read-only mount is not a reason to fail
 
 
 # --------------------------------------------------------------------------- #
@@ -383,7 +515,8 @@ def body_config_path(body_id):
     return os.path.join(_PKG_DIR, 'config', 'bodies', body_id + '.yaml')
 
 
-def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note=''):
+def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note='',
+                   lane='', study=''):
     """Stamp a run with what produced it. Returns the meta path.
 
     Written at the START of a run, before anything can drift.
@@ -391,10 +524,17 @@ def write_run_meta(run_dir, body_id, variant='', trial=0, params=None, note=''):
     # schema/2: git.dirty became scoped to RUNTIME_PATHS (it covered the whole repository
     # in /1) and gained dirty_scope / repo_dirty. The meaning of an existing field
     # changed, which is what a schema version is for.
+    #
+    # `study` and `lane` were added later WITHOUT a version bump, by that same rule: both
+    # are purely additive and no existing field changed meaning. Nor is there anything to
+    # tell apart -- not one /2 run had been published when they landed, so a "/2 without
+    # study/lane" does not exist in any results repo.
     meta = {
         'schema':      'ainex.run_meta/2',
         'run_id':      os.path.basename(run_dir.rstrip(os.sep)),
         'body_id':     body_id,
+        'study':       study,
+        'lane':        lane,
         'created_utc': time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()),
         'variant':     variant,
         'trial':       trial,
@@ -419,7 +559,7 @@ def read_run_meta(run_dir):
 
 
 if __name__ == '__main__':                      # tiny self-report, not a CLI
-    _log_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_PKG_DIR, 'log')
+    _log_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_BEHAVIOR_DIR, 'log')
     print('log_dir  :', _log_dir)
     print('body_id  :', resolve_body_id(_log_dir))
     print('runs     :', sorted(os.listdir(runs_root(_log_dir)))

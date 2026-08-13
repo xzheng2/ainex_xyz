@@ -23,7 +23,7 @@ import math
 import numpy as np
 import cv2
 
-from xyz_bt_lib.sensors.depth_nav.planning import (
+from xyz_perception.depth_nav.planning import (
     BLOCK_SIZE, THRESHOLDS, COLOR_H, COLOR_W, GRID_H, CAM_OFF, YAW_ROWS,
 )
 

@@ -9,10 +9,17 @@ WHY A SEPARATE STEP
     session is finished rather than while the robot is moving.
 
 WHY IT NEVER CONFLICTS
-    Every body writes only under ``results/<body_id>/`` and appends only to
-    ``index/<body_id>.jsonl``. Two bodies pushing at the same time touch disjoint paths,
-    so git has nothing to merge. This is the entire reason the results repo is
-    partitioned by body instead of branched by body -- see its README.
+    Every writer writes only under ``results/<body_id>/<study>/<lane>/`` and appends
+    only to ``index/<body_id>__<study>__<lane>.jsonl``. Two writers pushing at the same
+    time touch disjoint paths, so git has nothing to merge. This is the entire reason
+    the results repo is partitioned rather than branched -- see its README.
+
+    Study and lane are part of the partition key, not decoration. The ablation runs four
+    arms on ONE robot, so body_id is identical across all four cards; partitioning by
+    body alone would put four concurrent writers on one index file and reintroduce
+    exactly the conflict the sharding exists to prevent. `study` sits above `lane`
+    because a card outlives a study: the same lane `a` card runs exp1 and later exp2,
+    and pooling those under one prefix averages across two different experiments.
 
 Usage:
     publish_runs.py                 # copy every unpublished run, update the index
@@ -34,7 +41,8 @@ DEFAULT_RESULTS_REPO = '/home/pi/experiments/ainex_xyz_result'
 
 #: Fields lifted from run_meta.json into the index. The index exists to be grepped and
 #: loaded into a table without opening every run directory, so it stays flat and small.
-_INDEX_FIELDS = ('run_id', 'body_id', 'created_utc', 'variant', 'trial', 'params', 'note')
+_INDEX_FIELDS = ('run_id', 'body_id', 'study', 'lane', 'created_utc', 'variant',
+                 'trial', 'params', 'note')
 
 #: Fields lifted from metrics.json. Kept as a separate tuple from _INDEX_FIELDS because
 #: the two have different sources and different failure modes: run_meta always exists (a
@@ -64,9 +72,13 @@ def discover_runs(runs_dir):
             sys.stderr.write('skipping {}: unreadable run_meta.json ({})\n'
                              .format(name, exc))
             continue
-        if not meta.get('body_id') or not meta.get('run_id'):
-            sys.stderr.write('skipping {}: run_meta.json has no body_id/run_id\n'
-                             .format(name))
+        missing = [k for k in ('body_id', 'run_id', 'study', 'lane') if not meta.get(k)]
+        if missing:
+            # study and lane are as load-bearing as body_id here: together they are the
+            # partition key, and a run that cannot say which experiment and which arm
+            # produced it cannot be a row in any table.
+            sys.stderr.write('skipping {}: run_meta.json has no {}\n'
+                             .format(name, '/'.join(missing)))
             continue
         found.append((run_dir, meta))
     return found
@@ -95,8 +107,14 @@ def index_entry(meta, metrics=None):
     return entry
 
 
+def index_shard(repo, body_id, study, lane):
+    """This writer's index shard. One writer per shard is what keeps pushes conflict-free."""
+    return os.path.join(repo, 'index',
+                        '{}__{}__{}.jsonl'.format(body_id, study, lane))
+
+
 def published_run_ids(index_path):
-    """run_ids already present in this body's index shard."""
+    """run_ids already present in this writer's index shard."""
     ids = set()
     if not os.path.isfile(index_path):
         return ids
@@ -118,8 +136,9 @@ def publish(run_dir, meta, repo, dry_run=False, force=False):
     Returns 'published', 'skipped' or 'would-publish'.
     """
     body_id, run_id = meta['body_id'], meta['run_id']
-    dest = os.path.join(repo, 'results', body_id, run_id)
-    index_path = os.path.join(repo, 'index', body_id + '.jsonl')
+    study, lane = meta['study'], meta['lane']
+    dest = os.path.join(repo, 'results', body_id, study, lane, run_id)
+    index_path = index_shard(repo, body_id, study, lane)
 
     already = os.path.exists(dest) or run_id in published_run_ids(index_path)
     if already and not force:
@@ -147,11 +166,19 @@ def publish(run_dir, meta, repo, dry_run=False, force=False):
         os.makedirs(os.path.dirname(index_path), exist_ok=True)
         with open(index_path, 'a', encoding='utf-8') as fh:
             fh.write(json.dumps(index_entry(meta, metrics), sort_keys=True) + '\n')
+
+    # prune_runs() reads this marker to decide whether deleting an aged-out run is
+    # worth warning about. Nothing wrote it until now, so that warning fired on every
+    # prune regardless -- a warning that is always on is a warning nobody reads.
+    try:
+        open(os.path.join(run_dir, '.published'), 'a').close()
+    except OSError:
+        pass
     return 'published'
 
 
-def git_commit(repo, count, bodies):
-    subject = 'results: publish {} run(s) from {}'.format(count, ', '.join(sorted(bodies)))
+def git_commit(repo, count, writers):
+    subject = 'results: publish {} run(s) from {}'.format(count, ', '.join(sorted(writers)))
     for cmd in (['git', '-C', repo, 'add', '-A'],
                 ['git', '-C', repo, 'commit', '-q', '-m', subject]):
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -187,20 +214,21 @@ def main(argv=None):
         return 0
 
     counts = {'published': 0, 'skipped': 0, 'would-publish': 0}
-    bodies = set()
+    writers = set()
     for run_dir, meta in runs:
         outcome = publish(run_dir, meta, args.results_repo,
                           dry_run=args.dry_run, force=args.force)
         counts[outcome] += 1
         if outcome != 'skipped':
-            bodies.add(meta['body_id'])
+            writers.add('{} {} lane {}'.format(
+                meta['body_id'], meta['study'], meta['lane']))
         print('  {:<14} {}'.format(outcome, meta['run_id']))
 
     print('\n{} published, {} already present, {} would publish'.format(
         counts['published'], counts['skipped'], counts['would-publish']))
 
     if args.commit and counts['published']:
-        if not git_commit(args.results_repo, counts['published'], bodies):
+        if not git_commit(args.results_repo, counts['published'], writers):
             return 1
         print('committed in {}'.format(args.results_repo))
     return 0

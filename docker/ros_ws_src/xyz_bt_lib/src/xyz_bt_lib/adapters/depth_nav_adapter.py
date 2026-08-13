@@ -10,7 +10,7 @@ ROS topic subscribed:
   /depth_nav/state
 
 ROS message type:
-  xyz_bt_lib/DepthNavState  (~15 Hz, published by depth_nav_node.py)
+  xyz_perception/DepthNavState  (~15 Hz, published by depth_nav_node.py)
 
 BB keys written:
   BB.NAV_U9            (/latched/nav_u9)             float (NaN when no path / row missing)
@@ -63,7 +63,7 @@ from py_trees.common import Access
 
 from xyz_bt_lib.blackboard.blackboard_keys import BB
 from xyz_bt_lib.core.base_adapter import XyzInputAdapter
-from xyz_bt_lib.msg import DepthNavState
+from xyz_perception.msg import DepthNavState
 
 
 class DepthNavAdapter(XyzInputAdapter):

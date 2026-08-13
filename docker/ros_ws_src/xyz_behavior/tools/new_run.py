@@ -12,11 +12,12 @@ WHY THIS EXISTS
     repository is not mounted into the ROS container -- only the workspace source is.
     Hand the run to the node through ``AINEX_RUN_ID`` (this script prints the line).
 
-    All the real work lives in ``bt_observability/run_context.py``, which the
+    All the real work lives in ``xyz_run_lab/run_lab/run_context.py``, which the
     containerised node imports too, so there is exactly one implementation of "what is a
     run" rather than a host copy and a robot copy drifting apart.
 
 Usage:
+    new_run.py --study exp1 --lane a          # once per card, per study
     new_run.py --variant ablA --trial 1
     new_run.py --variant baseline --trial 3 --param gait.step_height=0.02 --note "left foot retuned"
     new_run.py --print-body-id
@@ -27,9 +28,11 @@ import sys
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PKG_DIR = os.path.dirname(_SCRIPT_DIR)                       # .../xyz_behavior
-sys.path.insert(0, _PKG_DIR)
+_WS_SRC = os.path.dirname(_PKG_DIR)                           # .../ros_ws_src
+_RUN_LAB_DIR = os.path.join(_WS_SRC, 'xyz_run_lab')
+sys.path.insert(0, _RUN_LAB_DIR)
 
-from bt_observability import run_context                      # noqa: E402
+from run_lab import run_context                               # noqa: E402
 
 _LOG_DIR = os.path.join(_PKG_DIR, 'log')
 
@@ -73,6 +76,15 @@ def main(argv=None):
                     help='run directories to keep (default: %(default)s)')
     ap.add_argument('--print-body-id', action='store_true',
                     help='resolve and cache this body id, then exit')
+    ap.add_argument('--study', metavar='NAME',
+                    help='experiment this run belongs to, e.g. exp1/exp2; cached, and '
+                         're-set when a card moves to the next study')
+    ap.add_argument('--print-study', action='store_true',
+                    help='resolve and cache this study, then exit')
+    ap.add_argument('--lane', choices=run_context.VALID_LANES,
+                    help='experiment arm this SD card is; cached after the first use')
+    ap.add_argument('--print-lane', action='store_true',
+                    help='resolve and cache this lane, then exit')
     args = ap.parse_args(argv)
 
     try:
@@ -84,6 +96,27 @@ def main(argv=None):
         print(body_id)
         return 0
 
+    # Which experiment, then which arm within it. All four arms run on this one robot, so
+    # body_id separates neither; without both the run is unattributable and must not be
+    # opened. Resolved before --variant/--trial are required so --print-* still work.
+    try:
+        study = run_context.resolve_study(args.log_dir, args.study)
+    except run_context.StudyError as exc:
+        raise SystemExit(str(exc))
+
+    if args.print_study:
+        print(study)
+        return 0
+
+    try:
+        lane = run_context.resolve_lane(args.log_dir, args.lane)
+    except run_context.LaneError as exc:
+        raise SystemExit(str(exc))
+
+    if args.print_lane:
+        print(lane)
+        return 0
+
     if not args.variant or args.trial is None:
         raise SystemExit('--variant and --trial are required (or use --print-body-id)')
 
@@ -92,14 +125,15 @@ def main(argv=None):
         raise SystemExit(
             'body {!r} has no config file at {}\n'
             'Create it — copy an existing one, see {}/config/bodies/README.md'
-            .format(body_id, cfg, _PKG_DIR))
+            .format(body_id, cfg, _RUN_LAB_DIR))
 
     run_id = run_context.new_run_id(args.variant, args.trial)
     run_dir = run_context.open_run_dir(args.log_dir, run_id=run_id,
                                        max_runs=args.max_runs,
                                        log=lambda m: sys.stderr.write(m + '\n'))
     run_context.write_run_meta(run_dir, body_id, variant=args.variant, trial=args.trial,
-                               params=parse_params(args.param), note=args.note)
+                               params=parse_params(args.param), note=args.note,
+                               lane=lane, study=study)
 
     meta = run_context.read_run_meta(run_dir) or {}
     git = meta.get('git') or {}

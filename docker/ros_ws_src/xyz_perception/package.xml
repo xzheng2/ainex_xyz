@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>xyz_perception</name>
+  <version>1.0.0</version>
+  <description>Standalone perception / navigation-planning nodes for the Ainex humanoid
+  (apriltag, colour, depth_nav, yolo). Depends on no behaviour-tree code: these are
+  separate ROS processes that publish onto topics, and nothing here imports the BT
+  stack. That independence is deliberate — the detectors have to be available whether
+  or not the BT library is present.</description>
+
+  <maintainer email="xzheng2@laurentian.ca">xzheng2</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>ainex_interfaces</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>ainex_interfaces</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <!-- cv_bridge + ainex_sdk are imported by the nodes; apriltag_ros is the detector
+       apriltag_detection.launch actually starts; ainex_peripherals supplies the camera
+       launch the detector launches include. All four were undeclared while these nodes
+       lived in xyz_bt_lib. -->
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>ainex_sdk</exec_depend>
+  <exec_depend>apriltag_ros</exec_depend>
+  <exec_depend>ainex_peripherals</exec_depend>
+  <exec_depend>web_video_server</exec_depend>
+</package>

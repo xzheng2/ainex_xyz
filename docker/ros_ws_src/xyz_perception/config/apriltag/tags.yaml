@@ -1,4 +1,4 @@
-# sensors/apriltag/config/tags.yaml
+# xyz_perception/config/apriltag/tags.yaml
 # *** USER-EDITABLE AprilTag database ***
 #
 # Add or remove entries in standalone_tags to control which tags the

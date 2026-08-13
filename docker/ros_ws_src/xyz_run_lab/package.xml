@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>xyz_run_lab</name>
+  <version>1.0.0</version>
+  <description>Experiment instrumentation: run identity, per-run log directories,
+  run_meta.json provenance and metric reduction. Pure stdlib Python — it imports neither
+  rospy nor py_trees, and nothing in it knows what a behaviour tree is. It is a separate
+  package because an ablation run has to be recordable whether or not the BT engine and
+  its observability layer are present.</description>
+
+  <maintainer email="xzheng2@laurentian.ca">xzheng2</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+</package>

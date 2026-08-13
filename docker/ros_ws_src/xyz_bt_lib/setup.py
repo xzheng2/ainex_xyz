@@ -11,11 +11,6 @@ d = generate_distutils_setup(
         'xyz_bt_lib.behaviours.L1_perception',
         'xyz_bt_lib.behaviours.L2_locomotion',
         'xyz_bt_lib.behaviours.L3_system',
-        'xyz_bt_lib.sensors',
-        'xyz_bt_lib.sensors.color',
-        'xyz_bt_lib.sensors.yolo',
-        'xyz_bt_lib.sensors.apriltag',
-        'xyz_bt_lib.sensors.depth_nav',
     ],
     package_dir={'': 'src'},
 )

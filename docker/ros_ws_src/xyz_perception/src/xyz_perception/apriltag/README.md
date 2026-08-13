@@ -1,6 +1,6 @@
-# sensors/apriltag
+# xyz_perception/apriltag
 
-AprilTag detection node + configuration for the xyz_bt_lib framework.
+AprilTag detection node + configuration.
 Independent of `ainex_example` — all settings live here.
 
 ## What it does
@@ -12,12 +12,15 @@ database, publishing detected tags on `/tag_detections`
 ## Directory layout
 
 ```
-sensors/apriltag/
-  config/
+xyz_perception/
+  config/apriltag/
     settings.yaml   ← detector parameters (tag family, threads, etc.)
     tags.yaml       ← tag database: which IDs to detect and their physical size
   launch/
     apriltag_detection.launch   ← launch file (include from your project launch)
+  src/xyz_perception/apriltag/
+    apriltag_detection.py       ← OpenCV detector (used by the ZMQ node below)
+    apriltag_detection_node.py  ← ZMQ-fed alternative to apriltag_ros
 ```
 
 ## Adding a tag

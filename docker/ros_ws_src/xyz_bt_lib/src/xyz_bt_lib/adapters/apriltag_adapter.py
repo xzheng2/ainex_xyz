@@ -101,7 +101,7 @@ class AprilTagAdapter(XyzInputAdapter):
     BB_WRITES    = [BB.TRACKED_OBJECTS, BB.DETECTION_SOURCE, BB.APRILTAG_TURN_BIAS,
                     BB.APRILTAG_DIRECTION, BB.APRILTAG_TAG_ID]
     FACADE_CALLS = []
-    # Default tag id → course-label map (matches xyz_bt_lib.sensors.apriltag/config/tags.yaml).
+    # Default tag id → course-label map (matches xyz_perception/config/apriltag/tags.yaml).
     _DEFAULT_TAG_DIRECTION_MAP = {1: 'forward', 2: 'turn_right', 3: 'turn_left'}
     CONFIG_DEFAULTS = {
         'image_width':      640,
