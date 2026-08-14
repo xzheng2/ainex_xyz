@@ -308,6 +308,14 @@ def coverage_sweep():
 
     It is the push-time counterpart of xyz_coverage_guard, which only fires when an
     agent happens to write such a file. Here the whole tree is classified on every push.
+
+    COUNTS TRACKED FILES ONLY. It used to walk the filesystem, which made the number
+    depend on the machine rather than on the commit: a stray .DS_Store or an old scratch
+    script inflated it, so the same commit scored 25 UNKNOWN on one checkout and 23 on a
+    clean clone. A gate whose reading varies with the tester's working directory is
+    measuring the tester. Untracked files are by definition not part of the repository,
+    and the runtime hook still flags one the moment an agent writes it -- which is the
+    better moment anyway, before it is ever committed.
     """
     label = 'sweep: guard coverage of managed packages'
     try:
@@ -316,32 +324,41 @@ def coverage_sweep():
         record('FAIL', label, '{}: {}'.format(type(exc).__name__, exc))
         return
 
+    repo_root = os.path.dirname(os.path.dirname(WORKSPACE_SRC))
+    rc, out = run(['git', '-C', repo_root, 'ls-files', '-z', '--', WORKSPACE_SRC])
+    if rc != 0:
+        record('FAIL', label,
+               'git ls-files failed in {} -- this sweep counts tracked files, so it '
+               'cannot report a repository-independent number here:\n{}'
+               .format(repo_root, out.strip()))
+        return
+    files = [os.path.join(repo_root, rel)
+             for rel in out.split('\0') if rel and '/__pycache__/' not in rel]
+
     with_rules = registry.categories_with_rules()
     counts = {'checked': 0, 'declared but unchecked': 0, 'unmanaged': 0, 'UNKNOWN': 0}
     unknown = []
-    for dirpath, dirnames, filenames in os.walk(WORKSPACE_SRC):
-        dirnames[:] = [d for d in dirnames if d not in ('__pycache__', '.git')]
-        for fn in sorted(filenames):
-            path = os.path.join(dirpath, fn)
-            category = path_spec.classify(path)
-            if category == 'unmanaged':
-                counts['unmanaged'] += 1
-            elif category == 'UNKNOWN':
-                counts['UNKNOWN'] += 1
-                unknown.append(os.path.relpath(path, WORKSPACE_SRC))
-            elif category in with_rules:
-                counts['checked'] += 1
-            else:
-                # 'build' and 'exempt': claimed by the map, zero rules under them.
-                # Named rather than silent -- an exemption that disappears from the
-                # statistics is indistinguishable from a gap.
-                counts['declared but unchecked'] += 1
+    for path in sorted(files):
+        category = path_spec.classify(path)
+        if category == 'unmanaged':
+            counts['unmanaged'] += 1
+        elif category == 'UNKNOWN':
+            counts['UNKNOWN'] += 1
+            unknown.append(os.path.relpath(path, WORKSPACE_SRC))
+        elif category in with_rules:
+            counts['checked'] += 1
+        else:
+            # 'build' and 'exempt': claimed by the map, zero rules under them.
+            # Named rather than silent -- an exemption that disappears from the
+            # statistics is indistinguishable from a gap.
+            counts['declared but unchecked'] += 1
 
     summary = ('{checked} checked, {declared but unchecked} declared but unchecked, '
-               '{unmanaged} unmanaged, {UNKNOWN} UNKNOWN').format(**counts)
+               '{unmanaged} unmanaged, {UNKNOWN} UNKNOWN (tracked files only)'
+               ).format(**counts)
     if not sum(counts.values()):
-        record('FAIL', label, 'walked {} and found nothing -- the tree is missing or '
-                              'the walk is broken'.format(WORKSPACE_SRC))
+        record('FAIL', label, 'git ls-files listed nothing under {} -- the tree is '
+                              'missing or nothing is tracked'.format(WORKSPACE_SRC))
     elif unknown:
         # Advisory: these are pre-existing and need a human decision per file (give it
         # a category, or exempt it). It is a warning that CAN go away, not one that is
