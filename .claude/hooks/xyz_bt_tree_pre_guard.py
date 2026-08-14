@@ -1,92 +1,50 @@
 #!/usr/bin/env python3
 """PreToolUse guard: enforce tree-wiring conventions in tree/*_bt.py.
 
-Blocks two mistakes when writing a BT wiring file (…/tree/*_bt.py):
-  1. Raw py_trees composites — bare `Sequence(` / `Selector(` (incl.
-     `py_trees.composites.Sequence(`). Trees must use the semantic factories
-     ReactiveSequence / CommittedSequence / PrioritySelector / CommittedSelector
-     from xyz_bt_lib.core.composites (the factory name states the memory
-     contract; a typo becomes a NameError). The factory names themselves
-     (ReactiveSequence(, PrioritySelector(, …) are allowed.
-  2. A non-literal `state_key=` for LatchedDwellDecorator. state_key is a state
-     identity: it MUST be a hardcoded string literal (greppable; a duplicate must
-     fail loudly at construction), never a variable, arg, rosparam, or f-string.
+Thin wrapper. The rules live in guardlib.tree_pre_rules.
 
-Block = print reason to stderr + exit(2) (PreToolUse deny). Fail-open (exit 0)
-on any error so the hook can never wedge editing.
+THIS IS THE ONLY GUARD THAT BLOCKS. It prints to stderr and exits 2, which denies the
+write; every other guard is advisory and exits 0. Keep it that way -- a raw composite
+that reaches disk is a memory-semantics bug the whole composites contract exists to
+prevent, and an advisory here would be a suggestion the agent may decline.
+
+It is also the only guard that reads the PENDING content out of the tool payload
+rather than the file on disk, which it must: PreToolUse runs before the write lands.
 """
 import json
-import re
 import sys
 
 _HOOK = 'xyz_bt_tree_pre_guard'
 
-_TREE_PATTERN = re.compile(r'/tree/[^/]*_bt\.py$')
-
-# bare Sequence(/Selector(/Parallel( not preceded by an identifier char (so the
-# ReactiveSequence/CommittedSequence/PrioritySelector/CommittedSelector/ParallelAll/
-# ParallelAny factories do NOT match) — `.Sequence(` and `Sequence(` do match.
-# (ParallelAll( / ParallelAny( are not matched: `Parallel` there is followed by
-# `A`, not `(` or whitespace.)
-_BARE_SEQ = re.compile(r'(?<![A-Za-z0-9_])(Sequence|Selector|Parallel)\s*\(')
-
-_STATE_KEY = re.compile(r'state_key\s*=\s*([^\s,)]+)')
-
-_STRING_RE  = re.compile(r'("""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"[^"\n]*"|\'[^\'\n]*\')')
-_COMMENT_RE = re.compile(r'#[^\n]*')
-
-
-def _strip_strings_and_comments(src: str) -> str:
-    return _COMMENT_RE.sub('', _STRING_RE.sub('""', src))
-
-
-def _strip_comments(src: str) -> str:
-    return _COMMENT_RE.sub('', src)
-
-
-def _violations(content: str) -> list:
-    out = []
-
-    # 1. bare composites (ignore strings/comments so docstrings that mention the
-    #    rule do not self-trigger)
-    clean = _strip_strings_and_comments(content)
-    hits = sorted(set(m.group(1) for m in _BARE_SEQ.finditer(clean)))
-    if hits:
-        out.append(
-            "Raw py_trees composite(s) used: " + ", ".join(h + "(" for h in hits) + "\n"
-            "  Use the semantic factories instead (xyz_bt_lib.core.composites):\n"
-            "    Sequence(memory=False) -> ReactiveSequence   Sequence(memory=True) -> CommittedSequence\n"
-            "    Selector(memory=False) -> PrioritySelector   Selector(memory=True) -> CommittedSelector\n"
-            "    Parallel(SuccessOnAll) -> ParallelAll        Parallel(SuccessOnOne) -> ParallelAny")
-
-    # 2. non-literal state_key (keep strings so a literal passes; drop comments so
-    #    a commented-out example does not trigger)
-    for m in _STATE_KEY.finditer(_strip_comments(content)):
-        val = m.group(1)
-        if not (val[:1] in ('"', "'")):
-            out.append(
-                f"Non-literal state_key={val} for LatchedDwellDecorator.\n"
-                "  state_key MUST be a hardcoded string literal (e.g. state_key='grab_confirmed'),\n"
-                "  never a variable / arg / rosparam / f-string — it is a greppable state identity\n"
-                "  and a duplicate must fail at construction.")
-            break
-        if val[:2] in ('f"', "f'") or val[:2].lower() in ('rf', 'fr'):
-            out.append(
-                f"f-string state_key={val} for LatchedDwellDecorator.\n"
-                "  state_key MUST be a plain hardcoded literal (no interpolation), so it stays greppable.")
-            break
-    return out
+# Re-exports for external callers (validate_engine.py's library_sweep and the skill
+# validators import these by name). Wrapped because this module must remain IMPORTABLE
+# when guardlib is missing: main() then fails open and records a `degraded` event. An
+# unguarded import here would raise at module scope, and the hook would die with a
+# traceback instead of stepping aside -- exit 1 with no event, which is the one outcome
+# the fail-open rule exists to prevent. validate_engine still fails LOUD on the same
+# breakage, because it imports these names and gets AttributeError.
+try:
+    from guardlib.path_spec import TREE_PATTERN as _TREE_PATTERN  # noqa: E402,F401
+    from guardlib.tree_pre_rules import _violations  # noqa: E402,F401
+except Exception:  # pragma: no cover - guardlib absent
+    pass
 
 
 def _log(action, file_path, violations, data):
-    """Record the event. Import is local and failure is swallowed: the block/allow
-    decision above must not depend on the log being writable."""
     try:
         import guard_log
         if violations:
             guard_log.log_violations(_HOOK, action, file_path, violations, data)
         else:
             guard_log.log_clean(_HOOK, file_path, data)
+    except Exception:
+        pass
+
+
+def _degraded(file_path, data):
+    try:
+        import guard_log
+        guard_log.log_degraded(_HOOK, file_path, data=data)
     except Exception:
         pass
 
@@ -102,7 +60,15 @@ def main() -> None:
 
     tool_input = data.get("tool_input", {})
     file_path = tool_input.get("file_path", "")
-    if not _TREE_PATTERN.search(file_path):
+
+    try:
+        from guardlib import registry
+    except Exception:
+        _degraded(file_path, data)
+        sys.exit(0)
+
+    specs = registry.tree_rules_for(file_path)
+    if not specs:
         sys.exit(0)
 
     # Write → content; Edit → new_string.
@@ -110,7 +76,7 @@ def main() -> None:
     if not content:
         sys.exit(0)
 
-    violations = _violations(content)
+    violations = registry.run_all(specs, content, file_path)
     if not violations:
         _log('pass', file_path, (), data)
         sys.exit(0)

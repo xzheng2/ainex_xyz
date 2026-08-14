@@ -89,6 +89,13 @@ _RULES_BY_HOOK = {
         (re.compile(r'Missing input_state event'),              'adapter.input_state'),
         # check_bb_keys
         (re.compile(r'ROSA_TOPIC_MAP may be missing'),          'bb_keys.rosa_topic_map_missing'),
+        # check_runtime_io, reached through core/default_runtime_io.py. Deliberately
+        # the SAME ids as under xyz_behavior_guard below: hook scoping exists to tell
+        # apart two DIFFERENT rules sharing a message ("Missing class variable LEVEL"),
+        # not to fork one rule into two ids because it can be reached by two paths.
+        # Without these the shared _RuntimeIO's violations logged as `unmapped.*`.
+        (re.compile(r'BuzzerState imported from ainex_interfaces'), 'behavior.runtime_io.wrong_import'),
+        (re.compile(r'BuzzerState not imported from'),          'behavior.runtime_io.missing_import'),
     ),
     'xyz_bt_l1_running_guard': (
         (re.compile(r'L1 condition nodes are PURE PREDICATES'), 'l1.status_running'),
@@ -102,12 +109,6 @@ _RULES_BY_HOOK = {
         (re.compile(r'BuzzerState not imported from'),          'behavior.runtime_io.missing_import'),
         # check_runtime_facade
         (re.compile(r'Facade class does not inherit'),          'behavior.facade.base_class'),
-        # check_infra_manifest
-        (re.compile(r'Missing build_infra_manifest'),           'behavior.infra_manifest.build'),
-        (re.compile(r'Missing write_infra_manifest'),           'behavior.infra_manifest.write'),
-        # check_bb_ros_bridge
-        (re.compile(r'Missing XXXBBBridge class'),              'behavior.bb_bridge.class'),
-        (re.compile(r'Missing start\(\) method'),               'behavior.bb_bridge.start'),
         # check_tree_bt / check_groot_xml
         (re.compile(r'Missing bootstrap\(\) function'),         'behavior.tree.bootstrap'),
         (re.compile(r'Missing companion Groot XML'),            'behavior.tree.missing_groot'),
@@ -235,6 +236,24 @@ def log_reminder(hook, file_path, rule, data=None):
     recording them as a passed check would claim a check that never ran.
     """
     log_event(hook, 'reminder', file_path, rule=rule, message='', **_context(data))
+
+
+def log_degraded(hook, file_path, rule='guardlib.import_failed', data=None):
+    """Log that this guard could not load its rules and is NOT guarding.
+
+    Every guard fails open, which is right -- a broken guard must not wedge editing.
+    But a silent exit(0) is indistinguishable in this log from "the file was clean",
+    and the two mean opposite things: one is evidence the engine works, the other is
+    evidence it was never consulted. Zero must not be able to mean both.
+
+    Lives here rather than in guardlib on purpose: guardlib is precisely what is
+    unreachable when this fires, so the recorder cannot depend on it.
+
+    The push gate catches the same failure harder -- validate_engine's library_sweep
+    imports the rules and records FAIL on ImportError, so a broken guardlib cannot be
+    pushed. This event covers the window between pushes, where nobody is watching.
+    """
+    log_event(hook, 'degraded', file_path, rule=rule, message='', **_context(data))
 
 
 def _context(data):

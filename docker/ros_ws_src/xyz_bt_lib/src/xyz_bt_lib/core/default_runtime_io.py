@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""{{PROJECT_CLASS}} _RuntimeIO — sole raw ROS / manager egress.
+"""_RuntimeIO — sole raw ROS / manager egress.
 
 All outbound ROS communications and ros_out log entries flow through this class.
 No other layer (RuntimeFacade, L2 nodes, tree) may call gait_manager,
@@ -11,13 +11,34 @@ Layer rules:
   - _RuntimeIO only receives fully-resolved parameters; it does NOT perform
     profile selection, base cfg merging, or project business logic.
   - RuntimeFacade calls _RuntimeIO; L2 nodes never call _RuntimeIO directly.
+
+WHY THIS IS SHARED AND NOT SCAFFOLDED
+    It used to be generated per project from a template. The template carried two
+    placeholders and both were in docstrings -- the code body was byte-identical
+    everywhere, so every project got the same 150 lines with a different title.
+    A project only ever needs its own copy to retune the step velocity profile,
+    and subclassing says that far more precisely than a full copy does.
+
+RETUNING THE STEP VELOCITY PROFILE
+    ``_GO_STEP_VEL`` / ``_TURN_STEP_VEL`` are the per-project knobs. Override them
+    in a subclass rather than editing this file, which every project shares::
+
+        # <project>/runtime/_runtime_io.py   (optional -- only when retuning)
+        from xyz_bt_lib.core.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
+
+        class _RuntimeIO(_BaseRuntimeIO):
+            _GO_STEP_VEL = [250, 0.1, 0.01]
+
+    The ``as`` alias is not stylistic: the subclass keeps the name ``_RuntimeIO``
+    so that skill rule #3 and the guard's ``runtime/_runtime_io.py`` path key still
+    describe it, which means the base class has to be imported under another name.
 """
 import time as _time
 from ros_robot_controller.msg import BuzzerState
 
 
 class _RuntimeIO:
-    """Unified raw ROS egress for {{PROJECT_CLASS}} BT."""
+    """Unified raw ROS egress for a BT node. Subclass only to retune the profile."""
 
     # Step velocity profile: [period_time_ms, dsp_ratio, y_swap_amplitude]
     # TODO: tune per project; lower period_time_ms = faster gait cycle

@@ -451,13 +451,11 @@ update, in the same task:
    ...
    self._<var>.write_snapshot(<var>_snap, self._tick_id)
 
-3. Sync bb_ros_bridge.py:
-   Add BB mirror topics for each new BB key.
+3. Mirror the new BB key to ROS, if ROSA needs to see it:
+   shared /latched/ keys -> add to BB.ROSA_TOPIC_MAP in blackboard_keys.py;
+   project-local keys    -> add to _BB_TOPIC_MAP in the project's bt_node.py.
 
-4. Sync infra_manifest.py:
-   Add topic_sub record for the ROS topic.
-
-5. Rebuild:
+4. Rebuild:
    catkin build xyz_bt_lib xyz_behavior
 ```
 

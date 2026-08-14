@@ -32,9 +32,7 @@ from run_lab.run_context import open_run_dir
 
 from {{PROJECT}}.tree.{{PROJECT}}_bt import bootstrap
 from {{PROJECT}}.runtime.runtime_facade import {{PROJECT_CLASS}}RuntimeFacade
-from {{PROJECT}}.runtime._runtime_io import _RuntimeIO
-from {{PROJECT}}.infra.bb_ros_bridge import {{PROJECT_CLASS}}BBBridge
-from {{PROJECT}}.infra.infra_manifest import build_infra_manifest, write_infra_manifest
+from xyz_bt_lib.core.default_runtime_io import _RuntimeIO
 from xyz_bt_lib import BlackboardROSBridge
 # TODO: import the appropriate detection adapter:
 # Colour/OpenCV: from xyz_bt_lib.adapters.object_detection_adapter import ObjectDetectionAdapter
@@ -60,6 +58,18 @@ _MAX_RUNS = 10
 # TODO: tune per project. Keys must match runtime_facade's go_cfg/turn_cfg contract.
 _GO_CFG   = {'dsp': 0.1, 'gait_param': None, 'arm_swap': 30, 'step_num': 0}
 _TURN_CFG = {'dsp': 0.1, 'gait_param': None, 'arm_swap': 30, 'step_num': 0}
+
+# TODO (only if this project has BB keys of its own): declare them here and add the
+# matching second bridge in Step 8. Keys already in BB.ROSA_TOPIC_MAP are published by
+# the no-arg bridge — do NOT repeat them.
+#
+# Never pass an EMPTY map: BlackboardROSBridge does `key_to_topic_map or ROSA_TOPIC_MAP`,
+# so `BlackboardROSBridge({})` silently re-publishes the shared map — a second set of
+# publishers and a second timer on the same topics. Absent beats empty.
+#
+# _BB_TOPIC_MAP = {
+#     '/{{PROJECT}}/some_flag': '/bt/{{PROJECT}}/bb/some_flag',
+# }
 
 
 def main():
@@ -143,18 +153,13 @@ def main():
     tree.post_tick_handlers.append(visitor.on_tree_tick_end)
     tree.visitors.append(visitor)
 
-    # ── Step 8: start BB bridges ──────────────────────────────────────────
+    # ── Step 8: start BB bridge ───────────────────────────────────────────
+    # No argument = the shared BB.ROSA_TOPIC_MAP.
     BlackboardROSBridge().start(rate_hz=10)
-    {{PROJECT_CLASS}}BBBridge().start(rate_hz=10)
+    # Add alongside it, only when _BB_TOPIC_MAP above is defined and non-empty:
+    # BlackboardROSBridge(_BB_TOPIC_MAP).start(rate_hz=10)
 
-    # ── Step 9: infra comm manifest ───────────────────────────────────────
-    # Signature is (records, log_dir) — the function derives its own filename.
-    # The node name must match rospy.init_node() above, since build_infra_manifest()
-    # substitutes it into the '~' service/topic namespaces.
-    write_infra_manifest(build_infra_manifest('{{PROJECT}}'), run_dir)
-    rospy.loginfo('[{{PROJECT_CLASS}}] Infra manifest written')
-
-    # ── Step 10: BT exec controller ───────────────────────────────────────
+    # ── Step 9: BT exec controller ────────────────────────────────────────
     exec_lock = threading.Lock()
     exec_ctrl = BTExecController(exec_lock)
 

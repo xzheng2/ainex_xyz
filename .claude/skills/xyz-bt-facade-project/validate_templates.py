@@ -8,8 +8,8 @@ touches the robot or ROS master — the managers and publishers are stubs.
 WHY THIS EXISTS
     In Aug 2026 an audit found five defects that each crashed a freshly scaffolded
     project before its first tick: _RuntimeIO missing buzzer_pub, RuntimeFacade
-    missing go_cfg/turn_cfg, a double-wrapped BehaviourTree, write_infra_manifest
-    called with reversed arguments, and a facade move_head() without tilt_pos.
+    missing go_cfg/turn_cfg, a double-wrapped BehaviourTree, a facade move_head()
+    without tilt_pos, and an entry point importing infra modules no template made.
     They survived because nothing ever ran the template output — SKILL.md and the
     templates simply agreed with each other. Python's ABC machinery did not help:
     it checks method NAMES, never signatures, so the broken facade satisfied
@@ -46,10 +46,7 @@ SUBSTITUTIONS = {
 LAYOUT = {
     'project_bt.py.tpl':          'tree/demoproj_bt.py',
     'runtime_facade.py.tpl':      'runtime/runtime_facade.py',
-    '_runtime_io.py.tpl':         'runtime/_runtime_io.py',
     'actions.py.tpl':             'behaviours/actions.py',
-    'infra_manifest.py.tpl':      'infra/infra_manifest.py',
-    'bb_ros_bridge.py.tpl':       'infra/bb_ros_bridge.py',
     'bt_node.py.tpl':             'app/demoproj_bt_node.py',
     'project_bt_groot.xml.tpl':   'tree/demoproj_groot.xml',
     'project.launch.tpl':         'launch/demoproj.launch',
@@ -84,7 +81,7 @@ def render(out_root):
         open(dst, 'w', encoding='utf-8').write(text)
         rendered[tpl] = dst
     # package markers
-    for d in ('', 'tree', 'runtime', 'behaviours', 'infra', 'app'):
+    for d in ('', 'tree', 'runtime', 'behaviours', 'app'):
         open(os.path.join(out_root, 'demoproj', d, '__init__.py'), 'w').close()
     return rendered
 
@@ -153,7 +150,7 @@ def main(argv=None):
         state = {}
 
         def build_runtime():
-            from demoproj.runtime._runtime_io import _RuntimeIO
+            from xyz_bt_lib.core.default_runtime_io import _RuntimeIO
             from demoproj.runtime.runtime_facade import DemoProjRuntimeFacade
             from xyz_bt_lib.core.base_facade import XyzBTFacade
             go_cfg = {'dsp': 0.1, 'gait_param': None, 'arm_swap': 30, 'step_num': 0}
@@ -195,7 +192,7 @@ def main(argv=None):
         def bt_node_call_sites():
             import ast
             import inspect
-            from demoproj.runtime._runtime_io import _RuntimeIO
+            from xyz_bt_lib.core.default_runtime_io import _RuntimeIO
             from demoproj.runtime.runtime_facade import DemoProjRuntimeFacade
 
             src_path = os.path.join(tmp, 'demoproj', 'app', 'demoproj_bt_node.py')
@@ -230,26 +227,6 @@ def main(argv=None):
                 ', '.join(sorted(seen)))
         check('bt_node construction call sites', bt_node_call_sites)
 
-        # ── infra_manifest signature vs how bt_node calls it ──────────────
-        def manifest_contract():
-            import inspect
-            from demoproj.infra.infra_manifest import (build_infra_manifest,
-                                                       write_infra_manifest)
-            recs = build_infra_manifest('demoproj')
-            assert isinstance(recs, list) and recs, 'build_infra_manifest returned no records'
-            params = list(inspect.signature(write_infra_manifest).parameters)
-            src = open(os.path.join(tmp, 'demoproj', 'app', 'demoproj_bt_node.py'),
-                       encoding='utf-8').read()
-            call = re.search(r'write_infra_manifest\(([^)]*)\)', src)
-            assert call, 'bt_node never calls write_infra_manifest'
-            first = call.group(1).split(',')[0].strip()
-            assert first.startswith('build_infra_manifest'), (
-                'bt_node passes {!r} first but write_infra_manifest takes {}'
-                .format(first, params))
-            out = tempfile.mkdtemp()
-            write_infra_manifest(recs, out)
-            return '{} records; call site matches ({})'.format(len(recs), ', '.join(params))
-        check('infra_manifest call-site contract', manifest_contract)
 
         # ── the tree builds and ticks ─────────────────────────────────────
         def build_and_tick():

@@ -13,7 +13,7 @@ Matches (Read tool file_path OR Bash command):
 Allowed even when a match is referenced (Bash only): bounded/CLI tokens
 (lastrun_digest_cli.py, session_correlate.py, tick_id, --tick-selection, --tick-range) and pure
 metadata commands (wc/ls/stat/du/file, head -c). Small non-.jsonl state files in /log
-(bb_current.json, infra_comm_manifest_lastrun.json) are never matched.
+(bb_current.json) are never matched.
 
 Block = print reason to stderr + exit(2) (PreToolUse deny). Fail-open (exit 0) on any error.
 """

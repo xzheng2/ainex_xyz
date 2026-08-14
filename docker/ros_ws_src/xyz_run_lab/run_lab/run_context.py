@@ -84,12 +84,12 @@ LEGACY_LINKS = (
     'bt_debug_recent.jsonl',
     'bt_ros_comm_debug_recent.jsonl',
     'bb_current.json',
-    'infra_comm_manifest_lastrun.json',
 )
 
 #: Of those, the ones created empty up front so a run that has not logged anything yet
-#: reads as an empty run rather than a missing file. The two JSON state files are left to
-#: their writers: an empty file is not valid JSON, which would be worse than absent.
+#: reads as an empty run rather than a missing file. bb_current.json is left to its
+#: writer: an empty file is not valid JSON, which would be worse than absent, so its
+#: absence means this run had no blackboard writer -- a measurement, not a gap.
 _PRECREATED = tuple(n for n in LEGACY_LINKS if n.endswith('.jsonl'))
 
 #: Repository paths whose state can change what the robot does, and therefore the only

@@ -43,7 +43,7 @@ set up a competition BT, 新建 <name> 项目, scaffold facade project
    Stability confirmation ("condition stable for N ticks") uses `LatchedDwellDecorator`
    wrapping a CONDITION node — never an in-node dwell. See § Stability confirmation.
 10. `bb_current.json` is written only by `bt_node` via `BlackboardCurrentWriter`.
-    Adapters, L1/L2 nodes, and `bb_ros_bridge` must never write it.
+    Adapters and L1/L2 nodes must never write it.
 11. Groot XML sync: `tree/` must always contain BOTH `{{PROJECT}}_bt.py` and
     `{{PROJECT}}_groot.xml`, in sync at the end of every session, with the XML treated as
     source of truth when they differ. See § Groot XML co-generation and sync.
@@ -94,10 +94,11 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
     "source /opt/ros/noetic/setup.bash && cd /home/ubuntu/ros_ws && catkin clean <stale_pkg> -y"
   ```
 - [ ] `_LOG_DIR = os.path.join(_PKG_PATH, 'log')` — never a project subdirectory; all projects share `xyz_behavior/log/`
-- [ ] `run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths, `BlackboardCurrentWriter`, `write_infra_manifest`. `_LOG_DIR` keeps only the symlinks `open_run_dir()` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`.
+- [ ] `run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths and `BlackboardCurrentWriter`. `_LOG_DIR` keeps only the symlinks `open_run_dir()` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`.
 - [ ] `_PKG_PATH` uses `rospkg.RosPack().get_path('xyz_behavior')`, not `__file__`-relative
 - [ ] a second `sys.path` root, `_RUN_LAB_PATH = rospkg.RosPack().get_path('xyz_run_lab')`, backs `from run_lab.run_context import open_run_dir`. The three observability imports (`debug_event_logger`, `bt_debug_visitor`, `blackboard_current_writer`) still come from `bt_observability` under `_PKG_PATH` — the split is deliberate: instrumentation is present in every experiment lane, the observability architecture is not
-- [ ] `infra/` contains exactly `infra_manifest.py` + `bb_ros_bridge.py`. `TreeROSPublisher` / `BTExecController` are imported from `bt_observability`, never copied into the project
+- [ ] No `infra/` directory. `TreeROSPublisher` / `BTExecController` come from `bt_observability`; `_RuntimeIO` from `xyz_bt_lib.core.default_runtime_io`; project-local BB keys go to `BlackboardROSBridge(_BB_TOPIC_MAP)`, not to a per-project bridge class
+- [ ] `runtime/` holds `runtime_facade.py` only, unless the project retunes the step velocity profile — then a subclass in `runtime/_runtime_io.py`, never a full copy
 - [ ] `logger.close()` called on shutdown
 - [ ] `app/{{PROJECT}}_bt_node.py` has `if __name__ == '__main__': main()` at bottom
 - [ ] `tree/{{PROJECT}}_groot.xml` created alongside `tree/{{PROJECT}}_bt.py` — use `project_bt_groot.xml.tpl`; must mirror tree structure, composite types, node IDs, and CONFIG_DEFAULTS port values
@@ -129,7 +130,7 @@ _RuntimeIO(gait_manager, motion_manager, buzzer_pub, ...)
               └─ BehaviourTree → TreeROSPublisher(tree)
 ```
 
-Templates: `bt_node.py.tpl` → `app/{{PROJECT}}_bt_node.py` · `runtime_facade.py.tpl` → `runtime/runtime_facade.py` · `_runtime_io.py.tpl` → `runtime/_runtime_io.py`
+Templates: `bt_node.py.tpl` → `app/{{PROJECT}}_bt_node.py` · `runtime_facade.py.tpl` → `runtime/runtime_facade.py`. `_RuntimeIO` is not generated — it is imported from `xyz_bt_lib.core.default_runtime_io`.
 
 ## Public contract (XyzBTFacade)
 
@@ -158,7 +159,7 @@ Facts that live nowhere else, so they stay here:
 {{PROJECT}}/
   runtime/
     runtime_facade.py    ← {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade)
-    _runtime_io.py       ← _RuntimeIO (sole raw ROS egress)
+    _runtime_io.py       ← OPTIONAL, only to retune the step velocity profile
   tree/
     {{PROJECT}}_bt.py      ← bootstrap(runtime_facade, ...)
     {{PROJECT}}_groot.xml  ← Groot BT visualization (keep in sync with _bt.py)
@@ -166,9 +167,6 @@ Facts that live nowhere else, so they stay here:
     {{PROJECT}}_bt_node.py    ← catkin_install_python entry point (run directly)
   behaviours/
     actions.py           ← project-specific L2 nodes (if needed)
-  infra/
-    infra_manifest.py    ← from infra_manifest.py.tpl
-    bb_ros_bridge.py     ← from bb_ros_bridge.py.tpl
 log/                     ← shared runtime log dir (xyz_behavior/log/); all projects write here
   bb_current.json        ← current BB state mirror (latest tick only; not a history log)
 
@@ -178,14 +176,18 @@ launch/                  ← inside xyz_behavior/launch/, shared across all proj
   {{PROJECT}}_bringup.launch  ← ONLY when project needs non-default hardware (e.g. an event with no camera + avoids sensor_node)
 ```
 
-**`infra/` holds only the two project-specific modules.** `TreeROSPublisher` and
-`BTExecController` used to be copied in here as well; they are now shared modules in
-`xyz_behavior/bt_observability/` and are **not** generated — a scaffold imports them, it
-does not create them. Neither takes a project name, a topic or a node name, so a per-project
-copy was byte-identical every time except for what the copying lost. Do not re-add them as
-templates; there is nothing to substitute.
+**There is no `infra/` any more.** It held four modules and none of them earned a
+per-project copy. `TreeROSPublisher` / `BTExecController` are shared modules in
+`xyz_behavior/bt_observability/`. `bb_ros_bridge.py` re-implemented what
+`BlackboardROSBridge(key_to_topic_map=...)` already does — pass the map instead.
+`infra_manifest.py` wrote a JSON file that nothing ever read, declaring an exclusion
+from the comm log that was never implemented. Do not re-add any of them as templates.
 
-Templates: `project.launch.tpl` → `launch/{{PROJECT}}.launch` (perception nodes + BT node; never includes bringup; TODO block offers Option A (colour detection) or Option B (YOLO detection via `YoloObjectDetectionAdapter`); uncomment the correct block when scaffolding) · `infra_manifest.py.tpl` → `infra/infra_manifest.py`
+**`_RuntimeIO` is shared too**, at `xyz_bt_lib.core.default_runtime_io`. A project
+generates `runtime/_runtime_io.py` **only** to retune `_GO_STEP_VEL` / `_TURN_STEP_VEL`,
+as a subclass — see § go_cfg / turn_cfg shape.
+
+Templates: `project.launch.tpl` → `launch/{{PROJECT}}.launch` (perception nodes + BT node; never includes bringup; TODO block offers Option A (colour detection) or Option B (YOLO detection via `YoloObjectDetectionAdapter`); uncomment the correct block when scaffolding)
 
 Not generated (deprecated paradigm):
 - `semantics/semantic_facade.py`
@@ -366,8 +368,21 @@ template's `30`), which is exactly the failure mode this section now avoids.
 
 `_RuntimeIO` owns the **step velocity profile** constants that control gait speed
 (`_GO_STEP_VEL` / `_TURN_STEP_VEL`, each `[period_time_ms, dsp_ratio,
-y_swap_amplitude]`) — defined and documented in `assets/templates/_runtime_io.py.tpl`;
-tune them there per project.
+y_swap_amplitude]`) — defined in `xyz_bt_lib/src/xyz_bt_lib/core/default_runtime_io.py`,
+which every project shares. To retune them, subclass rather than edit:
+
+```python
+# <project>/runtime/_runtime_io.py   — write this file ONLY when retuning
+from xyz_bt_lib.core.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
+
+class _RuntimeIO(_BaseRuntimeIO):
+    # rebind _GO_STEP_VEL / _TURN_STEP_VEL here; the values live in
+    # core/default_runtime_io.py, never in this document
+```
+
+The `as` alias is required: the subclass keeps the name `_RuntimeIO` so rule #3 and the
+guard's `runtime/_runtime_io.py` path key still describe it, which leaves no other way to
+name the base.
 
 `gait_manager.set_step(step_vel, x, y, yaw, gait_param, ...)` takes `step_vel` list as first arg.
 Per-call overrides (`period_time_ms`, `dsp_ratio`, `y_swap_amplitude`, `arm_swap`, `step_num`,
@@ -401,12 +416,11 @@ authoritative field list (`schema_version`, `tick_id`, `ts`, `root_status`,
 
 Ownership rules:
 - **Owner**: project/app infra (`bt_node.py`). Maintained centrally by the node entry point.
-- **Not owned by**: adapters, L1 nodes, L2 nodes, `bb_ros_bridge.py`, or any `xyz_bt_lib` component.
+- **Not owned by**: adapters, L1 nodes, L2 nodes, the BB ROS bridge, or any `xyz_bt_lib` component.
 - **Not a history log**: this is a single current-state mirror. It does not replace JSONL
   observability (`bt_debug_lastrun.jsonl`, `bt_debug_recent.jsonl`).
-- **Not folded into `bb_ros_bridge.py`**: BB ROS mirroring and the BB file snapshot are
+- **Not folded into the BB ROS bridge**: BB ROS mirroring and the BB file snapshot are
   separate responsibilities with separate code paths.
 - **One file for all projects**: always `xyz_behavior/log/bb_current.json` — no per-project
   filenames, no per-tick snapshots.
 
-Template: `bb_ros_bridge.py.tpl` → `infra/bb_ros_bridge.py`

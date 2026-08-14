@@ -52,6 +52,10 @@ import sys
 
 LIB_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB_SRC = os.path.join(LIB_ROOT, 'src', 'xyz_bt_lib')
+#: The whole ROS source tree. The content sweeps only walk LIB_SRC; the coverage sweep
+#: walks everything, because "which files does no guard claim" is a question about the
+#: managed packages as a whole, not about the library alone.
+WORKSPACE_SRC = os.path.dirname(LIB_ROOT)
 
 DEFAULT_SKILLS_DIR = '/home/pi/.claude/skills'
 DEFAULT_HOOKS_DIR = '/home/pi/.claude/hooks'
@@ -167,6 +171,13 @@ def all_py_files(root):
 #: happening is indistinguishable from a clean run in the report, so the count
 #: is asserted rather than trusted.
 #: 4 -> 5 when path_table_agrees() joined the sweep (the xyz_paths drift check).
+#: 5 -> 4 when that check was DELETED: the guards and xyz_paths no longer hold two
+#: copies of each pattern to compare, because guardlib.path_spec is the only copy.
+#: An assertion that two things agree is meaningless once there is only one thing.
+#: 4 -> 5 when coverage_sweep() joined. Same number as before the guardlib refactor,
+#: DIFFERENT composition: node / L1 / adapter / bb_keys / coverage, where the fifth
+#: used to be the xyz_paths drift assertion. Do not read the unchanged 5 as "nothing
+#: moved here".
 EXPECTED_SWEEPS = 5
 
 
@@ -188,11 +199,13 @@ def hooks_import_safe(hooks_dir):
     label = 'sweep: hooks are import-safe'
     offenders = []
     count = 0
-    for fn in sorted(os.listdir(hooks_dir)):
-        if not fn.endswith('.py'):
-            continue
+    # RECURSIVE. It was os.listdir until guardlib/ existed, which meant a subpackage
+    # shipped to the container by stage_engine() (copytree is recursive) but was never
+    # AST-scanned -- the gate would have missed a module-scope call in the very files
+    # every hook now imports.
+    for path in sorted(all_py_files(hooks_dir)):
+        fn = os.path.relpath(path, hooks_dir)
         count += 1
-        path = os.path.join(hooks_dir, fn)
         try:
             module = ast.parse(open(path, encoding='utf-8').read(), path)
         except Exception as exc:                  # noqa: BLE001
@@ -215,66 +228,17 @@ def hooks_import_safe(hooks_dir):
         record('PASS', label, '{} hooks clean'.format(count))
 
 
-def path_table_agrees(hooks_dir):
-    """xyz_paths.py's copies of the guards' path patterns must be byte-identical.
-
-    xyz_paths deliberately COPIES rather than imports (a guard that imports another
-    guard fails open together with it). Two copies of a regex are two answers to
-    "is this a node?" the moment one is edited -- and the coverage guard would then
-    report UNKNOWN for files a content guard is in fact checking, or worse, stay
-    silent for files nothing checks. This assertion is the only thing preventing
-    that; deleting it silently converts xyz_paths from a map into a liability.
-    """
-    label = 'sweep: xyz_paths mirrors guard patterns'
-    try:
-        import xyz_paths
-        import xyz_bt_lib_guard as libguard
-        import xyz_behavior_guard as behguard
-        import xyz_bt_tree_pre_guard as treeguard
-    except Exception as exc:                      # noqa: BLE001
-        record('FAIL', label, 'cannot import: {}: {}'.format(type(exc).__name__, exc))
-        return
-
-    checks = (
-        ('_NODE_PATTERN',     xyz_paths._NODE_PATTERN,     libguard._NODE_PATTERN),
-        ('_ADAPTER_PATTERN',  xyz_paths._ADAPTER_PATTERN,  libguard._ADAPTER_PATTERN),
-        ('_BB_KEYS_PATTERN',  xyz_paths._BB_KEYS_PATTERN,  libguard._BB_KEYS_PATTERN),
-        ('_TREE_PATTERN',     xyz_paths._TREE_PATTERN,     treeguard._TREE_PATTERN),
-        ('_BEHAVIOR_PATTERN', xyz_paths._BEHAVIOR_PATTERN, behguard._PATTERN),
-    )
-    problems = []
-    for name, mine, theirs in checks:
-        if mine.pattern != theirs.pattern:
-            problems.append(
-                '{}: xyz_paths has {!r}, the guard has {!r}'
-                .format(name, mine.pattern, theirs.pattern))
-
-    real_prefixes = tuple(p for p, _ in behguard._CHECK_MAP)
-    if xyz_paths._CHECK_PREFIX_STRINGS != real_prefixes:
-        problems.append(
-            '_CHECK_MAP prefixes: xyz_paths has {}, xyz_behavior_guard has {}'
-            .format(list(xyz_paths._CHECK_PREFIX_STRINGS), list(real_prefixes)))
-
-    if problems:
-        record('FAIL', label, '\n'.join(problems))
-    else:
-        record('PASS', label,
-               '{} patterns + {} _CHECK_MAP prefixes identical'
-               .format(len(checks), len(real_prefixes)))
-
-
 def library_sweep(hooks_dir):
     sys.path.insert(0, hooks_dir)
     try:
-        import xyz_bt_lib_guard as guard
-        import xyz_bt_l1_running_guard as l1guard
-        from xyz_bt_lib_guard import check_node, check_adapter, check_bb_keys
-        from xyz_bt_l1_running_guard import check_l1_running
+        from guardlib import path_spec, registry
+        from guardlib.bt_lib_rules import check_node, check_adapter, check_bb_keys
+        from guardlib.bt_lib_rules import check_l1_running
     except SystemExit as exc:
         # Not an Exception, so `except Exception` never saw it: a hook that runs
         # main() at import calls sys.exit() and kills this process silently.
         record('FAIL', 'library sweep: import guards',
-               'a hook module called sys.exit({}) while being imported -- it '
+               'a guardlib module called sys.exit({}) while being imported -- it '
                'executes its body at module scope. See the import-safe sweep '
                'above for which one.'.format(exc.code))
         return
@@ -283,15 +247,17 @@ def library_sweep(hooks_dir):
                '{}: {}'.format(type(exc).__name__, exc))
         return
 
-    # File selection reuses the hooks' OWN path patterns rather than a parallel
-    # copy. A second copy would drift -- and then the sweep and the hook would
-    # disagree about what counts as a node, which is the whole failure mode this
-    # tool exists to prevent.
+    # File selection uses the SAME predicates the hooks dispatch on -- there is only
+    # one copy of them now, in guardlib.path_spec, so the sweep and the hook cannot
+    # disagree about what counts as a node. That disagreement is the failure mode this
+    # tool exists to prevent, and until guardlib it was prevented by asserting two
+    # copies stayed byte-identical.
     files = list(all_py_files(LIB_SRC))
-    node_files = [p for p in files if guard._NODE_PATTERN.search(p)]
-    adapter_files = [p for p in files if guard._ADAPTER_PATTERN.search(p)]
-    bb_key_files = [p for p in files if guard._BB_KEYS_PATTERN.search(p)]
-    l1_files = [p for p in files if l1guard.applies_to(p)]
+    select = dict(path_spec.matchers())
+    node_files = [p for p in files if select['lib.node'](p)]
+    adapter_files = [p for p in files if select['lib.adapter'](p)]
+    bb_key_files = [p for p in files if select['lib.bb_keys'](p)]
+    l1_files = [p for p in files if select['l1'](p)]
 
     def sweep(label, paths, fn, advisory=False):
         offenders = []
@@ -319,8 +285,6 @@ def library_sweep(hooks_dir):
         else:
             record('PASS', label, '{} files clean'.format(count))
 
-    path_table_agrees(hooks_dir)
-
     sweep('sweep: node conformance (check_node)', node_files,
           lambda c, p: check_node(c, p))
     sweep('sweep: L1 purity (check_l1_running)', l1_files,
@@ -329,6 +293,62 @@ def library_sweep(hooks_dir):
           lambda c, p: check_adapter(c))
     sweep('sweep: blackboard keys (check_bb_keys, advisory)', bb_key_files,
           lambda c, p: check_bb_keys(c), advisory=True)
+
+    coverage_sweep()
+
+
+
+def coverage_sweep():
+    """Every file in a managed package must fall to some guard -- or say it does not.
+
+    The four content sweeps above answer "are the files a rule claims clean?". This one
+    answers the prior question: "which files does no rule claim at all?". Without it a
+    new subpackage is checked by nobody and looks exactly like a subpackage that passed,
+    because both produce zero findings. Zero must not mean both.
+
+    It is the push-time counterpart of xyz_coverage_guard, which only fires when an
+    agent happens to write such a file. Here the whole tree is classified on every push.
+    """
+    label = 'sweep: guard coverage of managed packages'
+    try:
+        from guardlib import path_spec, registry
+    except Exception as exc:                      # noqa: BLE001
+        record('FAIL', label, '{}: {}'.format(type(exc).__name__, exc))
+        return
+
+    with_rules = registry.categories_with_rules()
+    counts = {'checked': 0, 'declared but unchecked': 0, 'unmanaged': 0, 'UNKNOWN': 0}
+    unknown = []
+    for dirpath, dirnames, filenames in os.walk(WORKSPACE_SRC):
+        dirnames[:] = [d for d in dirnames if d not in ('__pycache__', '.git')]
+        for fn in sorted(filenames):
+            path = os.path.join(dirpath, fn)
+            category = path_spec.classify(path)
+            if category == 'unmanaged':
+                counts['unmanaged'] += 1
+            elif category == 'UNKNOWN':
+                counts['UNKNOWN'] += 1
+                unknown.append(os.path.relpath(path, WORKSPACE_SRC))
+            elif category in with_rules:
+                counts['checked'] += 1
+            else:
+                # 'build' and 'exempt': claimed by the map, zero rules under them.
+                # Named rather than silent -- an exemption that disappears from the
+                # statistics is indistinguishable from a gap.
+                counts['declared but unchecked'] += 1
+
+    summary = ('{checked} checked, {declared but unchecked} declared but unchecked, '
+               '{unmanaged} unmanaged, {UNKNOWN} UNKNOWN').format(**counts)
+    if not sum(counts.values()):
+        record('FAIL', label, 'walked {} and found nothing -- the tree is missing or '
+                              'the walk is broken'.format(WORKSPACE_SRC))
+    elif unknown:
+        # Advisory: these are pre-existing and need a human decision per file (give it
+        # a category, or exempt it). It is a warning that CAN go away, not one that is
+        # always on -- once the list is empty this records PASS.
+        record('WARN', label, summary + '\n' + '\n'.join('  ' + u for u in unknown))
+    else:
+        record('PASS', label, summary)
 
 
 # ---------------------------------------------------------------------------
@@ -413,7 +433,7 @@ def facade_claims(args, dexec, c_stage, c_lib_root):
             if re.search(r'^\s*' + const + r'\s*=', text, re.M):
                 problems.append(
                     '{}: defines {} inline; that constant lives in a template '
-                    '(bt_node.py.tpl / _runtime_io.py.tpl) — point at it instead'
+                    '(bt_node.py.tpl / core/default_runtime_io.py) — point at it instead'
                     .format(skill_dir, const))
 
     for skill in FACADE_CLAIM_SKILLS:

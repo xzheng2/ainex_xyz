@@ -2,7 +2,7 @@
 """PostToolUse guard: every file in a managed package must fall to some guard.
 
 The other six guards check CONTENT. This one checks only that a written path is
-classifiable at all: if xyz_paths.classify() returns 'UNKNOWN', the file sits
+classifiable at all: if path_spec.classify() returns 'UNKNOWN', the file sits
 inside xyz_bt_lib / xyz_behavior, is not exempt, and matches no guard's pattern
 — so nothing inspected it, and its silence in guard_events.jsonl means "unseen",
 not "clean". That distinction is invisible without this hook.
@@ -18,6 +18,14 @@ import json
 import sys
 
 _HOOK = 'xyz_coverage_guard'
+
+
+def _degraded(file_path, data):
+    try:
+        import guard_log
+        guard_log.log_degraded(_HOOK, file_path, data=data)
+    except Exception:
+        pass
 
 
 def _log(action, file_path, violations, data, category=None):
@@ -45,11 +53,13 @@ def main() -> None:
     file_path = data.get("tool_input", {}).get("file_path", "")
 
     try:
-        sys.path.insert(0, __file__.rsplit('/', 1)[0])
-        import xyz_paths
-        category = xyz_paths.classify(file_path)
+        from guardlib import path_spec
+        category = path_spec.classify(file_path)
     except Exception:
         # Fail open: a coverage guard that cannot classify must not block an edit.
+        # But RECORD it: an unlogged failure here is the exact blind spot this hook
+        # exists to remove -- silence would read as "everything was classifiable".
+        _degraded(file_path, data)
         sys.exit(0)
 
     if category != 'UNKNOWN':
@@ -66,9 +76,9 @@ def main() -> None:
         "Unclassified file in a managed package: no content guard's path pattern "
         "matches it, so nothing checked what you just wrote.",
         "→  Either move it under a shape an existing guard claims (behaviours/L[123]_*/, "
-        "adapters/, tree/, runtime/, infra/, app/, scripts/, launch/), or — if it is a "
-        "genuinely new kind of module — add its pattern to .claude/hooks/xyz_paths.py "
-        "and give it a guard.",
+        "adapters/, tree/, runtime/, app/, scripts/, launch/), or — if it is a "
+        "genuinely new kind of module — add its pattern to "
+        ".claude/hooks/guardlib/path_spec.py and give it a guard.",
     ]
     _log('warned', file_path, violations, data)
 
