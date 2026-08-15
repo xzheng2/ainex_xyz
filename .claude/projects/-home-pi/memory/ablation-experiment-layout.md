@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: f1539859-db40-4b19-9d76-a19013065b02
-  modified: 2026-08-13T05:50:45.889Z
+  modified: 2026-08-15T19:52:54.755Z
 ---
 
 Multi-body ablation experiments (set up Aug 11 2026) split across **two** repositories:
@@ -76,4 +76,6 @@ turn a symlink into a regular file. Only the newest 10 runs survive, deleted at 
 startup published or not, so `tools/publish_runs.py` is the step that makes a run
 permanent.
 
-Related: [[ainex_bt_observability]]
+The BT observability layer that writes into those run dirs is documented by its own module
+docstrings under `docker/ros_ws_src/xyz_behavior/bt_observability/` — the `ainex_bt_observability`
+memory that used to be linked here was deleted Aug 15 2026 as re-derivable from that code.
