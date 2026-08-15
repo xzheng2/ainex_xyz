@@ -4,23 +4,16 @@
 
 > **Competition events WIPED Aug 8 2026** for clean agent rebuild: all `xyz_behavior` project dirs, event launch files, hurocup2025 legacy scripts, event memories/docs deleted; git history squashed to a single clean-baseline commit. **When rebuilding events, do NOT consult old designs or any git history** — rebuild from the `xyz_bt_lib` framework only. Kept: xyz_behavior skeleton, bt_observability, ActionGroups motions (hand-tuned assets).
 
-> **Leak sweep Aug 14 2026 — the carriers named above are gone; do not go looking for them.** `ainex_xyz_pre_reset.bundle` no longer exists. `~/.local/share/Trash/` is empty (its `expunged/` held 213 files of full event source and was purged). Also removed: 6 pre-wipe session transcripts + their `file-history` snapshots, `paste-cache`, 6 old plan files, `xyz_panel/student_prompts/historicalprompts/` (19 files, contained full algorithm descriptions), stale event names in `guardlib/hints.py`, `settings.local.json`, `docker/rosa-agent/`, and 5 memory files. `hurocup2025` is gone everywhere: both old `ainex-backup` images carried it and were deleted, replaced by the flattened `:20260814-clean`. Verified clean: working tree, container, `devel/`, the PUBLIC results repo, both existing tags, and current git history (`hurocup2025/scripts` there holds only `tools`).
->
-> **The sweep's own transcript was deleted too.** It was briefly kept as the audit record, but it held what the sweep printed while working — event directory structures and one full algorithm description that a grep had echoed — which made the audit its own last carrier. The written record is `/home/pi/SESSION_SUMMARY_20260814.md` (untracked, local only), which deliberately records what was removed and how it was verified **without** reproducing any of it. No pre-wipe event design is known to remain on this machine.
-
 ## Working preferences
 
 - [Plan summary preference](plan-summary-preference.md) — show only the current round's changes for approval, not the whole plan file
 
-> **Four BT-framework memories were deleted Aug 14 2026, before the ablation experiment**
-> (which gate to use for steady confirmation, latch vs hysteresis selection, extend-don't-
-> duplicate, docstring-is-the-spec). They were digested conclusions about *using* the
-> framework, and using the framework is what the experiment measures — reading them would
-> have handed an agent the answer. **Nothing was lost**: every one of those conclusions is
-> in the code that carries it — the docstrings of `core/latched_dwell.py` and
-> `core/hysteresis.py`, `core/base_node.py` on L1 purity, and the runnable proofs
-> `examples/demo_latched_dwell.py` / `demo_hysteresis.py` / `demo_memory_interaction.py`,
-> which `validate_engine` executes on every push. Read those; do not restate them here.
+> **Framework-usage conclusions are not kept as memories.** How to use `xyz_bt_lib` —
+> which node or decorator fits a situation and why — lives in the code that carries it:
+> the module docstrings under `xyz_bt_lib/src/xyz_bt_lib/core/`, and the runnable
+> `examples/demo_*.py` proofs that `validate_engine` executes on every push. Read those.
+> Do not distil them back into this bank: a digested answer here short-circuits the
+> reasoning the docstrings and demos exist to support.
 
 ## Projects
 

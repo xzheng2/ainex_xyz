@@ -19,10 +19,11 @@ The ROS workspace source is now host-mounted. Claude Code can directly read/edit
 
 - Migrated 2026-03-08 using test-container approach
 - Backup images: `:20260308` and `:20260630` were both DELETED Aug 14 2026 — each still
-  carried the pre-wipe `hurocup2025` event implementations. `:20260814-clean` is the only
-  ainex-backup image left, and there is no rollback image behind it: it was verified by
-  recreating the container from it and getting a 23/23 catkin build plus a fully green
-  `validate_engine`, which is the evidence that stands in for a rollback point.
+  baked in material covered by the wipe note at the top of MEMORY.md, so **do not restore
+  either from any external copy**. `:20260814-clean` is the only ainex-backup image left,
+  and there is no rollback image behind it: it was verified by recreating the container
+  from it and getting a 23/23 catkin build plus a fully green `validate_engine`, which is
+  the evidence that stands in for a rollback point.
 - `catkin build` verified: all 17 packages succeed
 - `rospack list` verified: all ainex packages discoverable
 - UIDs match (pi=ubuntu=1000), no permission issues
