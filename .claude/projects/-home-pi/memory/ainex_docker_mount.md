@@ -18,7 +18,10 @@
 The ROS workspace source is now host-mounted. Claude Code can directly read/edit files under `/home/pi/docker/ros_ws_src/`.
 
 - Migrated 2026-03-08 using test-container approach
-- Backup image: `ainex-backup:20260308` (11.6GB) — safe to remove after extended validation
+- Backup image: `ainex-backup:20260308` (11.6GB) — STILL PRESENT and still contains the
+  pre-wipe `hurocup2025` event implementations. It is the image the running container was
+  started from, so removing it needs a container-recreation window; do that from
+  `:20260814-clean` and then `docker rmi ainex-backup:20260308`.
 - `catkin build` verified: all 17 packages succeed
 - `rospack list` verified: all ainex packages discoverable
 - UIDs match (pi=ubuntu=1000), no permission issues
@@ -35,12 +38,27 @@ This means the container starts on boot and restarts on crash, but stays stopped
 
 ## Container Recreation
 
-**Recreate from `ainex-backup:20260630`** (committed Jun 30 2026 — supersedes the
-stale `:20260308`). The new image bakes in the freshly-built ROS workspace
+**Recreate from `ainex-backup:20260814-clean`** (Aug 14 2026 — supersedes `:20260630`,
+which was deleted, and the stale `:20260308`). The new image bakes in the freshly-built ROS workspace
 (`devel/`/`build/`) + `py_trees==2.1.6` (pip --user, in `/home/ubuntu/.local`) +
 `python3-pygraphviz`/`python3-termcolor` (apt), so recreating from it does NOT need
-a `catkin build` or py_trees reinstall (those steps were only needed when recreating
-from the old `:20260308`). If the container needs to be recreated again, include
+a py_trees reinstall.
+
+> **It DOES need a catkin build now, and one extra step first (verified Aug 14 2026).**
+> The baked `devel/`/`build/` are from Jun 30 and the workspace source has moved on a
+> long way since, so the bake is stale — `devel/setup.bash` carries a hardcoded
+> `ROS_PACKAGE_PATH` from that date. Worse, the baked dirs are **root-owned**, so the
+> obvious `docker exec -u ubuntu ... rm -rf build devel` fails with several hundred
+> `Permission denied` lines and the build then fails. Remove them as root, build as
+> ubuntu:
+>
+> ```bash
+> docker exec ainex bash -lc 'cd /home/ubuntu/ros_ws && rm -rf build devel logs'
+> docker exec -u ubuntu ainex bash -lc \
+>   'cd /home/ubuntu/ros_ws && source /opt/ros/noetic/setup.bash && catkin build'
+> ```
+
+If the container needs to be recreated again, include
 `--restart=unless-stopped`. **`--ipc host` is required** for the /dev/shm zero-copy
 camera transport (gemini305_bridge + shm_frame.py double buffer) — without it the
 container's /dev/shm is private and the colour/depth bridges cannot see the host's
@@ -66,7 +84,7 @@ docker run \
   -e DISPLAY=:1 \
   -e LIBGL_ALWAYS_SOFTWARE=1 \
   -itd \
-  ainex-backup:20260630 \
+  ainex-backup:20260814-clean \
   /bin/bash
 ```
 Note: `DISPLAY=:1` because the desktop is Wayland/Wayfire with XWayland on `:1` (not `:0`).
@@ -101,7 +119,7 @@ make the bgr8 red/blue inversion fix in `camera_thread.py` permanent
 `Format_RGB888` get RGB order). Only `lab_tool/` is mounted — the rest of the
 image's `software/` tree (ainex_controller, servo_tool, etc.) is unshadowed.
 
-## Container writable-layer reset on recreation (fixed by `:20260630` image)
+## Container writable-layer reset on recreation (fixed by the baked image)
 
 Everything NOT on a bind mount lives in the container **writable layer** and is
 reset to the image bake on recreation. Two things bit us recreating from the stale
@@ -113,7 +131,7 @@ reset to the image bake on recreation. Two things bit us recreating from the sta
 2. **`py_trees==2.1.6`** — pip-installed AFTER the bake, so gone → BT nodes died with
    `ModuleNotFoundError: No module named 'py_trees'`.
 
-**Now baked into `ainex-backup:20260630`**, so recreating from it needs NEITHER step.
+**Now baked into `ainex-backup:20260814-clean`**, so recreating from it needs NEITHER step.
 Only if you ever recreate from `:20260308` again, redo them:
 ```bash
 docker exec ainex bash -lc 'source /opt/ros/noetic/setup.bash && cd /home/ubuntu/ros_ws && catkin build'   # ~27 s warm

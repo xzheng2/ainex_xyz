@@ -3,8 +3,16 @@
 **Host**: Raspberry Pi 5, Linux 6.12 rpi-2712, user `pi`, home `/home/pi`, shell `zsh`
 
 ### ROS1 Container (`ainex`)
-**Image**: recreate from `ainex-backup:20260630` (the container currently running may be on an
+**Image**: recreate from `ainex-backup:20260814-clean` (the container currently running may be on an
 older tag — check with `docker ps`), user `ubuntu`, home `/home/ubuntu`
+
+> `:20260814-clean` replaces `:20260630`, which was deleted. It is that image with the
+> pre-wipe `hurocup2025` package and its `.zip` removed, then **flattened to one layer** —
+> a `RUN rm` layer would have left the data recoverable from the layers underneath. Verified
+> identical otherwise: py_trees 2.1.6 at the same path, 295 ROS packages, `software/` mount
+> point. Flattening drops image metadata, so ENTRYPOINT/CMD/ENV were re-applied on import;
+> the recreate command below already states every flag explicitly, so nothing else depends
+> on it.
 
 **User**: robot runs as `ubuntu` (pip `--user` pkgs — py_trees **2.1.6**, zmq, scipy — live in
 `/home/ubuntu/.local`; py_trees is pinned via pip, not apt, and `rqt_py_trees` carries a local

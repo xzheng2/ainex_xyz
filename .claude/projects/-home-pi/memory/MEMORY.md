@@ -5,6 +5,8 @@
 > **Competition events WIPED Aug 8 2026** for clean agent rebuild: all `xyz_behavior` project dirs, event launch files, hurocup2025 legacy scripts, event memories/docs deleted; git history squashed to a single clean-baseline commit. **When rebuilding events, do NOT consult old designs or any git history** — rebuild from the `xyz_bt_lib` framework only. Kept: xyz_behavior skeleton, bt_observability, ActionGroups motions (hand-tuned assets).
 
 > **Leak sweep Aug 14 2026 — the carriers named above are gone; do not go looking for them.** `ainex_xyz_pre_reset.bundle` no longer exists. `~/.local/share/Trash/` is empty (its `expunged/` held 213 files of full event source and was purged). Also removed: 6 pre-wipe session transcripts + their `file-history` snapshots, `paste-cache`, 6 old plan files, `xyz_panel/student_prompts/historicalprompts/` (19 files, contained full algorithm descriptions), stale event names in `guardlib/hints.py`, `settings.local.json`, `docker/rosa-agent/`, and 5 memory files. `hurocup2025` survives ONLY inside the `ainex-backup` docker images — see the image note below. Verified clean: working tree, container, `devel/`, the PUBLIC results repo, both existing tags, and current git history (`hurocup2025/scripts` there holds only `tools`).
+>
+> **Known, accepted residue.** The sweep's own session transcript (`.claude/projects/-home-pi/df6fdcdf-4aba-406b-a45f-f3adb9ddd32f.jsonl`) was deliberately KEPT as the audit record, and it contains what the sweep printed while working: the event directory structures, and one full algorithm description for the `marathon` event that a grep echoed verbatim. It is the one place that material still exists on this machine. Treat it as off-limits when rebuilding events — the same rule as everything else named above.
 
 ## Working preferences
 
@@ -24,7 +26,7 @@
 - Robot runs ROS Noetic inside Docker container named `ainex`
 - Docker mounts: `/home/pi/docker/src` → `/home/ubuntu/share/src`, `/home/pi/docker/ros_ws_src` → `/home/ubuntu/ros_ws/src`, `/home/pi/docker/ros_log` → `/home/ubuntu/.ros/log` (+ symlink `/root/.ros/log` → same)
 - ROS source editable on host: `/home/pi/docker/ros_ws_src/` (mounted into container)
-- Container image for recreation: `ainex-backup:20260630` (bakes in built ROS workspace + py_trees 2.1.6 + pygraphviz/termcolor + software/lab_tool bind mount)
+- Container image for recreation: `ainex-backup:20260814-clean` (flattened, hurocup2025 removed; bakes in built ROS workspace + py_trees 2.1.6 + pygraphviz/termcolor + software/lab_tool bind mount)
 - Main launch: `roslaunch ainex_bringup bringup.launch`
 - **17 ROS packages** — full inventory in `ainex_architecture.md`
 - **24 DOF humanoid**: 12 leg + 10 arm + 2 head servos (RS485 via STM32, /dev/ttyAMA0)
