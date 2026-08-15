@@ -18,10 +18,11 @@
 The ROS workspace source is now host-mounted. Claude Code can directly read/edit files under `/home/pi/docker/ros_ws_src/`.
 
 - Migrated 2026-03-08 using test-container approach
-- Backup image: `ainex-backup:20260308` (11.6GB) — STILL PRESENT and still contains the
-  pre-wipe `hurocup2025` event implementations. It is the image the running container was
-  started from, so removing it needs a container-recreation window; do that from
-  `:20260814-clean` and then `docker rmi ainex-backup:20260308`.
+- Backup images: `:20260308` and `:20260630` were both DELETED Aug 14 2026 — each still
+  carried the pre-wipe `hurocup2025` event implementations. `:20260814-clean` is the only
+  ainex-backup image left, and there is no rollback image behind it: it was verified by
+  recreating the container from it and getting a 23/23 catkin build plus a fully green
+  `validate_engine`, which is the evidence that stands in for a rollback point.
 - `catkin build` verified: all 17 packages succeed
 - `rospack list` verified: all ainex packages discoverable
 - UIDs match (pi=ubuntu=1000), no permission issues
@@ -53,10 +54,17 @@ a py_trees reinstall.
 > ubuntu:
 >
 > ```bash
-> docker exec ainex bash -lc 'cd /home/ubuntu/ros_ws && rm -rf build devel logs'
+> docker exec ainex bash -lc \
+>   'cd /home/ubuntu/ros_ws && rm -rf build devel logs .catkin_tools'
 > docker exec -u ubuntu ainex bash -lc \
 >   'cd /home/ubuntu/ros_ws && source /opt/ros/noetic/setup.bash && catkin build'
 > ```
+>
+> **`.catkin_tools` must be in that list.** Its top level is `ubuntu`-owned so it looks
+> fine, but the baked `profiles/default/packages/*/package.xml` underneath are root's.
+> Leaving it behind gets you a build that reaches 15 of 23 packages and then dies with
+> `PermissionError ... .catkin_tools/profiles/default/packages/uuid_msgs/package.xml`
+> in the `cache-manifest` stage, abandoning the 7 packages downstream of it.
 
 If the container needs to be recreated again, include
 `--restart=unless-stopped`. **`--ipc host` is required** for the /dev/shm zero-copy
@@ -131,10 +139,14 @@ reset to the image bake on recreation. Two things bit us recreating from the sta
 2. **`py_trees==2.1.6`** — pip-installed AFTER the bake, so gone → BT nodes died with
    `ModuleNotFoundError: No module named 'py_trees'`.
 
-**Now baked into `ainex-backup:20260814-clean`**, so recreating from it needs NEITHER step.
-Only if you ever recreate from `:20260308` again, redo them:
+`:20260814-clean` inherits that bake, so **(2) py_trees and the apt packages are still
+covered** — no reinstall needed. **(1) is NOT**: the workspace bake is from Jun 30 and the
+source has changed a great deal since, so a rebuild is required. See the recreation
+section above for the exact two commands (root removes `build devel logs .catkin_tools`,
+then ubuntu builds).
+
+Kept for reference, in case a future image bake is ever stale in the other direction too:
 ```bash
-docker exec ainex bash -lc 'source /opt/ros/noetic/setup.bash && cd /home/ubuntu/ros_ws && catkin build'   # ~27 s warm
 docker exec -u ubuntu ainex bash -lc 'python3 -m pip install --user py_trees==2.1.6'
 docker exec ainex apt-get install -y python3-pygraphviz python3-termcolor
 ```
