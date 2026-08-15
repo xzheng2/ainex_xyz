@@ -24,7 +24,11 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>ainex_interfaces</exec_depend>
-  <exec_depend>ainex_kinematics</exec_depend>
+  <!-- ros_robot_controller stays for adapters/servo_position_adapter.py, which
+       subscribes to the bus-servo state topic; an input adapter IS the ROS boundary.
+       ainex_kinematics was dropped when core/default_runtime_io.py moved to
+       xyz_behavior/bt_ros_io/. Nothing here had ever imported it, and the classes
+       that do (GaitManager / MotionManager) now belong to that package. -->
   <exec_depend>ros_robot_controller</exec_depend>
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>py_trees</exec_depend>

@@ -76,7 +76,9 @@ def bootstrap(runtime_facade, robot_state_setter=None,
     """Build and return the {{PROJECT_CLASS}} behaviour tree.
 
     Args:
-        runtime_facade:     {{PROJECT_CLASS}}RuntimeFacade instance (XyzBTFacade).
+        runtime_facade:     XyzRuntimeFacade instance (XyzBTFacade). Any XyzBTFacade
+                            works — StubFacade for a tree test, a project subclass
+                            when one retunes a constant.
         robot_state_setter: callable(str) to sync ImuBalanceStateAdapter live store.
         logger:             BT observability logger (None = zero-cost no-op).
         tick_id_getter:     callable → current tick_id (int).

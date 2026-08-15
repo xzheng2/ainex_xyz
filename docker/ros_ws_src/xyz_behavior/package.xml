@@ -18,6 +18,12 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>ainex_interfaces</exec_depend>
+  <!-- bt_ros_io/ is the binding layer: default_runtime_io.py imports
+       ros_robot_controller/BuzzerState, and the generated entry point constructs
+       ainex_kinematics' GaitManager / MotionManager for it. Both were declared by
+       xyz_bt_lib while _RuntimeIO lived there. -->
+  <exec_depend>ros_robot_controller</exec_depend>
+  <exec_depend>ainex_kinematics</exec_depend>
   <exec_depend>xyz_bt_lib</exec_depend>
   <exec_depend>xyz_perception</exec_depend>
   <exec_depend>xyz_run_lab</exec_depend>

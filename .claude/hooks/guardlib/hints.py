@@ -34,19 +34,31 @@ ADAPTER_REMINDER = (
 )
 
 FILE_TYPE_HINTS = {
-    'runtime/_runtime_io.py': (
-        '[xyz_behavior guard · _runtime_io.py]\n'
+    'bt_ros_io/default_runtime_io.py': (
+        '[xyz_behavior guard · bt_ros_io/default_runtime_io.py — SHARED by every project]\n'
         '  1. BuzzerState must be imported from ros_robot_controller.msg (not ainex_interfaces.msg)\n'
         '  2. Class name must be _RuntimeIO\n'
-        '  3. Methods: enable_gait / disable_gait / stop_gait / set_step / run_action / publish_buzzer\n'
-        '  4. See skill template assets/templates/_runtime_io.py.tpl'
+        '  3. This is the ONLY class holding gait_manager / motion_manager / publishers\n'
+        '  4. To retune _GO_STEP_VEL / _TURN_STEP_VEL for ONE project, do NOT edit this\n'
+        '     file — subclass it in <project>/runtime/_runtime_io.py'
     ),
-    'runtime/runtime_facade.py': (
-        '[xyz_behavior guard · runtime_facade.py]\n'
-        '  1. Facade class must inherit XyzBTFacade\n'
-        '  2. All abstract methods must be implemented (stub unused ones too)\n'
-        '  3. All ROS I/O must be delegated to _RuntimeIO\n'
-        '  4. See skill template assets/templates/runtime_facade.py.tpl'
+    'bt_ros_io/runtime_facade.py': (
+        '[xyz_behavior guard · bt_ros_io/runtime_facade.py — SHARED by every project]\n'
+        '  1. Class XyzRuntimeFacade must inherit XyzBTFacade and implement every abstract method\n'
+        '  2. Must NOT hold gait_manager / motion_manager / publishers — all ROS I/O via self._io\n'
+        '  3. Every per-project knob is a CONSTRUCTOR ARGUMENT (go_cfg / turn_cfg /\n'
+        '     yaw_avg_window), never a class constant — that is what lets one class serve\n'
+        '     every project. Do not hardcode project values here, and do not add a class\n'
+        '     constant that a project would have to subclass to change\n'
+        '  4. Nothing subclasses this. There is no <project>/runtime/runtime_facade.py'
+    ),
+    'runtime/_runtime_io.py': (
+        '[xyz_behavior guard · <project>/runtime/_runtime_io.py — OPTIONAL subclass]\n'
+        '  1. Write this file ONLY to retune _GO_STEP_VEL / _TURN_STEP_VEL. Never a full copy\n'
+        '  2. from bt_ros_io.default_runtime_io import _RuntimeIO as _BaseRuntimeIO\n'
+        '     class _RuntimeIO(_BaseRuntimeIO):  — the alias is required, the subclass keeps the name\n'
+        '  3. BuzzerState must be imported from ros_robot_controller.msg (not ainex_interfaces.msg)\n'
+        '  4. The base lives at xyz_behavior/bt_ros_io/default_runtime_io.py'
     ),
     '_groot.xml': (
         '[xyz_behavior guard · tree/*_groot.xml]\n'

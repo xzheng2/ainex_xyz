@@ -45,7 +45,6 @@ SUBSTITUTIONS = {
 # own, rendered for syntax checking only).
 LAYOUT = {
     'project_bt.py.tpl':          'tree/demoproj_bt.py',
-    'runtime_facade.py.tpl':      'runtime/runtime_facade.py',
     'actions.py.tpl':             'behaviours/actions.py',
     'bt_node.py.tpl':             'app/demoproj_bt_node.py',
     'project_bt_groot.xml.tpl':   'tree/demoproj_groot.xml',
@@ -80,8 +79,10 @@ def render(out_root):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         open(dst, 'w', encoding='utf-8').write(text)
         rendered[tpl] = dst
-    # package markers
-    for d in ('', 'tree', 'runtime', 'behaviours', 'app'):
+    # package markers. No 'runtime': runtime_facade.py.tpl was retired when the facade
+    # became the shared bt_ros_io.runtime_facade.XyzRuntimeFacade. A project only grows
+    # a runtime/ package when it retunes a constant, which no scaffold does by default.
+    for d in ('', 'tree', 'behaviours', 'app'):
         open(os.path.join(out_root, 'demoproj', d, '__init__.py'), 'w').close()
     return rendered
 
@@ -149,14 +150,45 @@ def main(argv=None):
         # ── the runtime layers actually construct ─────────────────────────
         state = {}
 
+        def bt_ros_io():
+            """The shared binding classes, loaded WITHOUT touching sys.path.
+
+            Checks 3-6 need _RuntimeIO / XyzRuntimeFacade directly, before any
+            rendered module has been imported. `import bt_ros_io.…` would first
+            require prepending xyz_behavior's package root to sys.path -- and that is
+            precisely the surgery the generated entry point performs on its own
+            behalf, which the "imports with no stubs" check further down exists to
+            exercise. Doing it here would make that check pass on this script's setup
+            instead of on the template's, silently retiring it.
+
+            So the two files are loaded by path under private names. Neither imports
+            anything from its own package, so nothing else is affected; both still
+            resolve xyz_bt_lib and ros_robot_controller through the real environment,
+            which is what makes this a test of the actual shipped code.
+            """
+            if 'bt_ros_io' in state:
+                return state['bt_ros_io']
+            import importlib.util
+            import rospkg
+            root = os.path.join(rospkg.RosPack().get_path('xyz_behavior'), 'bt_ros_io')
+            loaded = {}
+            for name in ('default_runtime_io', 'runtime_facade'):
+                path = os.path.join(root, name + '.py')
+                spec = importlib.util.spec_from_file_location('_probe_' + name, path)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                loaded[name] = mod
+            state['bt_ros_io'] = (loaded['default_runtime_io']._RuntimeIO,
+                                  loaded['runtime_facade'].XyzRuntimeFacade)
+            return state['bt_ros_io']
+
         def build_runtime():
-            from xyz_bt_lib.core.default_runtime_io import _RuntimeIO
-            from demoproj.runtime.runtime_facade import DemoProjRuntimeFacade
+            _RuntimeIO, XyzRuntimeFacade = bt_ros_io()
             from xyz_bt_lib.core.base_facade import XyzBTFacade
             go_cfg = {'dsp': 0.1, 'gait_param': None, 'arm_swap': 30, 'step_num': 0}
             io = _RuntimeIO(FakeGait(), FakeMotion(), FakePub(), tick_id_getter=lambda: 1)
-            facade = DemoProjRuntimeFacade(io, go_cfg, dict(go_cfg),
-                                           tick_id_getter=lambda: 1)
+            facade = XyzRuntimeFacade(io, go_cfg, dict(go_cfg),
+                                      tick_id_getter=lambda: 1)
             assert isinstance(facade, XyzBTFacade), 'facade must be an XyzBTFacade'
             state['facade'] = facade
             return 'IO + facade constructed with the real signatures'
@@ -192,13 +224,12 @@ def main(argv=None):
         def bt_node_call_sites():
             import ast
             import inspect
-            from xyz_bt_lib.core.default_runtime_io import _RuntimeIO
-            from demoproj.runtime.runtime_facade import DemoProjRuntimeFacade
+            _RuntimeIO, XyzRuntimeFacade = bt_ros_io()
 
             src_path = os.path.join(tmp, 'demoproj', 'app', 'demoproj_bt_node.py')
             tree_ast = ast.parse(open(src_path, encoding='utf-8').read(), src_path)
             targets = {'_RuntimeIO': _RuntimeIO,
-                       'DemoProjRuntimeFacade': DemoProjRuntimeFacade}
+                       'XyzRuntimeFacade': XyzRuntimeFacade}
             seen = {}
             for node in ast.walk(tree_ast):
                 if not isinstance(node, ast.Call):
@@ -347,34 +378,92 @@ def main(argv=None):
             return '{} rendered modules import unstubbed'.format(len(_RENDERED_MODULES))
         check('rendered project imports with no stubs', rendered_imports)
 
+        # ── the scaffold must not depend on the experiment tooling ────────
+        # A generated project is a PRODUCT; xyz_run_lab is the TOOL that decides what a
+        # run is. A product that imports its tool cannot leave the repository it was
+        # generated in. The entry point now takes a resolved directory through
+        # AINEX_RUN_DIR instead, so blocking run_lab must change nothing.
+        #
+        # This is the acceptance criterion for that decoupling, and it is stated as a
+        # test rather than a convention because an import creeps back in silently: it
+        # works on this machine, and only fails for whoever ships the scaffold onward.
+        def imports_without_run_lab():
+            import importlib
+            sys.path.insert(0, os.path.join(args.lib_root, 'tools'))
+            import seed_kit
+
+            _purge_demoproj()
+            for name in [m for m in sys.modules
+                         if m == 'run_lab' or m.startswith('run_lab.')]:
+                del sys.modules[name]
+
+            finder = seed_kit._BlockingFinder(['run_lab'])
+            sys.meta_path.insert(0, finder)
+            try:
+                for name in _RENDERED_MODULES:
+                    importlib.import_module(name)
+            finally:
+                sys.meta_path.remove(finder)
+            return 'all {} rendered modules import with run_lab blocked'.format(
+                len(_RENDERED_MODULES))
+        check('rendered project imports with xyz_run_lab unavailable',
+              imports_without_run_lab)
+
         # ── counter-test: the check above must be able to fail ────────────
         # An import check that cannot go red is indistinguishable from no check at
         # all -- which is the failure mode that let the missing modules survive.
-        # Block one shared dependency and require the entry point to break.
+        # Block each shared dependency in turn and require the entry point to break.
+        #
+        # Both of xyz_behavior's shared packages are covered, because they fail the
+        # same way and for the same reason:
+        #   bt_observability  the instrumentation layer
+        #   bt_ros_io         the binding layer (_RuntimeIO + XyzRuntimeFacade),
+        #                     moved out of xyz_bt_lib/core so that core/ stops at the
+        #                     facade ABC. It reaches the entry point through the same
+        #                     rospkg + sys.path.insert route, which is exactly why it
+        #                     needs the same proof: that route resolves at RUNTIME, so
+        #                     a broken one is invisible to compile() and ast.parse().
+        # Degrading silently instead of failing here would leave a scaffold that
+        # imports and then has no way to command the robot.
+        # BOTH classes that moved into bt_ros_io are probed, not just one. They arrive
+        # by two separate import statements, so proving one is unreachable says nothing
+        # about the other -- and "one of the two silently degraded" is precisely the
+        # half-covered failure this list exists to rule out.
+        _SHARED_PACKAGE_PROBES = (
+            'bt_observability.tree_publisher',
+            'bt_ros_io.runtime_facade',
+            'bt_ros_io.default_runtime_io',
+        )
+
         def missing_shared_module_breaks_import():
             import importlib
             sys.path.insert(0, os.path.join(args.lib_root, 'tools'))
             import seed_kit
 
-            blocked = 'bt_observability.tree_publisher'
-            _purge_demoproj()
-            for name in [m for m in sys.modules if m == 'bt_observability'
-                         or m.startswith('bt_observability.')]:
-                del sys.modules[name]
-
-            finder = seed_kit._BlockingFinder([blocked])
-            sys.meta_path.insert(0, finder)
-            try:
-                importlib.import_module('demoproj.app.demoproj_bt_node')
-            except ModuleNotFoundError:
-                return 'blocking {} breaks the entry point, as it must'.format(blocked)
-            finally:
-                sys.meta_path.remove(finder)
+            proven = []
+            for blocked in _SHARED_PACKAGE_PROBES:
+                root = blocked.split('.')[0]
                 _purge_demoproj()
-            raise AssertionError(
-                'the entry point imported with {} blocked — either it no longer '
-                'depends on the shared module, or the block is not in effect, and '
-                'in both cases the import check above proves nothing'.format(blocked))
+                for name in [m for m in sys.modules
+                             if m == root or m.startswith(root + '.')]:
+                    del sys.modules[name]
+
+                finder = seed_kit._BlockingFinder([blocked])
+                sys.meta_path.insert(0, finder)
+                try:
+                    importlib.import_module('demoproj.app.demoproj_bt_node')
+                except ModuleNotFoundError:
+                    proven.append(blocked)
+                    continue
+                finally:
+                    sys.meta_path.remove(finder)
+                    _purge_demoproj()
+                raise AssertionError(
+                    'the entry point imported with {} blocked — either it no longer '
+                    'depends on the shared module, or the block is not in effect, and '
+                    'in both cases the import check above proves nothing'.format(blocked))
+            return 'blocking each of {} breaks the entry point, as it must'.format(
+                ', '.join(proven))
         check('counter-test: a missing shared infra module breaks the import',
               missing_shared_module_breaks_import)
 

@@ -23,12 +23,10 @@ _HOOK = 'xyz_bt_lib_guard'
 # breakage, because it imports these names and gets AttributeError.
 try:
     from guardlib.bt_lib_rules import check_node, check_adapter, check_bb_keys  # noqa: E402,F401
-    from guardlib.behavior_rules import check_runtime_io  # noqa: E402,F401
     from guardlib.path_spec import (  # noqa: E402,F401
         NODE_PATTERN as _NODE_PATTERN,
         ADAPTER_PATTERN as _ADAPTER_PATTERN,
         BB_KEYS_PATTERN as _BB_KEYS_PATTERN,
-        RUNTIME_IO_PATTERN as _RUNTIME_IO_PATTERN,
     )
 except Exception:  # pragma: no cover - guardlib absent
     pass
@@ -97,7 +95,7 @@ def main() -> None:
         # check_bb_keys returns pre-formatted warning strings
         context = "\n".join(violations)
     else:
-        kind = {'check_node': 'node', 'check_runtime_io': 'runtime_io'}.get(name, 'adapter')
+        kind = 'node' if name == 'check_node' else 'adapter'
         context = (
             f"[xyz_bt_lib {kind} guard · compliance check] {file_path} has {len(violations)} violation(s):\n"
             f"{lines}\n"

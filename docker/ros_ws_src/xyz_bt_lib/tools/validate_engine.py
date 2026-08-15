@@ -446,11 +446,13 @@ def facade_claims(args, dexec, c_stage, c_lib_root):
         if not os.path.isfile(path):
             continue
         text = open(path, encoding='utf-8').read()
-        for const in ('_GO_CFG', '_TURN_CFG', '_GO_STEP_VEL', '_TURN_STEP_VEL'):
+        for const in ('_GO_CFG', '_TURN_CFG', '_GO_STEP_VEL', '_TURN_STEP_VEL',
+                      '_YAW_AVG_WINDOW'):
             if re.search(r'^\s*' + const + r'\s*=', text, re.M):
                 problems.append(
-                    '{}: defines {} inline; that constant lives in a template '
-                    '(bt_node.py.tpl / core/default_runtime_io.py) — point at it instead'
+                    '{}: defines {} inline; that constant lives in code '
+                    '(bt_node.py.tpl, or xyz_behavior/bt_ros_io/default_runtime_io.py '
+                    'for the step velocity profile) — point at it instead'
                     .format(skill_dir, const))
 
     for skill in FACADE_CLAIM_SKILLS:

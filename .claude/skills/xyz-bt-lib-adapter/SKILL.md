@@ -363,10 +363,10 @@ choose one option:
 If the user chooses option 2, the change is a breaking contract migration. It must
 update, in the same task:
 
-- `xyz_bt_lib/src/xyz_bt_lib/core/base_facade.py`
-- every existing `xyz_behavior/*/runtime/runtime_facade.py`
-- the project scaffold template `runtime_facade.py.tpl` in `xyz-bt-facade-project`
-- `_runtime_io.py.tpl` if new ROS communication is also required
+- `xyz_bt_lib/src/xyz_bt_lib/core/base_facade.py` — the abstract contract
+- `xyz_behavior/bt_ros_io/runtime_facade.py` — the shared implementation
+- `xyz_behavior/bt_ros_io/default_runtime_io.py` if new ROS communication is also required
+- any `xyz_behavior/*/runtime/*.py` subclass that overrides the method you changed
 - relevant import/build checks
 
 ---

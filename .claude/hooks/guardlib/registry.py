@@ -39,12 +39,17 @@ from guardlib import tree_pre_rules as _tree
 #: guard_log.rule_id(), never from here.
 
 #: xyz_bt_lib_guard: FIRST match only. Order is the original if/elif order --
-#: node, adapter, runtime_io, then bb_keys as the fallback.
+#: node, adapter, then bb_keys as the fallback.
+#:
+#: There used to be a fourth entry borrowing behavior_rules.check_runtime_io for
+#: xyz_bt_lib/core/default_runtime_io.py. That file moved to xyz_behavior/bt_ros_io/,
+#: where xyz_behavior_guard reaches it through BEHAVIOR_RULES with the same function
+#: and the same violation strings -- so the rule ids are unchanged, only the hook
+#: that reports them.
 LIB_RULES = (
-    ('check_node',       _ps.NODE_PATTERN.search,       _lib.check_node,      True),
-    ('check_adapter',    _ps.ADAPTER_PATTERN.search,    _lib.check_adapter,   False),
-    ('check_runtime_io', _ps.RUNTIME_IO_PATTERN.search, _beh.check_runtime_io, True),
-    ('check_bb_keys',    _ps.BB_KEYS_PATTERN.search,    _lib.check_bb_keys,   False),
+    ('check_node',    _ps.NODE_PATTERN.search,    _lib.check_node,    True),
+    ('check_adapter', _ps.ADAPTER_PATTERN.search, _lib.check_adapter, False),
+    ('check_bb_keys', _ps.BB_KEYS_PATTERN.search, _lib.check_bb_keys, False),
 )
 
 #: xyz_behavior_guard: EVERY match. Prefix order comes from path_spec, which is the
@@ -127,7 +132,6 @@ RULELESS_CATEGORIES = ('build', 'exempt')
 
 def categories_with_rules():
     """Every category some rule family covers. Used by the coverage matrix."""
-    names = {'lib.node', 'lib.adapter', 'lib.bb_keys', 'lib.runtime_io',
-             'lib.base_node', 'tree'}
+    names = {'lib.node', 'lib.adapter', 'lib.bb_keys', 'lib.base_node', 'tree'}
     names.update(category for _prefix, category in _ps._PREFIX_TABLE)
     return frozenset(names)

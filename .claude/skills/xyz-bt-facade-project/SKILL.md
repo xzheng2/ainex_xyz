@@ -94,11 +94,12 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
     "source /opt/ros/noetic/setup.bash && cd /home/ubuntu/ros_ws && catkin clean <stale_pkg> -y"
   ```
 - [ ] `_LOG_DIR = os.path.join(_PKG_PATH, 'log')` — never a project subdirectory; all projects share `xyz_behavior/log/`
-- [ ] `run_dir = open_run_dir(_LOG_DIR, max_runs=_MAX_RUNS, log=rospy.loginfo)`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths and `BlackboardCurrentWriter`. `_LOG_DIR` keeps only the symlinks `open_run_dir()` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`.
+- [ ] `run_dir = os.environ.get('AINEX_RUN_DIR', '')`, and **every writer points at `run_dir`**, not `_LOG_DIR`: the 4 `DebugEventLogger` jsonl paths and `BlackboardCurrentWriter`. `_LOG_DIR` keeps only the symlinks `tools/new_run.py` refreshes, which is what lets ROSA / `bt_log_read_guard.py` / the diagnose skill go on using the fixed filenames. Writing through a symlink would destroy it — these classes end in `os.replace()`. When `AINEX_RUN_DIR` is unset the node warns loudly and falls back to `log/runs/<UTC timestamp>/` — still per-run, because the observability filenames are fixed and truncated at startup, so a shared fallback directory would overwrite the previous run
 - [ ] `_PKG_PATH` uses `rospkg.RosPack().get_path('xyz_behavior')`, not `__file__`-relative
-- [ ] a second `sys.path` root, `_RUN_LAB_PATH = rospkg.RosPack().get_path('xyz_run_lab')`, backs `from run_lab.run_context import open_run_dir`. The three observability imports (`debug_event_logger`, `bt_debug_visitor`, `blackboard_current_writer`) still come from `bt_observability` under `_PKG_PATH` — the split is deliberate: instrumentation is present in every experiment lane, the observability architecture is not
-- [ ] No `infra/` directory. `TreeROSPublisher` / `BTExecController` come from `bt_observability`; `_RuntimeIO` from `xyz_bt_lib.core.default_runtime_io`; project-local BB keys go to `BlackboardROSBridge(_BB_TOPIC_MAP)`, not to a per-project bridge class
-- [ ] `runtime/` holds `runtime_facade.py` only, unless the project retunes the step velocity profile — then a subclass in `runtime/_runtime_io.py`, never a full copy
+- [ ] **no `xyz_run_lab` import at all.** A generated project is a product; `xyz_run_lab` is the tool that decides what a run is, and a product that imports its tool cannot leave the repository it was generated in. The directory is injected through `AINEX_RUN_DIR`, which `tools/new_run.py` exports. `validate_templates.py` asserts this by blocking `run_lab` and re-importing every rendered module
+- [ ] No `infra/` directory. `TreeROSPublisher` / `BTExecController` come from `bt_observability`; `_RuntimeIO` and `XyzRuntimeFacade` from `bt_ros_io`; project-local BB keys go to `BlackboardROSBridge(_BB_TOPIC_MAP)`, not to a per-project bridge class
+- [ ] **no `runtime/` directory** on a fresh scaffold. Both runtime classes are shared. The only file a project ever adds there is `runtime/_runtime_io.py`, a subclass rebinding `_GO_STEP_VEL` / `_TURN_STEP_VEL` (list constants, so a subclass is the only way) — never a full copy. **There is no `runtime/runtime_facade.py`**: every facade knob is a constructor argument, so a project tunes it from `_GO_CFG` / `_TURN_CFG` / `_YAW_AVG_WINDOW` in its entry point. That path has no guard rule and `xyz_coverage_guard` will flag it as unclassified
+- [ ] `BlackboardROSBridge` imported as `from xyz_bt_lib.blackboard.bb_ros_bridge import ...`, not `from xyz_bt_lib import ...` — the package `__init__` is an eager aggregator that drags in `bt_runner` and the catkin-built `xyz_bt_lib.msg`
 - [ ] `logger.close()` called on shutdown
 - [ ] `app/{{PROJECT}}_bt_node.py` has `if __name__ == '__main__': main()` at bottom
 - [ ] `tree/{{PROJECT}}_groot.xml` created alongside `tree/{{PROJECT}}_bt.py` — use `project_bt_groot.xml.tpl`; must mirror tree structure, composite types, node IDs, and CONFIG_DEFAULTS port values
@@ -112,9 +113,9 @@ ABC checks method names, not signatures**, so a drifted facade still instantiate
 ## Architecture
 
 ```
-L2 nodes
-  └─ call_facade() → XyzBTFacade (abstract contract)
-                          └─ {{PROJECT_CLASS}}RuntimeFacade (implementation)
+L2 nodes                                          ← xyz_bt_lib (portable)
+  └─ call_facade() → XyzBTFacade (abstract contract)   ← xyz_bt_lib/core, ABC only
+                          └─ XyzRuntimeFacade          ← xyz_behavior/bt_ros_io
                                 └─ profile cfg merge (go_cfg / turn_cfg)
                                 └─ convenience wrappers (go_step / turn_step / move_head)
                                 └─ primitive passthrough (all 7 primitives)
@@ -122,22 +123,29 @@ L2 nodes
                                             └─ gait_manager / motion_manager / publishers
 ```
 
+The dashed line is where `xyz_bt_lib` stops. `core/` holds the contract and nothing
+that knows how this robot walks: no vendor message imports, no servo ids, no manager
+handles. Both concrete classes live in `xyz_behavior/bt_ros_io/`.
+
 Execution chain in bt_node.py:
 ```
 _RuntimeIO(gait_manager, motion_manager, buzzer_pub, ...)
-  └─ RuntimeFacade(runtime_io, go_cfg=_GO_CFG, turn_cfg=_TURN_CFG, ...)
+  └─ XyzRuntimeFacade(runtime_io, go_cfg=_GO_CFG, turn_cfg=_TURN_CFG, ...)
         └─ bootstrap(runtime_facade)
               └─ BehaviourTree → TreeROSPublisher(tree)
 ```
 
-Templates: `bt_node.py.tpl` → `app/{{PROJECT}}_bt_node.py` · `runtime_facade.py.tpl` → `runtime/runtime_facade.py`. `_RuntimeIO` is not generated — it is imported from `xyz_bt_lib.core.default_runtime_io`.
+Templates: `bt_node.py.tpl` → `app/{{PROJECT}}_bt_node.py`. **Neither runtime class is
+generated** — both are imported from `bt_ros_io`, reached through the same
+`rospkg` + `sys.path.insert` route as `bt_observability`.
 
 ## Public contract (XyzBTFacade)
 
 **The authoritative signature list is `xyz_bt_lib/core/base_facade.py`** — read it,
 do not trust a copy. 10 abstract methods (7 primitives + `go_step` / `turn_step` /
-`move_head`) plus 2 concrete process-control methods. `runtime_facade.py.tpl`
-implements them; that template is the worked example.
+`move_head`) plus 2 concrete process-control methods.
+`xyz_behavior/bt_ros_io/runtime_facade.py` implements them; that file is the worked
+example.
 
 This section deliberately does NOT restate the signatures. A previous copy here
 drifted from the base class (`move_head` was documented and templated without
@@ -157,9 +165,9 @@ Facts that live nowhere else, so they stay here:
 
 ```
 {{PROJECT}}/
-  runtime/
-    runtime_facade.py    ← {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade)
-    _runtime_io.py       ← OPTIONAL, only to retune the step velocity profile
+  runtime/               ← NOT created by default; both runtime classes are shared
+    _runtime_io.py       ← the ONLY file that belongs here: subclass of _RuntimeIO,
+                           solely to retune the step velocity profile
   tree/
     {{PROJECT}}_bt.py      ← bootstrap(runtime_facade, ...)
     {{PROJECT}}_groot.xml  ← Groot BT visualization (keep in sync with _bt.py)
@@ -169,6 +177,10 @@ Facts that live nowhere else, so they stay here:
     actions.py           ← project-specific L2 nodes (if needed)
 log/                     ← shared runtime log dir (xyz_behavior/log/); all projects write here
   bb_current.json        ← current BB state mirror (latest tick only; not a history log)
+
+bt_ros_io/               ← shared binding layer (xyz_behavior/bt_ros_io/); NOT per-project
+  default_runtime_io.py  ← _RuntimeIO: gait/motion managers, buzzer publisher, BuzzerState
+  runtime_facade.py      ← XyzRuntimeFacade(XyzBTFacade): cfg merge + wrappers
 
 launch/                  ← inside xyz_behavior/launch/, shared across all projects
   xyz_bringup.launch     ← shared default hardware bringup (base.launch + camera); run separately before behavior launch
@@ -183,9 +195,31 @@ per-project copy. `TreeROSPublisher` / `BTExecController` are shared modules in
 `infra_manifest.py` wrote a JSON file that nothing ever read, declaring an exclusion
 from the comm log that was never implemented. Do not re-add any of them as templates.
 
-**`_RuntimeIO` is shared too**, at `xyz_bt_lib.core.default_runtime_io`. A project
-generates `runtime/_runtime_io.py` **only** to retune `_GO_STEP_VEL` / `_TURN_STEP_VEL`,
-as a subclass — see § go_cfg / turn_cfg shape.
+**Both runtime classes are shared too**, in `xyz_behavior/bt_ros_io/`. They stopped
+being scaffolded for the same reason `infra/` did: nothing in either varied per
+project. `runtime_facade.py.tpl`'s only placeholder was `{{PROJECT_CLASS}}` — the
+docstring title, the class name, the class docstring — while the head servo ids are
+facts about the robot and the gait knobs (`_GO_CFG` / `_TURN_CFG`) never lived in the
+facade at all; they are defined in `bt_node.py.tpl` and arrive as constructor
+arguments. So every project received an identical file under a different name.
+
+A project writes `runtime/_runtime_io.py` **only** to retune `_GO_STEP_VEL` /
+`_TURN_STEP_VEL`, as a subclass, never as a copy — those are list constants, so a
+subclass is the only way to rebind them. See § go_cfg / turn_cfg shape.
+
+**The facade is never subclassed.** Everything a project tunes on it is a constructor
+argument (`go_cfg`, `turn_cfg`, `yaw_avg_window`), supplied from the entry point. This
+is not just a preference: `check_runtime_facade` requires `XyzBTFacade` itself in the
+base list, so `class ProjRuntimeFacade(XyzRuntimeFacade)` would be reported as a
+violation — and `runtime/runtime_facade.py` has no path rule at all any more, so
+`xyz_coverage_guard` flags it as unclassified. If you find yourself wanting to
+subclass, the knob you need should become a constructor argument instead.
+
+**Why `bt_ros_io/` is in `xyz_behavior` and not `xyz_bt_lib/core/`.** `core/` is the
+contract layer; `core/base_facade.py` says so itself (`set_step`: "All parameters must
+be final; no profile inference is done here"). A class holding `gait_manager` and
+importing `ros_robot_controller.msg` is a binding, not a contract. Keeping it in
+`core/` made the portable library depend on one vendor's message package.
 
 Templates: `project.launch.tpl` → `launch/{{PROJECT}}.launch` (perception nodes + BT node; never includes bringup; TODO block offers Option A (colour detection) or Option B (YOLO detection via `YoloObjectDetectionAdapter`); uncomment the correct block when scaffolding)
 
@@ -368,16 +402,16 @@ template's `30`), which is exactly the failure mode this section now avoids.
 
 `_RuntimeIO` owns the **step velocity profile** constants that control gait speed
 (`_GO_STEP_VEL` / `_TURN_STEP_VEL`, each `[period_time_ms, dsp_ratio,
-y_swap_amplitude]`) — defined in `xyz_bt_lib/src/xyz_bt_lib/core/default_runtime_io.py`,
+y_swap_amplitude]`) — defined in `xyz_behavior/bt_ros_io/default_runtime_io.py`,
 which every project shares. To retune them, subclass rather than edit:
 
 ```python
 # <project>/runtime/_runtime_io.py   — write this file ONLY when retuning
-from xyz_bt_lib.core.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
+from bt_ros_io.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
 
 class _RuntimeIO(_BaseRuntimeIO):
     # rebind _GO_STEP_VEL / _TURN_STEP_VEL here; the values live in
-    # core/default_runtime_io.py, never in this document
+    # bt_ros_io/default_runtime_io.py, never in this document
 ```
 
 The `as` alias is required: the subclass keeps the name `_RuntimeIO` so rule #3 and the
@@ -395,9 +429,12 @@ Per-tick dynamic params (`x`, `y`, `yaw`) come from the L2 node's `call_facade()
 x, y units: **meters** (GaitManager native units, `_XY_SCALE = 1`).
 Typical values: `x=0.020` fast approach, `x=0.005` fine-tune, `x=0.000` turn-in-place.
 
-`go_step()` smooths executed turn angle via a tunable `_YAW_AVG_WINDOW` (publishes
-the window average for stable rotation). See the docstring + comments in
-`runtime_facade.py.tpl`.
+`go_step()` smooths executed turn angle over a tunable window (it publishes the window
+average, so the gait executes one stable rotation per window instead of chasing every
+tick). Unlike the step velocity profile, this one is **not** retuned by subclassing —
+it is a constructor argument, defined in `bt_node.py.tpl` beside `_GO_CFG` /
+`_TURN_CFG` and passed as `yaw_avg_window=`. The value lives there, never in this
+document. Tune it to `gait_cycle_ms / bt_tick_ms`.
 
 ## Current blackboard snapshot
 

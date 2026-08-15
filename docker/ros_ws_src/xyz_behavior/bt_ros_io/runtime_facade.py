@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""{{PROJECT_CLASS}} RuntimeFacade — BT-facing runtime interface.
+"""XyzRuntimeFacade — the shared concrete BT-facing runtime interface.
 
 Layer responsibilities
 ----------------------
@@ -17,31 +17,42 @@ Rules:
   - All ROS I/O goes through self._io (_RuntimeIO).
   - go_step / turn_step merge project profile cfg with per-tick x/y/yaw and call set_step.
 
+WHY THIS IS SHARED AND NOT SCAFFOLDED
+    It used to be generated per project from runtime_facade.py.tpl. That template's
+    only placeholder was {PROJECT_CLASS}, and it appeared three times: the docstring
+    title, the class name, and the class docstring. Nothing else varied -- the head
+    servo ids are a fact about the robot, not about an event, and the per-project
+    gait knobs never lived here at all: _GO_CFG / _TURN_CFG are defined in the
+    project's entry point and arrive through __init__. So each project got an
+    identical 180-line file under a different name.
+
+    Same reasoning as _RuntimeIO next door. The difference is HOW each is retuned:
+    _RuntimeIO's knobs are list constants (_GO_STEP_VEL / _TURN_STEP_VEL) and a
+    project rebinds them in a subclass, whereas everything tunable here is a
+    constructor argument. Nothing about this class is meant to be subclassed.
+
 go_step yaw smoothing:
-  go_step() collects raw yaw over _YAW_AVG_WINDOW BT ticks and publishes the
+  go_step() collects raw yaw over `yaw_avg_window` BT ticks and publishes the
   window average (held constant across the window) so continuous (step_num=0)
-  gait executes one stable rotation per window — see _YAW_AVG_WINDOW.
+  gait executes one stable rotation per window.
 """
 from xyz_bt_lib.core.base_facade import XyzBTFacade
 
 
-class {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade):
-    """{{PROJECT_CLASS}} RuntimeFacade: implements XyzBTFacade for this project."""
+class XyzRuntimeFacade(XyzBTFacade):
+    """The shared XyzBTFacade implementation. Tune it through __init__, never by copying."""
 
     # ── Head constants ────────────────────────────────────────────────────
+    # Facts about the robot, not about an event: the servo ids come from the 24-DOF
+    # bus layout and the delay is the controller's move granularity. Nothing here is
+    # per-project, which is exactly why these are class constants and the tunables
+    # below are not.
     HEAD_PAN_SERVO     = 23
     HEAD_TILT_SERVO    = 24    # clamped to [280, 550] in the controller
     HEAD_MOVE_DELAY_MS = 50
 
-    # ── go_step yaw accumulation ──────────────────────────────────────────
-    # Collect raw yaw over this many BT ticks, then publish their average for
-    # the next window so the gait executes one stable rotation per window
-    # (both gait phase samples see the same value). Tune to
-    # gait_cycle_ms / bt_tick_ms (e.g. 300 ms / 100 ms = 3).
-    _YAW_AVG_WINDOW = 3
-
     def __init__(self, runtime_io, go_cfg: dict, turn_cfg: dict,
-                 tick_id_getter=None):
+                 tick_id_getter=None, yaw_avg_window: int = 3):
         """
         Args:
             runtime_io:      _RuntimeIO instance (sole raw ROS / manager egress).
@@ -51,13 +62,28 @@ class {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade):
             turn_cfg:        Static gait params for the 'turn' (rotation) profile.
                              Same keys as go_cfg.
             tick_id_getter:  callable → current tick_id (int).
+            yaw_avg_window:  go_step() collects raw yaw over this many BT ticks and
+                             publishes their average for the next window, so the gait
+                             executes one stable rotation per window (both gait phase
+                             samples see the same value). Tune to
+                             gait_cycle_ms / bt_tick_ms (e.g. 300 ms / 100 ms = 3).
+
+                             It arrives through __init__ rather than living as a class
+                             constant because it is per-project tuning, exactly like
+                             go_cfg / turn_cfg -- and those already travel this way. As
+                             a class constant it would have forced a subclass per
+                             project, i.e. the copying this shared class exists to
+                             avoid, and the subclass would then have failed
+                             check_runtime_facade, whose pattern requires XyzBTFacade
+                             itself in the base list.
         """
         self._io       = runtime_io
         self._go_cfg   = go_cfg
         self._turn_cfg = turn_cfg
         self._tick_id  = tick_id_getter or (lambda: -1)
+        self._yaw_avg_window = yaw_avg_window
 
-        # go_step yaw smoothing state (see _YAW_AVG_WINDOW)
+        # go_step yaw smoothing state (see yaw_avg_window)
         self._collect_buf = []    # raw yaw values in current collect window
         self._publish_yaw = 0     # averaged yaw being published (int)
 
@@ -116,12 +142,12 @@ class {{PROJECT_CLASS}}RuntimeFacade(XyzBTFacade):
         Per-call overrides (period_time_ms, dsp_ratio, y_swap_amplitude, arm_swap,
         step_num, gait_param) take precedence over _GO_CFG when not None.
 
-        Yaw smoothing: raw yaw is collected over _YAW_AVG_WINDOW ticks; the
+        Yaw smoothing: raw yaw is collected over `yaw_avg_window` ticks; the
         published yaw is the previous window's average (held constant across the
         window) so the gait executes one stable rotation per window.
         """
         self._collect_buf.append(yaw)
-        if len(self._collect_buf) >= self._YAW_AVG_WINDOW:
+        if len(self._collect_buf) >= self._yaw_avg_window:
             _avg = sum(self._collect_buf) / len(self._collect_buf)
             self._publish_yaw = int(round(_avg))
             self._collect_buf = []

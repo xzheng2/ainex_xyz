@@ -14,6 +14,11 @@ WHAT WAS MERGED HERE
     answered UNKNOWN for it -- the coverage guard was reporting "nothing checks this"
     about a file a guard does check. It now has a category (`lib.base_node`).
 
+    The `runtime_io` entry in that first row is gone: `core/default_runtime_io.py`
+    moved to `xyz_behavior/bt_ros_io/`, so the file it selected is no longer in
+    xyz_bt_lib and the library guard no longer borrows the project rule for it. The
+    rule function itself never moved -- it has always lived in behavior_rules.
+
 WHY TWO ORDERINGS ARE KEPT, NOT ONE
     The three prefix tables were not in the same order, and their match semantics
     differed:
@@ -61,11 +66,6 @@ NODE_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L[123]_\w+/(?!_
 ADAPTER_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/adapters/(?!__init__\.py$)[^/]+\.py$')
 BB_KEYS_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/blackboard/blackboard_keys\.py$')
 
-#: The shared _RuntimeIO, formerly scaffolded per project. Without an entry it would
-#: classify UNKNOWN like the rest of core/, and the BuzzerState rule would stop
-#: covering the file that actually holds the code.
-RUNTIME_IO_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/core/default_runtime_io\.py$')
-
 #: L1 territory. The lib half is narrower than NODE_PATTERN (L1 only, not L[123]) --
 #: L2/L3 nodes return RUNNING legitimately, so the L1 purity rule must not see them.
 L1_LIB_PATTERN = re.compile(r'xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_\w+/(?!__init__\.py$)[^/]+\.py$')
@@ -82,9 +82,28 @@ BEHAVIOR_PATTERN = re.compile(r'xyz_behavior/(?!log/).+\.(py|launch|xml)$')
 
 #: One table, in _CHECK_MAP's order. See the module docstring for why the hint
 #: traversal order below is different rather than this being reordered.
+#:
+#: The bt_ros_io/ pair is the SHARED binding layer (the concrete _RuntimeIO and
+#: RuntimeFacade, moved out of xyz_bt_lib/core so core/ stops at the facade ABC).
+#:
+#: `runtime/_runtime_io.py` stays alongside it: _RuntimeIO's knobs are list constants
+#: (_GO_STEP_VEL / _TURN_STEP_VEL), so a project retunes them by subclassing, and that
+#: subclass is genuinely a behavior.runtime_io file. check_runtime_io inspects imports,
+#: not base classes, so it passes a subclass cleanly -- verified.
+#:
+#: `runtime/runtime_facade.py` was RETIRED, not kept. The facade's only per-project
+#: knobs are constructor arguments now, so no project has any reason to write that
+#: file, and the entry would have been a mapping with no legal content behind it.
+#: Worse than idle: check_runtime_facade's pattern demands XyzBTFacade itself in the
+#: base list, so the one thing anybody would plausibly have put there --
+#: `class ProjRuntimeFacade(XyzRuntimeFacade)` -- was reported as a violation. A path
+#: key whose only reachable content is a false positive is worse than no key: if
+#: someone writes that file anyway, classify() now answers UNKNOWN and
+#: xyz_coverage_guard says so out loud, which is the honest answer.
 _PREFIX_TABLE = (
-    ('runtime/_runtime_io.py',    'behavior.runtime_io'),
-    ('runtime/runtime_facade.py', 'behavior.runtime_facade'),
+    ('bt_ros_io/default_runtime_io.py', 'behavior.runtime_io'),
+    ('bt_ros_io/runtime_facade.py',     'behavior.runtime_facade'),
+    ('runtime/_runtime_io.py',          'behavior.runtime_io'),
     ('tree/',                     'behavior.tree'),
     ('_groot.xml',                'behavior.groot'),
     ('app/',                      'behavior.app'),
@@ -97,8 +116,9 @@ _PREFIX_TABLE = (
 #: from _PREFIX_TABLE for exactly two pairs (_groot.xml/tree/ and launch/scripts/),
 #: and both tables are first-match-wins, so the difference is observable.
 _HINT_ORDER = (
+    'bt_ros_io/default_runtime_io.py',
+    'bt_ros_io/runtime_facade.py',
     'runtime/_runtime_io.py',
-    'runtime/runtime_facade.py',
     '_groot.xml',
     'tree/',
     'app/',
@@ -112,7 +132,6 @@ _LIB_CATEGORIES = (
     ('lib.node',      NODE_PATTERN),
     ('lib.adapter',   ADAPTER_PATTERN),
     ('lib.bb_keys',   BB_KEYS_PATTERN),
-    ('lib.runtime_io', RUNTIME_IO_PATTERN),
     ('lib.base_node', BASE_NODE_PATTERN),
 )
 
@@ -184,9 +203,8 @@ def matchers():
     see.
     """
     return (
-        ('lib.node',       NODE_PATTERN.search),
-        ('lib.adapter',    ADAPTER_PATTERN.search),
-        ('lib.bb_keys',    BB_KEYS_PATTERN.search),
-        ('lib.runtime_io', RUNTIME_IO_PATTERN.search),
-        ('l1',             applies_l1),
+        ('lib.node',    NODE_PATTERN.search),
+        ('lib.adapter', ADAPTER_PATTERN.search),
+        ('lib.bb_keys', BB_KEYS_PATTERN.search),
+        ('l1',          applies_l1),
     )

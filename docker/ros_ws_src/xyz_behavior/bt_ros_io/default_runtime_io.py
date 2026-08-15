@@ -19,12 +19,25 @@ WHY THIS IS SHARED AND NOT SCAFFOLDED
     A project only ever needs its own copy to retune the step velocity profile,
     and subclassing says that far more precisely than a full copy does.
 
+WHY IT LIVES IN xyz_behavior AND NOT IN xyz_bt_lib/core
+    It holds gait_manager / motion_manager / a rospy.Publisher and imports a vendor
+    message type. ``core/base_facade.py`` declares where that line falls -- set_step
+    is documented as "All parameters must be final; no profile inference is done
+    here", i.e. the abstract layer states that concrete values live elsewhere. A
+    class that knows how THIS robot walks is a binding, not a contract, so core/
+    stops at the facade ABC and every hardware handle lives here instead.
+
+    Imported the same way as bt_observability: the entry point resolves
+    ``rospkg.RosPack().get_path('xyz_behavior')`` and prepends it to sys.path. There
+    is no catkin_python_setup() in this package; do not add an install mechanism for
+    this directory alone.
+
 RETUNING THE STEP VELOCITY PROFILE
     ``_GO_STEP_VEL`` / ``_TURN_STEP_VEL`` are the per-project knobs. Override them
     in a subclass rather than editing this file, which every project shares::
 
         # <project>/runtime/_runtime_io.py   (optional -- only when retuning)
-        from xyz_bt_lib.core.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
+        from bt_ros_io.default_runtime_io import _RuntimeIO as _BaseRuntimeIO
 
         class _RuntimeIO(_BaseRuntimeIO):
             _GO_STEP_VEL = [250, 0.1, 0.01]
