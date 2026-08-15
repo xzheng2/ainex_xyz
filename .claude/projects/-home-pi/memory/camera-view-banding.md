@@ -21,4 +21,4 @@ Threshold 320 with ±5 hysteresis (`TILT_THRESHOLD`/`TILT_HYST`).
 
 `ros_robot_controller_node.py` `~state_rate_hz` default raised 10.0 → 50.0 (fresh servo-24 value per 30fps frame); needs catkin build + controller restart to apply.
 
-Caveats: `head_camera.yaml` still 640x480 so `/camera/camera_info` mismatches the 640x640 image (fine for display/YOLO, wrong for 3D projection); `gemini_depth` 640x480 no longer pixel-aligned to banded color. YOLO 640x640→320x320 letterbox is zero-pad (square). Related: [[gemini-camera-shm]] if present.
+Caveats: `head_camera.yaml` still 640x480 so `/camera/camera_info` mismatches the 640x640 image (fine for display/YOLO, wrong for 3D projection); `gemini_depth` 640x480 no longer pixel-aligned to banded color. YOLO 640x640→320x320 letterbox is zero-pad (square). Related: the "Camera Frame Transport — /dev/shm zero-copy" section of [[MEMORY]] if present.

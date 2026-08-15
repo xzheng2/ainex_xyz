@@ -76,4 +76,4 @@ turn a symlink into a regular file. Only the newest 10 runs survive, deleted at 
 startup published or not, so `tools/publish_runs.py` is the step that makes a run
 permanent.
 
-Related: [[ainex_bt_observability]], [[docstring-is-the-spec]]
+Related: [[ainex_bt_observability]]

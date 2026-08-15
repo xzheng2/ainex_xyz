@@ -1,6 +1,6 @@
 # Claude Memory - Ainex Robot (Raspberry Pi)
 
-> **Package renamed Aug 8 2026**: `xyz_bt_edu` → `xyz_bt_lib` (dir, python module, imports, launch refs, hooks `xyz_bt_lib_guard.py`/`xyz_bt_lib_pre_guard.py`, skills `/xyz-bt-lib-node` + `/xyz-bt-lib-adapter`). Older entries below saying `xyz_bt_edu`/`ainex_bt_edu` refer to the same package pre-rename; topic file `ainex_bt_edu.md` removed Aug 9 2026 (was historical; content fully superseded by xyz_bt_lib docstrings, see [[docstring-is-the-spec]]).
+> **Package renamed Aug 8 2026**: `xyz_bt_edu` → `xyz_bt_lib` (dir, python module, imports, launch refs, hooks `xyz_bt_lib_guard.py`/`xyz_bt_lib_pre_guard.py`, skills `/xyz-bt-lib-node` + `/xyz-bt-lib-adapter`). Older entries below saying `xyz_bt_edu`/`ainex_bt_edu` refer to the same package pre-rename; topic file `ainex_bt_edu.md` removed Aug 9 2026 (was historical; content fully superseded by the xyz_bt_lib module docstrings, which are the authoritative spec — there is deliberately no central spec.md).
 
 > **Competition events WIPED Aug 8 2026** for clean agent rebuild: all `xyz_behavior` project dirs, event launch files, hurocup2025 legacy scripts, event memories/docs deleted; git history squashed to a single clean-baseline commit. **When rebuilding events, do NOT consult old designs or any git history** — rebuild from the `xyz_bt_lib` framework only. Kept: xyz_behavior skeleton, bt_observability, ActionGroups motions (hand-tuned assets).
 
@@ -11,10 +11,16 @@
 ## Working preferences
 
 - [Plan summary preference](plan-summary-preference.md) — show only the current round's changes for approval, not the whole plan file
-- [BT steady-confirm = LatchedDwellDecorator](bt-steady-confirm-memory-true.md) — wrap the pure L1 condition in BB-backed LatchedDwellDecorator; built-in node dwell + DwellDecorator removed Aug 2026
-- [Latch vs Hysteresis gate](bt-latch-vs-hysteresis.md) — LatchedDwell (N-in/1-out, RUNNING while counting) for safety commits; HysteresisDecorator (N-in/M-out, never RUNNING) for flickering signals; state_key unique across both
-- [Extend, don't duplicate BT nodes](bt-extend-not-new-node.md) — add a tunable config param (no-op default) to an existing node instead of a near-duplicate node
-- [Docstring is the spec](docstring-is-the-spec.md) — xyz_bt_lib docs/spec.md deleted Aug 9 2026; module docstrings are the authoritative spec, never recreate a central spec doc
+
+> **Four BT-framework memories were deleted Aug 14 2026, before the ablation experiment**
+> (which gate to use for steady confirmation, latch vs hysteresis selection, extend-don't-
+> duplicate, docstring-is-the-spec). They were digested conclusions about *using* the
+> framework, and using the framework is what the experiment measures — reading them would
+> have handed an agent the answer. **Nothing was lost**: every one of those conclusions is
+> in the code that carries it — the docstrings of `core/latched_dwell.py` and
+> `core/hysteresis.py`, `core/base_node.py` on L1 purity, and the runnable proofs
+> `examples/demo_latched_dwell.py` / `demo_hysteresis.py` / `demo_memory_interaction.py`,
+> which `validate_engine` executes on every push. Read those; do not restate them here.
 
 ## Projects
 
@@ -33,7 +39,6 @@
 - Key walking service: `rosservice call /walking/command "command: 'enable_control'"` then `... "command: 'start'"` — **NOT `/ainex/set_walking_command`** (deprecated, does not exist)
 - Servo IDs 1–12 legs (interleaved L/R, odd=L even=R, ankle→hip order), 13–22 arms, 23–24 head — **canonical table in `ainex_truth_spec.md`** (`ainex_architecture.md` servo table is WRONG)
 - Gait config: `ainex_driver/ainex_kinematics/config/walking_param.yaml`
-- Missing in repo (need to create): `ainex_control` (safety/watchdog), `ainex_perception` (unified vision), `ainex_navigation` (gait commander)
 - BT observability (3 log files incl. `bb_current.json`, event schema incl. `bb_write`/`ros_topology_snapshot`, optional rosbag): full details in `ainex_bt_observability.md` (rewritten Aug 9 2026, verified current)
 - ROSA agent (directory layout, 10 current tools, LLM config): full details in `ainex_rosa_agent.md` (rewritten Aug 9 2026, verified current — some Dockerfile-level detail still unverified, flagged in the file)
 - **ROS2 REMOVED (Aug 8 2026)**: `ainex2` container + `ainex2:humble` image deleted, `/home/pi/docker/ros2_ws_src` deleted (was untracked — unrecoverable); robot is ROS1-only again
@@ -42,7 +47,6 @@
 
 ### Ainex Controller GUI
 - Source: `/home/ubuntu/software/ainex_controller/main.py`
-- **Manual button work in progress** — see `ainex_manual_button.md`
 - Container File Browser (PyQt5, inside `ainex`): `/home/ubuntu/software/file_browser.py`; desktop shortcut `/home/pi/Desktop/ainex_file_browser.desktop`
 - rqt config: `/home/ubuntu/.config/ros.org/rqt_gui.ini` — perspectives set via Python QSettings
 
@@ -74,7 +78,6 @@ Clamped to **[280, 550]** in `ainex_kinematics/config/servo_controller.yaml` (+`
 
 ## Topic Files
 - `ainex_docker_mount.md` — Docker mount setup (COMPLETED), container recreation command (includes ros_log mount), optional software/ mount
-- `ainex_manual_button.md` — Manual button in Ainex Controller GUI, ROS walking API, servo IDs
 - `ainex_architecture.md` — Full repo inventory, package list, node table, TF tree, config locations, proposed production architecture, MVP launch sequence
 - **`ainex_truth_spec.md`** — CANONICAL source of truth: topic table, service table, servo ID table (authoritative)
 - `ainex_rosa_agent.md` — ROSA agent integration: directory layout, tool table, LLM config, build/run commands

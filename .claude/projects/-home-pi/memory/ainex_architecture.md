@@ -57,8 +57,9 @@ No ROS2 artifacts anywhere. Docker container: `ainex`, distro: `noetic`.
 
 ### Competition Package
 
-| Package | Path | Purpose |
-|---------|------|---------|
+None. The competition events were wiped Aug 8 2026 and are rebuilt per event under
+`xyz_behavior/<proj>/` from the `xyz_bt_lib` framework; `hurocup2025` was removed
+entirely. See the wipe note at the top of MEMORY.md.
 
 ---
 
@@ -266,30 +267,19 @@ Static transforms published by `tf_broadcaster_imu.py`:
 
 ---
 
-## Proposed Production Architecture
+## Architecture (actual)
 
-### Missing Packages (need to create)
+The four-package layout and the one-way dependency rule are stated in `/home/pi/CLAUDE.md`
+§ Architecture, which is the authority: `xyz_bt_lib` (portable BT library) → `xyz_perception`;
+`xyz_behavior` → `{xyz_bt_lib, xyz_perception, xyz_run_lab}`; nothing points back. Concrete
+ROS/hardware binding lives in `xyz_behavior/bt_ros_io/`, never in `xyz_bt_lib/core/`.
 
-| Package | Purpose | Priority |
-|---------|---------|---------|
-| `ainex_control` | Safety monitor, watchdog, fall detector, diagnostics | HIGH |
-| `ainex_perception` | Unified perception pipeline (consolidate from ainex_example) | HIGH |
-| `ainex_navigation` | Gait commander, visual patrol, object approach | MEDIUM |
-| `ainex_behavior` | SMACH FSM task manager | MEDIUM |
-| `ainex_msgs` | Consolidated messages (merge ainex_interfaces + hw msgs) | MEDIUM |
-
-### Reorganization Map
-
-| Current | Proposed | Action |
-|---------|----------|--------|
-| `ainex_driver/` (meta) | `ainex_drivers/` | Rename |
-| `ainex_interfaces/` | `ainex_msgs/` | Rename + consolidate |
-| `ainex_simulations/ainex_description/` | `ainex_description/` | Promote to top-level |
-| `ainex_simulations/ainex_gazebo/` | `ainex_simulation/ainex_gazebo/` | Rename container |
-| `ainex_example/src/.../color_common.py` etc | `ainex_perception/src/` | Move |
-| `ainex_example/src/.../visual_patrol.py` etc | `ainex_navigation/src/` | Move |
-| `ainex_example/scripts/fall_rise/` | `ainex_behavior/scripts/` | Move |
-| `imu_calib/`, `apriltag_ros/`, etc | `third_party/` | Move |
+> A "Proposed Production Architecture" and "Reorganization Map" used to sit here, drafted
+> before that layout existed. **None of it happened** — it proposed `ainex_control`,
+> `ainex_navigation` and an `ainex_behavior` built on a SMACH FSM, plus renaming
+> `ainex_interfaces` to `ainex_msgs`. The system went a different way entirely (behaviour
+> trees, four xyz_* packages). Deleted Aug 14 2026: a proposal that contradicts the shipped
+> architecture is worse than no proposal, because it reads as a plan of record.
 
 ---
 
