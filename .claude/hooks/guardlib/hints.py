@@ -92,7 +92,7 @@ FILE_TYPE_HINTS = {
         '  1. Thin entry file (3-5 lines)\n'
         '  2. Add PKG_PATH to sys.path\n'
         '  3. Import main from the corresponding app module\n'
-        '  4. See scripts/approachhoop_bt_node.py for reference'
+        '  4. See the scripts/ section of the xyz-bt-facade-project skill for the shape'
     ),
     'behaviours/': (
         '[xyz_behavior guard · behaviours/actions.py]\n'

@@ -8,7 +8,7 @@ report targeting <20K tokens (~80KB text).
 
 Usage:
     python3.9 summarize_ros_logs.py [--log-dir /path/to/log/latest]
-                                     [--expected-nodes marathon_bringup]
+                                     [--expected-nodes <event>_bringup]
                                      [--config /path/to/expected_nodes.yaml]
 
 Default log dir: most recently modified session dir under /root/.ros/log/
@@ -558,7 +558,7 @@ def main():
                              '(default: most recent under ' + _LOG_BASE + ')')
     parser.add_argument('--expected-nodes', default=None,
                         help='Launch name to check expected nodes against '
-                             '(e.g. marathon_bringup). Auto-detected if not set.')
+                             '(e.g. <event>_bringup). Auto-detected if not set.')
     parser.add_argument('--config', default=DEFAULT_CONFIG,
                         help='Path to expected_nodes.yaml (default: %(default)s)')
     args = parser.parse_args()

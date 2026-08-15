@@ -109,7 +109,7 @@ reset to the image bake on recreation. Two things bit us recreating from the sta
 1. **ROS workspace** — `ros_ws/devel` + `ros_ws/build` (only `ros_ws/src` is mounted)
    reverted to the **May 19 2025** bake; `devel/setup.bash` had a hardcoded
    `ROS_PACKAGE_PATH` so `roslaunch`/`rospack` couldn't find packages added since
-   (`xyz_behavior`, `hurocup2025`, `xyz_bt_lib`, …) — only `ainex_bringup` resolved.
+   (`xyz_behavior`, `xyz_bt_lib`, …) — only `ainex_bringup` resolved.
 2. **`py_trees==2.1.6`** — pip-installed AFTER the bake, so gone → BT nodes died with
    `ModuleNotFoundError: No module named 'py_trees'`.
 

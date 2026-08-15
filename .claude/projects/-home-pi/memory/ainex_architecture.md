@@ -59,7 +59,6 @@ No ROS2 artifacts anywhere. Docker container: `ainex`, distro: `noetic`.
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `hurocup2025` | `hurocup2025/` | Legacy calibration/servo tools (`scripts/tools/`) |
 
 ---
 
@@ -290,7 +289,6 @@ Static transforms published by `tf_broadcaster_imu.py`:
 | `ainex_example/src/.../color_common.py` etc | `ainex_perception/src/` | Move |
 | `ainex_example/src/.../visual_patrol.py` etc | `ainex_navigation/src/` | Move |
 | `ainex_example/scripts/fall_rise/` | `ainex_behavior/scripts/` | Move |
-| `hurocup2025/` | `ainex_competition/` | Rename |
 | `imu_calib/`, `apriltag_ros/`, etc | `third_party/` | Move |
 
 ---

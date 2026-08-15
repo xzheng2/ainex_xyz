@@ -75,9 +75,9 @@
 | T27 | `/bt/<proj>/bb/line_data` | `std_msgs/String` | `<proj>_bt` | ROSA | 10 Hz, latched | BB mirror: line detection object or null (JSON) |
 | T28 | `/bt/<proj>/bb/last_line_x` | `std_msgs/String` | `<proj>_bt` | ROSA | 10 Hz, latched | BB mirror: last known line x-position (JSON) |
 | T29 | `/bt/<proj>/bb/line_lost_count` | `std_msgs/String` | `<proj>_bt` | ROSA | 10 Hz, latched | BB mirror: consecutive frames without line (JSON) |
-| T30 | `/bt_node_events` | `ainex_bt_edu/BTNodeEvent` | ainex_bt_edu nodes | ROSA | on state change | Per-node state transitions (prev/curr status, BB snapshot) |
-| T31 | `/bt_run_complete` | `ainex_bt_edu/BTRunComplete` | `AinexBTRunner` | ROSA | on completion, latched | Session-level BT result (status, duration, tick count) |
-| T32 | `/bt/bb/*` | `std_msgs/String` | `BlackboardROSBridge` | ROSA | 10 Hz | ainex_bt_edu BB mirrors (11 keys, JSON) |
+| T30 | `/bt_node_events` | `xyz_bt_lib/BTNodeEvent` | xyz_bt_lib nodes | ROSA | on state change | Per-node state transitions (prev/curr status, BB snapshot) |
+| T31 | `/bt_run_complete` | `xyz_bt_lib/BTRunComplete` | `AinexBTRunner` | ROSA | on completion, latched | Session-level BT result (status, duration, tick count) |
+| T32 | `/bt/bb/*` | `std_msgs/String` | `BlackboardROSBridge` | ROSA | 10 Hz | xyz_bt_lib BB mirrors (11 keys, JSON) |
 
 ---
 
@@ -263,7 +263,7 @@ rosservice call /ros_robot_controller/bus_servo/get_position "{id: [23, 24]}"
 | `BehaviourTree` | `header, behaviours[]` (Behaviour array) | T23 — rqt_py_trees visualization |
 | `Behaviour` | `name, class_name, own_id, parent_id, child_ids[], tip_id, type, blackbox_level, status, message, is_active` | T23, T25 — per-node state |
 
-### ainex_bt_edu Messages
+### xyz_bt_lib Messages
 | Message | Key Fields | Used By |
 |---------|-----------|---------|
 | `BTNodeEvent` | `header, node_name, level, prev_status, curr_status, tick_count, session_id, bb_snapshot` | T30 — per-node state transitions |

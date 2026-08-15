@@ -41,11 +41,11 @@
 - Run: `python3 ~/yolo_camera.py` (press `q` or Ctrl+C to stop)
 
 ## BT Integration (Phase 2, Apr 20 2026)
-- **`ObjectDetectionAdapter`**: `ainex_bt_edu/input_adapters/object_detection_adapter.py`
+- **`ObjectDetectionAdapter`**: `xyz_bt_lib/src/xyz_bt_lib/adapters/object_detection_adapter.py`
   - Subscribes to `/yolo/detections`, filters out `type == 'line'` objects
   - Two-phase latch: `snapshot_and_reset()` under lock, `write_snapshot()` after
   - Writes: `BB.DETECTED_OBJECTS` (`/latched/detected_objects`, list), `BB.DETECTED_COUNT` (`/latched/detected_count`, int)
-- **`L1_Vision_IsObjectDetected`**: `ainex_bt_edu/behaviours/L1_perception/L1_Vision_IsObjectDetected.py`
+- **`L1_Vision_IsObjectDetected`**: `xyz_bt_lib/src/xyz_bt_lib/behaviours/L1_perception/L1_Vision_IsObjectDetected.py`
   - Pure BB read, no rospy.Subscriber
   - `detected_count > 0` → SUCCESS
 - **BB keys** in `blackboard_keys.py`: `DETECTED_OBJECTS_KEY='detected_objects'`, `DETECTED_COUNT_KEY='detected_count'`, `DETECTED_OBJECTS='/latched/detected_objects'`, `DETECTED_COUNT='/latched/detected_count'`

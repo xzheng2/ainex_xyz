@@ -7,7 +7,7 @@ source this pass.
 
 **Module**: `docker/ros_ws_src/xyz_behavior/bt_observability/`
 **Log dir**: `docker/ros_ws_src/xyz_behavior/log/` (flat, not per-project — will
-need revisiting once sprint/basketball/penalty_kick each need their own log dir)
+need revisiting once several events each need their own log dir)
 
 ---
 

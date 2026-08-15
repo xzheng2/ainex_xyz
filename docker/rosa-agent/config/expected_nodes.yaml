@@ -4,18 +4,17 @@
 # Format:  launch_name: [list of expected node names (without leading /)]
 # The summarizer matches these against +PUB/+SUB/+SERVICE entries in master.log.
 
-marathon_bringup:
-  - camera
-  - camera/manager
-  - camera/rectify_color
-  - sensor
-  - ros_robot_controller
-  - ainex_controller
-  - imu_calib
-  - imu_filter
-  - color_detection
-  - web_video_server
-  - marathon_bt
+# Per-event entries are added here as events are built. The shape is:
+#
+#   <event>_bringup:
+#     - <everything in `bringup` below>
+#     - color_detection        # or whichever perception nodes that event launches
+#     - web_video_server
+#     - <event>_bt             # the BT node itself
+#
+# One such entry existed for an event that has since been removed; it is not
+# reproduced here, because this file is read by the ROSA agent and a stale event
+# name in it is a hint about a design that is deliberately not available.
 
 bringup:
   - camera
