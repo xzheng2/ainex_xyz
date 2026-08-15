@@ -61,7 +61,7 @@ import subprocess
 import sys
 import time
 
-_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # xyz_run_lab
+_PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # expt_run_lab
 _WS_SRC = os.path.dirname(_PKG_DIR)                                      # ros_ws_src
 
 #: The project package. This module owns run identity and body calibration, but not the
@@ -126,7 +126,7 @@ _CALIBRATION_FILES = (
 _DIGEST_SKIP_DIRS = frozenset(('__pycache__', '.git'))
 
 #: The trees that must be byte-identical across all four lanes, each fingerprinted into
-#: every run. Two are packages the lanes share (xyz_run_lab is the measuring apparatus
+#: every run. Two are packages the lanes share (expt_run_lab is the measuring apparatus
 #: itself; xyz_perception feeds every tree), and two are the agent's own configuration --
 #: the variable actually under study, so a silent edit to it during a campaign would
 #: invalidate the comparison it is meant to support.
@@ -135,7 +135,7 @@ _DIGEST_SKIP_DIRS = frozenset(('__pycache__', '.git'))
 #: to change during a campaign; fingerprinting them would flag ordinary work as drift,
 #: and a constant that is not actually constant teaches everyone to ignore the field.
 _CONSTANT_TREES = (
-    ('xyz_run_lab',    os.path.join(_WS_SRC, 'xyz_run_lab')),
+    ('expt_run_lab',   os.path.join(_WS_SRC, 'expt_run_lab')),
     ('xyz_perception', os.path.join(_WS_SRC, 'xyz_perception')),
     ('claude_hooks',   os.path.expanduser('~/.claude/hooks')),
     ('claude_skills',  os.path.expanduser('~/.claude/skills')),
@@ -157,7 +157,7 @@ VALID_LANES = ('a', 'b', 'c', 'd')
 #: experiments that were never meant to be compared.
 STUDY_CACHE = '.study'
 
-#: Deliberately a shape, not a fixed set. A closed tuple would mean editing xyz_run_lab
+#: Deliberately a shape, not a fixed set. A closed tuple would mean editing expt_run_lab
 #: to start a third experiment -- and this package has to stay byte-identical across all
 #: four lanes, so changing it mid-campaign is worse than the typo risk an open set
 #: carries. The pattern still rejects anything that would misbehave as a path component;
@@ -299,7 +299,7 @@ def resolve_lane(log_dir, lane=None, cache=True):
     All four cards boot the same robot, so nothing about the running system reveals
     which arm it is -- the answer has to be written down once when the card is imaged.
 
-    The cache lives in ``log/`` next to ``.body_id``, NOT in this package: xyz_run_lab
+    The cache lives in ``log/`` next to ``.body_id``, NOT in this package: expt_run_lab
     is the instrumentation every arm shares byte-for-byte, and a file that differs per
     card cannot live inside it. ``log/`` is gitignored machine state, which is also
     why writing it does not make every subsequent run read as dirty.

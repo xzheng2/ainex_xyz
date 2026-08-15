@@ -31,7 +31,7 @@ pooling those under one prefix silently averages two experiments. Always filter 
 before aggregating; `cat index/*__exp1__*.jsonl` is the intended idiom.
 
 Both resolve like `body_id`: `AINEX_STUDY` → `xyz_behavior/log/.study`, `AINEX_LANE` →
-`log/.lane` (**not** in `xyz_run_lab/` — that package must be byte-identical in every lane).
+`log/.lane` (**not** in `expt_run_lab/` — that package must be byte-identical in every lane).
 `new_run.py --study exp1 --lane a` sets both, `--study exp2` re-sets it when the card moves
 on. `lane` ∈ a closed `a|b|c|d`; `study` is a slug pattern instead, because a closed set
 would mean editing the instrumentation package to start a third experiment. Missing either
@@ -39,14 +39,14 @@ is a hard failure, like a missing body_id.
 
 `body_id` is the robot's **WiFi access point SSID** (this body: `HW-ROBOPARKS676EF55C`),
 never the hostname — every stock Pi answers to `raspberrypi`. Resolution lives in
-`xyz_run_lab/run_lab/run_context.py`: `AINEX_BODY_ID` → `log/.body_id` cache →
+`expt_run_lab/run_lab/run_context.py`: `AINEX_BODY_ID` → `log/.body_id` cache →
 nmcli probe for the connection whose `802-11-wireless.mode` is `ap`. **The probe only
 works on the host**: nmcli exists in the ainex container but cannot reach NetworkManager's
 D-Bus, which is the whole reason the cache file exists.
 
 Per-run flow: `new_run.py` (independent variables, BEFORE the run) → robot runs →
 **`close_run.py --latest --outcome ...`** (dependent variables: machine metrics reduced by
-`xyz_run_lab/run_lab/run_metrics.py` + operator-recorded outcome/interventions/failure_mode
+`expt_run_lab/run_lab/run_metrics.py` + operator-recorded outcome/interventions/failure_mode
 → `metrics.json`) → `publish_runs.py --commit`. Skipping close does not block publishing but
 marks the run `closed: false` in the index; such runs are excluded from ablation tables
 exactly like `dirty: true` ones.

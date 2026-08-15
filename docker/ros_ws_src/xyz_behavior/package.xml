@@ -26,7 +26,7 @@
   <exec_depend>ainex_kinematics</exec_depend>
   <exec_depend>xyz_bt_lib</exec_depend>
   <exec_depend>xyz_perception</exec_depend>
-  <exec_depend>xyz_run_lab</exec_depend>
+  <exec_depend>expt_run_lab</exec_depend>
   <exec_depend>py_trees_msgs</exec_depend>
   <exec_depend>unique_id</exec_depend>
   <exec_depend>python3-rospkg</exec_depend>

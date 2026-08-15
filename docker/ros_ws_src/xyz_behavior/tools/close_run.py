@@ -9,7 +9,7 @@ WHY A SEPARATE STEP FROM new_run.py
     until there is something to measure.
 
 WHY A HUMAN IS IN THE LOOP
-    The machine half comes from xyz_run_lab/run_lab/run_metrics.py. The other half cannot:
+    The machine half comes from expt_run_lab/run_lab/run_metrics.py. The other half cannot:
     a behaviour tree only knows what it itself judged. Whether the ball went in, whether
     the robot fell in a pose no L1 node recognised, how many times someone stepped in and
     repositioned it -- no log holds any of that, and it is exactly the ablation's primary
@@ -33,7 +33,7 @@ import time
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PKG_DIR = os.path.dirname(_SCRIPT_DIR)                       # .../xyz_behavior
 _WS_SRC = os.path.dirname(_PKG_DIR)                           # .../ros_ws_src
-sys.path.insert(0, os.path.join(_WS_SRC, 'xyz_run_lab'))
+sys.path.insert(0, os.path.join(_WS_SRC, 'expt_run_lab'))
 
 from run_lab import run_metrics                               # noqa: E402
 from run_lab import run_context                               # noqa: E402

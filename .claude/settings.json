@@ -134,7 +134,7 @@
   "model": "opus",
   "permissions": {
     "deny": [
-      "Edit(//home/pi/docker/ros_ws_src/xyz_run_lab/**)",
+      "Edit(//home/pi/docker/ros_ws_src/expt_run_lab/**)",
       "Edit(//home/pi/docker/ros_ws_src/xyz_perception/**)"
     ]
   }

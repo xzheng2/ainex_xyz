@@ -19,7 +19,7 @@ WHY IT IS A SEPARATE TOOL FROM publish_runs.py
 WHY NOT IN .claude/
     The skills+hooks engine is an ablated factor: two of the four lanes will not have a
     ``.claude/`` worth speaking of. Instrumentation that must run identically in all
-    four lanes lives in xyz_run_lab, exactly like run_context.
+    four lanes lives in expt_run_lab, exactly like run_context.
 
 Usage:
     publish_session.py                       # the live session
@@ -36,7 +36,7 @@ import sys
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PKG_DIR = os.path.dirname(_SCRIPT_DIR)                       # .../xyz_behavior
 _WS_SRC = os.path.dirname(_PKG_DIR)                           # .../ros_ws_src
-sys.path.insert(0, os.path.join(_WS_SRC, 'xyz_run_lab'))
+sys.path.insert(0, os.path.join(_WS_SRC, 'expt_run_lab'))
 
 from run_lab import run_context                               # noqa: E402
 from run_lab import session_export                            # noqa: E402

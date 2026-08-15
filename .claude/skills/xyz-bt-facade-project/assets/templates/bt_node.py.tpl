@@ -99,7 +99,7 @@ def main():
     # The directory is INJECTED, not computed. tools/new_run.py resolves it and exports
     # AINEX_RUN_DIR; this node only needs a directory to write into, not the rule for
     # deciding what a run is. That is what keeps a generated project free of
-    # xyz_run_lab, and therefore runnable outside the repository it was generated in.
+    # expt_run_lab, and therefore runnable outside the repository it was generated in.
     run_dir = os.environ.get('AINEX_RUN_DIR', '').strip()
     if run_dir:
         rospy.loginfo('[{{PROJECT_CLASS}}] Run directory (tracked run): %s', run_dir)

@@ -46,7 +46,7 @@ import re
 
 # ── Scope ─────────────────────────────────────────────────────────────────
 #: The packages the guards are responsible for. Everything else (xyz_perception,
-#: xyz_run_lab, ainex_*, the repo root) is 'unmanaged': out of scope by design, not
+#: expt_run_lab, ainex_*, the repo root) is 'unmanaged': out of scope by design, not
 #: by oversight.
 MANAGED = re.compile(r'(?:^|/)(?:xyz_bt_lib|xyz_behavior)/')
 

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>xyz_run_lab</name>
+  <name>expt_run_lab</name>
   <version>1.0.0</version>
   <description>Experiment instrumentation: run identity, per-run log directories,
   run_meta.json provenance and metric reduction. Pure stdlib Python — it imports neither

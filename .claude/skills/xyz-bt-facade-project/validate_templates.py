@@ -379,7 +379,7 @@ def main(argv=None):
         check('rendered project imports with no stubs', rendered_imports)
 
         # ── the scaffold must not depend on the experiment tooling ────────
-        # A generated project is a PRODUCT; xyz_run_lab is the TOOL that decides what a
+        # A generated project is a PRODUCT; expt_run_lab is the TOOL that decides what a
         # run is. A product that imports its tool cannot leave the repository it was
         # generated in. The entry point now takes a resolved directory through
         # AINEX_RUN_DIR instead, so blocking run_lab must change nothing.
@@ -406,7 +406,7 @@ def main(argv=None):
                 sys.meta_path.remove(finder)
             return 'all {} rendered modules import with run_lab blocked'.format(
                 len(_RENDERED_MODULES))
-        check('rendered project imports with xyz_run_lab unavailable',
+        check('rendered project imports with expt_run_lab unavailable',
               imports_without_run_lab)
 
         # ── counter-test: the check above must be able to fail ────────────
