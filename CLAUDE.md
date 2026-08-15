@@ -6,13 +6,6 @@
 **Image**: recreate from `ainex-backup:20260814-clean` (the container currently running may be on an
 older tag — check with `docker ps`), user `ubuntu`, home `/home/ubuntu`
 
-> `:20260814-clean` replaces `:20260630`, which was deleted. It is that image with the
-> pre-wipe `hurocup2025` package and its `.zip` removed, then **flattened to one layer** —
-> a `RUN rm` layer would have left the data recoverable from the layers underneath. Verified
-> identical otherwise: py_trees 2.1.6 at the same path, 295 ROS packages, `software/` mount
-> point. Flattening drops image metadata, so ENTRYPOINT/CMD/ENV were re-applied on import;
-> the recreate command below already states every flag explicitly, so nothing else depends
-> on it.
 
 **User**: robot runs as `ubuntu` (pip `--user` pkgs — py_trees **2.1.6**, zmq, scipy — live in
 `/home/ubuntu/.local`; py_trees is pinned via pip, not apt, and `rqt_py_trees` carries a local
@@ -50,15 +43,17 @@ Four packages under `docker/ros_ws_src/`:
   `L1_perception`, `L2_locomotion` or `L3_system`.
 - `xyz_perception/` — standalone detection / nav-planning nodes (apriltag / color /
   depth_nav / yolo) plus `DepthNavState.msg` and their launch + config.
-- `xyz_run_lab/` — run bookkeeping: `run_lab/run_context.py` (run identity, per-run log
-  directories, `run_meta.json` provenance) and `run_lab/run_metrics.py` (metric reduction),
-  plus `config/bodies/` (per-robot calibration).
+- `xyz_run_lab/` — harness tooling, used only by `xyz_behavior/tools/`. **Projects never
+  import it.** A generated project receives its output directory through `AINEX_RUN_DIR`;
+  the scaffold's `validate_templates.py` enforces this by re-importing every rendered
+  module with `run_lab` blocked.
 - `xyz_behavior/` — competition projects, plus the shared `launch/`, `log/`,
   `bt_observability/` and `tools/` they all use.
 
 **Why four and not two.** Every package must be shippable without its former host.
 Dependencies therefore run one way only: `xyz_bt_lib → xyz_perception`,
-`xyz_behavior → {xyz_bt_lib, xyz_perception, xyz_run_lab}`. Nothing points back.
+`xyz_behavior → {xyz_bt_lib, xyz_perception, xyz_run_lab}` — the last of those via
+`tools/` only, never from a project. Nothing points back.
 
 `xyz_perception` nodes are **separate ROS processes**, launched alongside the BT node.
 Inside the BT process itself there is exactly one ROS ingress and one egress:
