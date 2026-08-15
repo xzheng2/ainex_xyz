@@ -135,6 +135,50 @@ _LIB_CATEGORIES = (
     ('lib.base_node', BASE_NODE_PATTERN),
 )
 
+#: Categories classify() can return that no content rule covers, and that none is
+#: expected to. A SEPARATE table from _PREFIX_TABLE, for two reasons: registry.py feeds
+#: _PREFIX_TABLE straight into _BEHAVIOR_FNS[category], so an entry there without a rule
+#: function is a KeyError at import -- and one WITH a stub function would make
+#: categories_with_rules() count these as `checked`, which is a lie and exactly the
+#: "zero means both" collapse the coverage matrix exists to stop. Landing here instead
+#: reports them as `declared but unchecked`: named, counted, and visibly ruleless.
+#:
+#: WHY THESE ARE RULELESS BY DESIGN, not pending work. Every rule in this repo checks a
+#: REPEATED SHAPE -- 27 nodes must each declare LEVEL, 6 adapters must each implement
+#: the two-phase latch. That works because the shape gets copied, so forgetting a part
+#: of it is a real and recurring mistake. Each file below is a one-off implementation
+#: with no second instance to be consistent with, so a "rule" for it could only restate
+#: it: finding nothing, and false-positiving the moment it legitimately evolves. This is
+#: not hypothetical -- the facade-subclass rule retired in the same commit as this table
+#: was added had exactly one reachable match, and that match was a false positive.
+#:
+#: They are not untested, either. Their coverage is executional and stronger than any
+#: pattern match: seed closure imports core/ file by file under a blocking meta_path
+#: finder, RUNNABLE_DEMOS runs the demos on every push, catkin builds msg/.
+#:
+#: Revisit when a SECOND instance of one of these shapes appears -- not because the
+#: count looks untidy.
+#:
+#: DIRECTORY PREFIXES, AND THAT IS A DELIBERATE TRADE-OFF. A file added to one of these
+#: directories later lands here silently too, instead of surfacing as UNKNOWN the way it
+#: would today. Chosen over enumerating the 23 paths because these directories are
+#: homogeneous and the table would otherwise need an edit per file. The cost is real:
+#: core/ is where the framework grows, so a genuinely new engine module arrives
+#: unannounced. If that ever bites, split core/ out into an explicit file list and leave
+#: the rest as prefixes.
+#:
+#: NOT listed, on purpose: xyz_behavior/bt_ros_io/. Both its files have real rules
+#: (check_runtime_io / check_runtime_facade) and count as `checked`; adding the directory
+#: here would retire them. A new, un-ruled file in bt_ros_io/ SHOULD read UNKNOWN -- that
+#: is the binding layer, and something unclaimed there is worth being told about.
+_RULELESS_PREFIX_TABLE = (
+    ('xyz_behavior/bt_observability/',        'behavior.observability'),
+    ('xyz_bt_lib/examples/',                  'lib.example'),
+    ('xyz_bt_lib/msg/',                       'lib.msg'),
+    ('xyz_bt_lib/src/xyz_bt_lib/core/',       'lib.core'),
+    ('xyz_bt_lib/src/xyz_bt_lib/blackboard/', 'lib.blackboard'),
+)
+
 
 def applies_l1(path):
     """True if the L1 purity rule is responsible for `path`.
@@ -154,8 +198,13 @@ def classify(path):
     'exempt'    -- managed, but deliberately outside every guard's remit.
     'build'     -- catkin build files: claimed, zero rules under the category.
     'UNKNOWN'   -- managed, not exempt, matching no guard's shape. The answer that
-                   matters: a file nothing is checking.
-    anything else -- the category whose guard covers it.
+                   matters: a file nothing is checking, and nobody has said whether
+                   that is intended.
+    anything else -- a named category. It may still have zero rules: the ones from
+                   _RULELESS_PREFIX_TABLE are ruleless ON PURPOSE, and the coverage
+                   matrix reports them as "declared but unchecked". That is the whole
+                   distinction this function exists to draw -- "nobody looked" and
+                   "we decided nobody needs to" must not produce the same output.
 
     Total and side-effect free: every input gets an answer, nothing raises.
     """
@@ -176,6 +225,12 @@ def classify(path):
         for prefix, name in _PREFIX_TABLE:
             if prefix in path:
                 return name
+    # Last, so a real rule always wins: every ruled shape above has already had its
+    # chance, and base_node.py / blackboard_keys.py in particular are claimed by
+    # _LIB_CATEGORIES before the broader core/ and blackboard/ prefixes here.
+    for prefix, name in _RULELESS_PREFIX_TABLE:
+        if prefix in path:
+            return name
     return 'UNKNOWN'
 
 

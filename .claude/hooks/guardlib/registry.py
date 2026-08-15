@@ -124,14 +124,17 @@ def run_all(specs, content, file_path):
     return out
 
 
-#: Categories that classify() can return but no rule covers. Recorded so a coverage
-#: matrix can print "claimed, zero rules" rather than leaving them indistinguishable
-#: from unchecked files.
-RULELESS_CATEGORIES = ('build', 'exempt')
-
-
 def categories_with_rules():
-    """Every category some rule family covers. Used by the coverage matrix."""
+    """Every category some rule family covers. Used by the coverage matrix.
+
+    Its complement is what the matrix reports as "declared but unchecked", which is
+    how a ruleless category stays visible instead of vanishing. That used to be
+    half-stated by a RULELESS_CATEGORIES = ('build', 'exempt') constant here; nothing
+    ever read it -- coverage_sweep() derives the state from `category in with_rules`
+    -- and it listed only two of them, so it was also going stale. Deleted; the
+    authoritative list of ruleless categories is path_spec._RULELESS_PREFIX_TABLE plus
+    the build/exempt shapes, and none of them needs to be enumerated a second time.
+    """
     names = {'lib.node', 'lib.adapter', 'lib.bb_keys', 'lib.base_node', 'tree'}
     names.update(category for _prefix, category in _ps._PREFIX_TABLE)
     return frozenset(names)
